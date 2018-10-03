@@ -484,6 +484,14 @@ describe('ngtsc behavioral tests', () => {
   });
 
   it('should generate queries for components', () => {
+
+    // Helper functions to construct RegExps for output validation
+    const varRegExp = (name: string): RegExp => new RegExp(`var \\w+ = \\[\"${name}\"\\];`);
+    const queryRegExp = (id: number | null, descend: boolean, ref?: string): RegExp => {
+      const maybeRef = ref ? `, ${ref}` : ``;
+      return new RegExp(`i0\\.ɵquery\\(${id}, \\w+, ${descend}${maybeRef}\\)`);
+    };
+
     writeConfig();
     write(`test.ts`, `
         import {Component, ContentChild, ContentChildren, TemplateRef, ViewChild} from '@angular/core';
@@ -508,11 +516,17 @@ describe('ngtsc behavioral tests', () => {
     expect(errorSpy).not.toHaveBeenCalled();
     expect(exitCode).toBe(0);
     const jsContents = getContents('test.js');
-    expect(jsContents).toContain(`i0.ɵquery(null, ["bar"], true, TemplateRef)`);
+    expect(jsContents).toMatch(varRegExp('bar'));
+    expect(jsContents).toMatch(varRegExp('test1'));
+    expect(jsContents).toMatch(varRegExp('test2'));
+    expect(jsContents).toMatch(varRegExp('accessor'));
     expect(jsContents).toContain(`i0.ɵquery(null, TemplateRef, false)`);
-    expect(jsContents).toContain(`i0.ɵquery(null, ["test2"], true)`);
-    expect(jsContents).toContain(`i0.ɵquery(0, ["accessor"], true)`);
-    expect(jsContents).toContain(`i0.ɵquery(1, ["test1"], true)`);
+    expect(jsContents)
+        .toMatch(queryRegExp(
+            null, true, 'TemplateRef'));  // match `i0.ɵquery(null, _c0, true, TemplateRef)`
+    expect(jsContents).toMatch(queryRegExp(null, true));  // match `i0.ɵquery(null, _c0, true)`
+    expect(jsContents).toMatch(queryRegExp(0, true));     // match `i0.ɵquery(0, _c0, true)`
+    expect(jsContents).toMatch(queryRegExp(1, true));     // match `i0.ɵquery(1, _c0, true)`
   });
 
   it('should handle queries that use forwardRef', () => {
