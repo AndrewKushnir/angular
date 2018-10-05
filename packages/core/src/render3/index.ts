@@ -87,6 +87,10 @@ export {
 } from './instructions';
 
 export {
+  i18nAttribute,
+  i18nExp,
+  i18nStart,
+  i18nEnd,
   i18nApply,
   i18nMapping,
   i18nInterpolation1,
