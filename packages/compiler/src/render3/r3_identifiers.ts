@@ -35,9 +35,11 @@ export class Identifiers {
 
   static elementClassProp: o.ExternalReference = {name: 'ɵelementClassProp', moduleName: CORE};
 
-  static elementContainerStart: o.ExternalReference = {name: 'ɵEC', moduleName: CORE};
+  static elementContainerStart:
+      o.ExternalReference = {name: 'ɵelementContainerStart', moduleName: CORE};
 
-  static elementContainerEnd: o.ExternalReference = {name: 'ɵeC', moduleName: CORE};
+  static elementContainerEnd:
+      o.ExternalReference = {name: 'ɵelementContainerEnd', moduleName: CORE};
 
   static elementStyling: o.ExternalReference = {name: 'ɵelementStyling', moduleName: CORE};
 
@@ -95,11 +97,13 @@ export class Identifiers {
   static pipeBind4: o.ExternalReference = {name: 'ɵpipeBind4', moduleName: CORE};
   static pipeBindV: o.ExternalReference = {name: 'ɵpipeBindV', moduleName: CORE};
 
+  static i18n: o.ExternalReference = {name: 'ɵi18n', moduleName: CORE};
   static i18nAttributes: o.ExternalReference = {name: 'ɵi18nAttributes', moduleName: CORE};
   static i18nExp: o.ExternalReference = {name: 'ɵi18nExp', moduleName: CORE};
   static i18nStart: o.ExternalReference = {name: 'ɵi18nStart', moduleName: CORE};
   static i18nEnd: o.ExternalReference = {name: 'ɵi18nEnd', moduleName: CORE};
   static i18nApply: o.ExternalReference = {name: 'ɵi18nApply', moduleName: CORE};
+  static i18nPostprocess: o.ExternalReference = {name: 'ɵi18nPostprocess', moduleName: CORE};
 
   static load: o.ExternalReference = {name: 'ɵload', moduleName: CORE};
   static loadQueryList: o.ExternalReference = {name: 'ɵloadQueryList', moduleName: CORE};
