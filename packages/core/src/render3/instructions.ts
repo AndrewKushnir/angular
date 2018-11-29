@@ -17,7 +17,6 @@ import {StyleSanitizeFn} from '../sanitization/style_sanitizer';
 import {Type} from '../type';
 import {normalizeDebugBindingName, normalizeDebugBindingValue} from '../util/ng_reflect';
 import {noop} from '../util/noop';
-
 import {assertDefined, assertEqual, assertLessThan, assertNotEqual} from './assert';
 import {attachPatchData, getComponentViewByInstance} from './context_discovery';
 import {diPublicInInjector, getNodeInjectable, getOrCreateInjectable, getOrCreateNodeInjectorForNode, injectAttributeImpl} from './di';
@@ -43,7 +42,6 @@ import {BoundPlayerFactory} from './styling/player_factory';
 import {getStylingContext} from './styling/util';
 import {NO_CHANGE} from './tokens';
 import {getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getRootContext, getRootView, getTNode, isComponent, isComponentDef, isDifferent, loadInternal, readElementValue, readPatchedLViewData, stringify} from './util';
-
 
 /**
  * A permanent marker promise which signifies that the current CD tree is
@@ -1517,6 +1515,8 @@ export function generateExpandoInstructionBlock(
 * Because we are updating the blueprint, we only need to do this once.
 */
 function prefillHostVars(tView: TView, viewData: LViewData, totalHostVars: number): void {
+  ngDevMode &&
+      assertEqual(getFirstTemplatePass(), true, 'Should only be called in first template pass.');
   for (let i = 0; i < totalHostVars; i++) {
     viewData.push(NO_CHANGE);
     tView.blueprint.push(NO_CHANGE);
@@ -1626,9 +1626,7 @@ function queueHostBindingForCheck(
   // check whether a given `hostBindings` function already exists in expandoInstructions,
   // which can happen in case directive definition was extended from base definition (as a part of
   // the `InheritDefinitionFeature` logic)
-  if (expando.length < 2 ||
-      !(typeof expando[expando.length - 1] === 'number' &&
-        expando[expando.length - 2] === def.hostBindings)) {
+  if (expando.length < 2 || expando[expando.length - 2] !== def.hostBindings) {
     expando.push(def.hostBindings !, hostVars);
   }
 }
