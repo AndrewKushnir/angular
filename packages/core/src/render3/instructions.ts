@@ -17,6 +17,7 @@ import {StyleSanitizeFn} from '../sanitization/style_sanitizer';
 import {Type} from '../type';
 import {normalizeDebugBindingName, normalizeDebugBindingValue} from '../util/ng_reflect';
 import {noop} from '../util/noop';
+
 import {assertDefined, assertEqual, assertLessThan, assertNotEqual} from './assert';
 import {attachPatchData, getComponentViewByInstance} from './context_discovery';
 import {diPublicInInjector, getNodeInjectable, getOrCreateInjectable, getOrCreateNodeInjectorForNode, injectAttributeImpl} from './di';
@@ -36,12 +37,13 @@ import {BINDING_INDEX, CLEANUP, CONTAINER_INDEX, CONTENT_QUERIES, CONTEXT, DECLA
 import {assertNodeOfPossibleTypes, assertNodeType} from './node_assert';
 import {appendChild, appendProjectedNode, createTextNode, findComponentView, getLViewChild, getRenderParent, insertView, removeView} from './node_manipulation';
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
-import {assertDataInRange, assertHasParent, assertPreviousIsParent, decreaseElementDepthCount, enterView, getBindingsEnabled, getCheckNoChangesMode, getCleanup, getContextViewData, getCreationMode, getCurrentQueries, getCurrentSanitizer, getElementDepthCount, getFirstTemplatePass, getIsParent, getPreviousOrParentTNode, getRenderer, getRendererFactory, getTView, getTViewCleanup, getViewData, increaseElementDepthCount, leaveView, nextContextImpl, resetComponentState, setBindingRoot, setCheckNoChangesMode, setCurrentQueries, setFirstTemplatePass, setIsParent, setPreviousOrParentTNode} from './state';
+import {assertDataInRange, assertHasParent, assertPreviousIsParent, decreaseElementDepthCount, enterView, getBindingsEnabled, getCheckNoChangesMode, getCleanup, getContextViewData, getCreationMode, getCurrentDirectiveDef, getCurrentQueries, getCurrentSanitizer, getElementDepthCount, getFirstTemplatePass, getIsParent, getPreviousOrParentTNode, getRenderer, getRendererFactory, getTView, getTViewCleanup, getViewData, increaseElementDepthCount, leaveView, nextContextImpl, resetComponentState, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentQueries, setFirstTemplatePass, setIsParent, setPreviousOrParentTNode} from './state';
 import {createStylingContextTemplate, renderStyleAndClassBindings, updateClassProp as updateElementClassProp, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling/class_and_style_bindings';
 import {BoundPlayerFactory} from './styling/player_factory';
 import {getStylingContext} from './styling/util';
 import {NO_CHANGE} from './tokens';
 import {getComponentViewByIndex, getNativeByIndex, getNativeByTNode, getRootContext, getRootView, getTNode, isComponent, isComponentDef, isDifferent, loadInternal, readElementValue, readPatchedLViewData, stringify} from './util';
+
 
 /**
  * A permanent marker promise which signifies that the current CD tree is
@@ -123,9 +125,11 @@ export function setHostBindings(tView: TView, viewData: LViewData): void {
       } else {
         // If it's not a number, it's a host binding function that needs to be executed.
         viewData[BINDING_INDEX] = bindingRootIndex;
-        instruction(
-            RenderFlags.Update, readElementValue(viewData[currentDirectiveIndex]),
-            currentDirectiveIndex, currentElementIndex);
+        if (instruction !== null) {
+          instruction(
+              RenderFlags.Update, readElementValue(viewData[currentDirectiveIndex]),
+              currentElementIndex);
+        }
         currentDirectiveIndex++;
       }
     }
@@ -610,6 +614,7 @@ function createDirectivesAndLocals(
         previousOrParentTNode, localRefs || null);
   }
   instantiateAllDirectives(tView, viewData, previousOrParentTNode);
+  invokeDirectivesHostBindings(tView, viewData, previousOrParentTNode);
   saveResolvedLocalsInData(viewData, previousOrParentTNode, localRefExtractor);
 }
 
@@ -1447,12 +1452,10 @@ function resolveDirectives(
 function instantiateAllDirectives(tView: TView, viewData: LViewData, previousOrParentTNode: TNode) {
   const start = previousOrParentTNode.flags >> TNodeFlags.DirectiveStartingIndexShift;
   const end = start + (previousOrParentTNode.flags & TNodeFlags.DirectiveCountMask);
-  const firstTemplatePass = getFirstTemplatePass();
-  if (!firstTemplatePass && start < end) {
+  if (!getFirstTemplatePass() && start < end) {
     getOrCreateNodeInjectorForNode(
         previousOrParentTNode as TElementNode | TContainerNode | TElementContainerNode, viewData);
   }
-  const directives: [DirectiveDef<any>, any][] = [];
   for (let i = start; i < end; i++) {
     const def = tView.data[i] as DirectiveDef<any>;
     if (isComponentDef(def)) {
@@ -1461,15 +1464,30 @@ function instantiateAllDirectives(tView: TView, viewData: LViewData, previousOrP
     const directive =
         getNodeInjectable(tView.data, viewData !, i, previousOrParentTNode as TElementNode);
     postProcessDirective(viewData, directive, def, i);
-    directives.push([def, directive]);
   }
-  // invoke hostBindings functions
-  for (let i = 0; i < directives.length; i++) {
-    const [def, directive] = directives[i];
+}
+
+function invokeDirectivesHostBindings(
+    tView: TView, viewData: LViewData, previousOrParentTNode: TNode) {
+  const start = previousOrParentTNode.flags >> TNodeFlags.DirectiveStartingIndexShift;
+  const end = start + (previousOrParentTNode.flags & TNodeFlags.DirectiveCountMask);
+  const expando = tView.expandoInstructions !;
+  for (let i = start; i < end; i++) {
+    const def = tView.data[i] as DirectiveDef<any>;
+    const directive = viewData[i];
     if (def.hostBindings) {
-      def.hostBindings !(RenderFlags.Create, directive, start + i, previousOrParentTNode.index);
-    } else if (firstTemplatePass) {
-      tView.expandoInstructions !.push(noop);
+      const before = expando.length;
+      setCurrentDirectiveDef(def);
+      def.hostBindings !(RenderFlags.Create, directive, previousOrParentTNode.index);
+      setCurrentDirectiveDef(null);
+      // `hostBindings` function may or may not contain `allocHostVars` call,
+      // so we need to check whether `expandoInstructions` has changed and if not -
+      // we push `null` to keep indices in sync
+      if (before === expando.length) {
+        expando.push(null);
+      }
+    } else if (getFirstTemplatePass()) {
+      expando.push(null);
     }
   }
 }
@@ -2510,24 +2528,20 @@ export function bind<T>(value: T): T|NO_CHANGE {
  * Allocates the necessary amount of slots for host vars.
  *
  * @param count Amount of vars to be allocated
- * @param dirIndex Respective directive index
  */
-export function allocHostVars(count: number, directiveIndex: number): void {
+export function allocHostVars(count: number): void {
   if (!getFirstTemplatePass()) return;
   const tView = getTView();
   const viewData = getViewData();
-  const directiveDef = tView.data[directiveIndex] as DirectiveDef<any>;
-  queueHostBindingForCheck(tView, directiveDef, count);
+  queueHostBindingForCheck(tView, getCurrentDirectiveDef() !, count);
   prefillHostVars(tView, viewData, count);
 }
 
 /**
  * Create interpolation bindings with a variable number of expressions.
  *
- * If there are 1 to 8 expressions `interpolation1()` to `interpolation8()` should be used
- * instead.
- * Those are faster because there is no need to create an array of expressions and iterate over
- * it.
+ * If there are 1 to 8 expressions `interpolation1()` to `interpolation8()` should be used instead.
+ * Those are faster because there is no need to create an array of expressions and iterate over it.
  *
  * `values`:
  * - has static text at even indexes,
