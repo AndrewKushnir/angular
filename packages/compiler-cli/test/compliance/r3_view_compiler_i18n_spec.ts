@@ -8,7 +8,7 @@
 
 import {setup} from '@angular/compiler/test/aot/test_util';
 
-import {DEFAULT_INTERPOLATION_CONFIG} from '../../../compiler/src/compiler';
+import {DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig} from '../../../compiler/src/compiler';
 import {decimalDigest} from '../../../compiler/src/i18n/digest';
 import {extractMessages} from '../../../compiler/src/i18n/extractor_merger';
 import {HtmlParser} from '../../../compiler/src/ml_parser/html_parser';
@@ -28,35 +28,37 @@ const diff = (a: Set<string>, b: Set<string>): Set<string> =>
 
 // verify that we extracted all the necessary translations
 // and their ids match the ones extracted via 'ng xi18n'
-const verifyTranslationIds = (source: string, output: string, exceptions = {}) => {
-  const parseResult = htmlParser.parse(source, 'path:://to/template', true);
-  const extractedIdToMsg = new Map<string, any>();
-  const extractedIds = new Set<string>();
-  const generatedIds = new Set<string>();
-  const msgs = extractMessages(parseResult.rootNodes, DEFAULT_INTERPOLATION_CONFIG, [], {});
-  msgs.messages.forEach(msg => {
-    const id = msg.id || decimalDigest(msg);
-    extractedIds.add(id);
-    extractedIdToMsg.set(id, msg);
-  });
-  const matched = output.match(/\[BACKUP_MESSAGE_ID:(.+?)\]/g) || [];
-  matched.forEach(match => {
-    const [key, id] = match.split(':');
-    generatedIds.add(id.slice(0, -1));
-  });
-  const delta = diff(extractedIds, generatedIds);
-  if (delta.size) {
-    // check if we have ids in exception list
-    const outstanding = diff(delta, new Set(Object.keys(exceptions)));
-    if (outstanding.size) {
-      throw new Error(`
+const verifyTranslationIds =
+    (source: string, output: string, exceptions = {},
+     interpolationConfig: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG) => {
+      const parseResult = htmlParser.parse(source, 'path:://to/template', true);
+      const extractedIdToMsg = new Map<string, any>();
+      const extractedIds = new Set<string>();
+      const generatedIds = new Set<string>();
+      const msgs = extractMessages(parseResult.rootNodes, interpolationConfig, [], {});
+      msgs.messages.forEach(msg => {
+        const id = msg.id || decimalDigest(msg);
+        extractedIds.add(id);
+        extractedIdToMsg.set(id, msg);
+      });
+      const matched = output.match(/\[BACKUP_MESSAGE_ID:(.+?)\]/g) || [];
+      matched.forEach(match => {
+        const [key, id] = match.split(':');
+        generatedIds.add(id.slice(0, -1));
+      });
+      const delta = diff(extractedIds, generatedIds);
+      if (delta.size) {
+        // check if we have ids in exception list
+        const outstanding = diff(delta, new Set(Object.keys(exceptions)));
+        if (outstanding.size) {
+          throw new Error(`
         Extracted and generated IDs don't match, delta:
         ${JSON.stringify(Array.from(delta))}
       `);
-    }
-  }
-  return true;
-};
+        }
+      }
+      return true;
+    };
 
 // verify that placeholders in translation string match
 // placeholders object defined as goog.getMsg function argument
@@ -100,6 +102,7 @@ const getAppFilesWithTemplate = (template: string, args: any = {}) => ({
       @Component({
         selector: 'my-component',
         ${args.preserveWhitespaces ? 'preserveWhitespaces: true,' : ''}
+        ${args.interpolation ? 'interpolation: ' + JSON.stringify(args.interpolation) + ', ' : ''}
         template: \`${template}\`
       })
       export class MyComponent {}
@@ -121,7 +124,11 @@ ${result.source}
 =======================================
     `);
   }
-  expect(verifyTranslationIds(input, result.source, extra.exceptions)).toBe(true);
+  const interpolationConfig = extra.inputArgs && extra.inputArgs.interpolation ?
+      InterpolationConfig.fromArray(extra.inputArgs.interpolation) :
+      undefined;
+  expect(verifyTranslationIds(input, result.source, extra.exceptions, interpolationConfig))
+      .toBe(true);
   expect(verifyPlaceholdersIntegrity(result.source)).toBe(true);
   expectEmit(result.source, output, 'Incorrect template');
   return result.source;
@@ -330,6 +337,35 @@ describe('i18n support in the view compiler', () => {
       `;
 
       verify(input, output);
+    });
+
+    it('should support interpolation with custom interpolation config', () => {
+      const input = `
+        <div i18n-title="m|d" title="intro {% valueA | uppercase %}"></div>
+      `;
+
+      const output = String.raw `
+        /**
+         * @desc [BACKUP_MESSAGE_ID:8977039798304050198] d
+         * @meaning m
+         */
+        const $MSG_APP_SPEC_TS_0$ = goog.getMsg("intro {$interpolation}", { "interpolation": "\uFFFD0\uFFFD" });
+        const $_c1$ = ["title", $MSG_APP_SPEC_TS_0$];
+        …
+        template: function MyComponent_Template(rf, ctx) {
+          if (rf & 1) {
+            $r3$.ɵelementStart(0, "div");
+            $r3$.ɵpipe(1, "uppercase");
+            $r3$.ɵi18nAttributes(2, $_c1$);
+            $r3$.ɵelementEnd();
+          }
+          if (rf & 2) {
+            $r3$.ɵi18nExp($r3$.ɵbind($r3$.ɵpipeBind1(1, 0, ctx.valueA)));
+            $r3$.ɵi18nApply(2);
+          }
+        }
+      `;
+      verify(input, output, {inputArgs: {interpolation: ['{%', '%}']}});
     });
 
     it('should correctly bind to context in nested template', () => {
@@ -637,6 +673,32 @@ describe('i18n support in the view compiler', () => {
       `;
 
       verify(input, output);
+    });
+
+    it('should support interpolation with custom interpolation config', () => {
+      const input = `
+        <div i18n>{% valueA %}</div>
+      `;
+
+      const output = String.raw `
+        /**
+         * @desc [BACKUP_MESSAGE_ID:6749967533321674787]
+         */
+        const $MSG_APP_SPEC_TS_0$ = goog.getMsg("{$interpolation}", { "interpolation": "\uFFFD0\uFFFD" });
+        …
+        template: function MyComponent_Template(rf, ctx) {
+          if (rf & 1) {
+            $r3$.ɵelementStart(0, "div");
+            $r3$.ɵi18n(1, $MSG_APP_SPEC_TS_0$);
+            $r3$.ɵelementEnd();
+          }
+          if (rf & 2) {
+            $r3$.ɵi18nExp($r3$.ɵbind(ctx.valueA));
+            $r3$.ɵi18nApply(1);
+          }
+        }
+      `;
+      verify(input, output, {verbose: true, inputArgs: {interpolation: ['{%', '%}']}});
     });
 
     it('should handle i18n attributes with bindings in content', () => {
@@ -1677,6 +1739,36 @@ describe('i18n support in the view compiler', () => {
       `;
 
       verify(input, output);
+    });
+
+    it('should support interpolation with custom interpolation config', () => {
+      const input = `
+        <div i18n>{age, select, 10 {ten} 20 {twenty} other {{% other %}}}</div>
+      `;
+
+      const output = String.raw `
+        /**
+         * @desc [BACKUP_MESSAGE_ID:2949673783721159566]
+         */
+        const $MSG_APP_SPEC_TS_0_RAW$ = goog.getMsg("{VAR_SELECT, select, 10 {ten} 20 {twenty} other {{$interpolation}}}", {
+          "interpolation": "\uFFFD1\uFFFD"
+        });
+        const $MSG_APP_SPEC_TS_0$ = $r3$.ɵi18nPostprocess($MSG_APP_SPEC_TS_0_RAW$, { "VAR_SELECT": "\uFFFD0\uFFFD" });
+        …
+        template: function MyComponent_Template(rf, ctx) {
+          if (rf & 1) {
+            $r3$.ɵelementStart(0, "div");
+            $r3$.ɵi18n(1, $MSG_APP_SPEC_TS_0$);
+            $r3$.ɵelementEnd();
+          }
+          if (rf & 2) {
+            $r3$.ɵi18nExp($r3$.ɵbind(ctx.age));
+            $r3$.ɵi18nExp($r3$.ɵbind(ctx.other));
+            $r3$.ɵi18nApply(1);
+          }
+        }
+      `;
+      verify(input, output, {inputArgs: {interpolation: ['{%', '%}']}});
     });
 
     it('should handle icus with html', () => {
