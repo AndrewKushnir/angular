@@ -563,6 +563,7 @@ export class TransitionAnimationEngine {
       // is a renderer then the set data-structure will normalize the entry
       this.collectEnterElement(hostElement);
     }
+    console.log('createNamespace ---> ', namespaceId, hostElement);
     return this._namespaceLookup[namespaceId] = ns;
   }
 
@@ -594,6 +595,7 @@ export class TransitionAnimationEngine {
     if (!ns) {
       ns = this.createNamespace(namespaceId, hostElement);
     }
+    console.log('register ---> ', namespaceId, hostElement);
     return ns;
   }
 
@@ -607,6 +609,8 @@ export class TransitionAnimationEngine {
   destroy(namespaceId: string, context: any) {
     if (!namespaceId) return;
 
+    console.log('destroy =====> ', namespaceId);
+    console.log('destroy:details =====> ', this._namespaceLookup);
     const ns = this._fetchNamespace(namespaceId);
 
     this.afterFlush(() => {

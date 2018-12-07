@@ -2470,6 +2470,7 @@ function tickRootContext(rootContext: RootContext) {
  * @param component The component which the change detection should be performed on.
  */
 export function detectChanges<T>(component: T): void {
+  console.log('detectChanges ------->');
   detectChangesInternal(getComponentViewByInstance(component) !, component, null);
 }
 

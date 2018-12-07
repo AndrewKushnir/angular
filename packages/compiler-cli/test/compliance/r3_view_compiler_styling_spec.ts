@@ -18,32 +18,49 @@ describe('compiler compliance: styling', () => {
   });
 
   describe('@Component.styles', () => {
-    it('should pass in the component metadata styles into the component definition and shim them using style encapsulation',
-       () => {
-         const files = {
-           app: {
-             'spec.ts': `
+    fit('should pass in the component metadata styles into the component definition and shim them using style encapsulation',
+        () => {
+          const files = {
+            app: {
+              'spec.ts': `
                 import {Component, NgModule} from '@angular/core';
 
                 @Component({
-                  selector: "my-component",
-                  styles: ["div.foo { color: red; }", ":host p:nth-child(even) { --webkit-transition: 1s linear all; }"],
-                  template: "..."
+                  selector: 'my-cmp',
+                  template: \`
+                   <div #elm1 *ngIf="exp1"></div>
+                   <div #elm2 @animation1 *ngIf="exp2"></div>
+                   <div #elm3 @animation2 *ngIf="exp3"></div>
+                \`,
+                  animations: [
+                    trigger('animation1', [transition('a => b', [])]),
+                    trigger('animation2', [transition(':leave', [])]),
+                  ]
                 })
-                export class MyComponent {
+                class Cmp {
+                  exp1: any = true;
+                  exp2: any = true;
+                  exp3: any = true;
+    
+                  @ViewChild('elm1') public elm1: any;
+    
+                  @ViewChild('elm2') public elm2: any;
+    
+                  @ViewChild('elm3') public elm3: any;
                 }
 
                 @NgModule({declarations: [MyComponent]})
                 export class MyModule {}
             `
-           }
-         };
+            }
+          };
 
-         const template =
-             'styles: ["div.foo[_ngcontent-%COMP%] { color: red; }", "[_nghost-%COMP%]   p[_ngcontent-%COMP%]:nth-child(even) { --webkit-transition: 1s linear all; }"]';
-         const result = compile(files, angularFiles);
-         expectEmit(result.source, template, 'Incorrect template');
-       });
+          const template =
+              'styles: ["div.foo[_ngcontent-%COMP%] { color: red; }", "[_nghost-%COMP%]   p[_ngcontent-%COMP%]:nth-child(even) { --webkit-transition: 1s linear all; }"]';
+          const result = compile(files, angularFiles);
+          console.log('---->', result.source);
+          expectEmit(result.source, template, 'Incorrect template');
+        });
 
     it('should pass in styles, but skip shimming the styles if the view encapsulation signals not to',
        () => {

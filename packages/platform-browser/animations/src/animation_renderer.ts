@@ -104,6 +104,7 @@ export class AnimationRendererFactory implements RendererFactory2 {
     if (this._cdRecurDepth == 0) {
       this._zone.runOutsideAngular(() => {
         this._scheduleCountTask();
+        console.log('end: ---->', this._microtaskId);
         this.engine.flush(this._microtaskId);
       });
     }
