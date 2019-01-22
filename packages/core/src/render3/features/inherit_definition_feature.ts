@@ -115,9 +115,9 @@ export function InheritDefinitionFeature(definition: DirectiveDef<any>| Componen
       const superContentQueriesRefresh = superDef.contentQueriesRefresh;
       if (superContentQueriesRefresh) {
         if (prevContentQueriesRefresh) {
-          definition.contentQueriesRefresh = (directiveIndex: number, queryIndex: number) => {
-            superContentQueriesRefresh(directiveIndex, queryIndex);
-            prevContentQueriesRefresh(directiveIndex, queryIndex);
+          definition.contentQueriesRefresh = (directiveIndex: number) => {
+            superContentQueriesRefresh(directiveIndex);
+            prevContentQueriesRefresh(directiveIndex);
           };
         } else {
           definition.contentQueriesRefresh = superContentQueriesRefresh;

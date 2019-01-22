@@ -38,7 +38,7 @@ import {appendChild, appendProjectedNode, createTextNode, getLViewChild, insertV
 import {isNodeMatchingSelectorList, matchingSelectorIndex} from './node_selector_matcher';
 import {OnChangesDirectiveWrapper, isOnChangesDirectiveWrapper, recordChange, unwrapOnChangesDirectiveWrapper} from './onchanges_util';
 import {query} from './query';
-import {decreaseElementDepthCount, enterView, getBindingsEnabled, getCheckNoChangesMode, getContextLView, getCurrentDirectiveDef, getCurrentViewQueryIndex, getElementDepthCount, getFirstTemplatePass, getIsParent, getLView, getPreviousOrParentTNode, increaseElementDepthCount, isCreationMode, leaveView, nextContextImpl, resetComponentState, setBindingRoot, setCheckNoChangesMode, setCurrentDirectiveDef, setCurrentViewQueryIndex, setFirstTemplatePass, setIsParent, setPreviousOrParentTNode} from './state';
+import {decreaseElementDepthCount, enterView, getBindingsEnabled, getCheckNoChangesMode, getContextLView, getCurrentContentQueryIndex, getCurrentDirectiveDef, getCurrentViewQueryIndex, getElementDepthCount, getFirstTemplatePass, getIsParent, getLView, getPreviousOrParentTNode, increaseElementDepthCount, isCreationMode, leaveView, nextContextImpl, resetComponentState, setBindingRoot, setCheckNoChangesMode, setCurrentContentQueryIndex, setCurrentDirectiveDef, setCurrentViewQueryIndex, setFirstTemplatePass, setIsParent, setPreviousOrParentTNode} from './state';
 import {getInitialClassNameValue, initializeStaticContext as initializeStaticStylingContext, patchContextWithStaticAttrs, renderInitialStylesAndClasses, renderStyling, updateClassProp as updateElementClassProp, updateContextWithBindings, updateStyleProp as updateElementStyleProp, updateStylingMap} from './styling/class_and_style_bindings';
 import {BoundPlayerFactory} from './styling/player_factory';
 import {createEmptyStylingContext, getStylingContext, hasClassInput, hasStyling, isAnimationProp} from './styling/util';
@@ -137,9 +137,8 @@ function refreshContentQueries(tView: TView): void {
     for (let i = 0; i < tView.contentQueries.length; i += 2) {
       const directiveDefIdx = tView.contentQueries[i];
       const directiveDef = tView.data[directiveDefIdx] as DirectiveDef<any>;
-
-      directiveDef.contentQueriesRefresh !(
-          directiveDefIdx - HEADER_OFFSET, tView.contentQueries[i + 1]);
+      setCurrentContentQueryIndex(tView.contentQueries[i + 1]);
+      (directiveDef.contentQueriesRefresh as any) !(directiveDefIdx - HEADER_OFFSET);
     }
   }
 }
@@ -3041,6 +3040,19 @@ export function registerContentQuery<Q>(
     }
   }
 }
+
+export function createContentQuery<T>(
+    directiveIndex: number, predicate: Type<any>| string[], descend?: boolean, read?: any): void {
+  const contentQuery: QueryList<T> = query<T>(predicate, descend, read);
+  registerContentQuery(contentQuery, directiveIndex);
+}
+
+export function loadContentQuery<T>(): QueryList<T> {
+  const index = getCurrentContentQueryIndex();
+  setCurrentContentQueryIndex(index + 1);
+  return loadQueryList(index);
+}
+
 
 /**
  * Creates new QueryList, stores the reference in LView and returns QueryList.

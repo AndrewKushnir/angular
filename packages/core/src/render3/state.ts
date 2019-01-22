@@ -271,6 +271,17 @@ export function setCurrentViewQueryIndex(value: number): void {
   viewQueryIndex = value;
 }
 
+let contentQueryIndex: number = 0;
+
+export function getCurrentContentQueryIndex(): number {
+  // top level variables should not be exported for performance reasons (PERF_NOTES.md)
+  return contentQueryIndex;
+}
+
+export function setCurrentContentQueryIndex(value: number): void {
+  contentQueryIndex = value;
+}
+
 /**
  * Swap the current state with a new state.
  *

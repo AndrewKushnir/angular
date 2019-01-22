@@ -2257,7 +2257,7 @@ describe('query', () => {
     expect(fixture.component.query.length).toBe(1);
   });
 
-  describe('content', () => {
+  fdescribe('content', () => {
     let withContentInstance: WithContentDirective|null;
     let shallowCompInstance: ShallowComp|null;
 

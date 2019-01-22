@@ -116,7 +116,6 @@ export class Identifiers {
   static i18nPostprocess: o.ExternalReference = {name: 'ɵi18nPostprocess', moduleName: CORE};
 
   static load: o.ExternalReference = {name: 'ɵload', moduleName: CORE};
-  static loadQueryList: o.ExternalReference = {name: 'ɵloadQueryList', moduleName: CORE};
 
   static pipe: o.ExternalReference = {name: 'ɵpipe', moduleName: CORE};
 
@@ -185,10 +184,11 @@ export class Identifiers {
 
   static query: o.ExternalReference = {name: 'ɵquery', moduleName: CORE};
   static queryRefresh: o.ExternalReference = {name: 'ɵqueryRefresh', moduleName: CORE};
+
   static createViewQuery: o.ExternalReference = {name: 'ɵcreateViewQuery', moduleName: CORE};
   static loadViewQuery: o.ExternalReference = {name: 'ɵloadViewQuery', moduleName: CORE};
-  static registerContentQuery:
-      o.ExternalReference = {name: 'ɵregisterContentQuery', moduleName: CORE};
+  static createContentQuery: o.ExternalReference = {name: 'ɵcreateContentQuery', moduleName: CORE};
+  static loadContentQuery: o.ExternalReference = {name: 'ɵloadContentQuery', moduleName: CORE};
 
   static InheritDefinitionFeature:
       o.ExternalReference = {name: 'ɵInheritDefinitionFeature', moduleName: CORE};

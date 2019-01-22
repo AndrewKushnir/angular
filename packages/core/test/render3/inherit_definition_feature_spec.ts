@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Inject, InjectionToken, QueryList} from '../../src/core';
-import {ComponentDef, DirectiveDef, InheritDefinitionFeature, ProvidersFeature, RenderFlags, allocHostVars, bind, createViewQuery, defineBase, defineComponent, defineDirective, directiveInject, element, elementProperty, loadViewQuery, queryRefresh} from '../../src/render3/index';
+import {ElementRef, Inject, InjectionToken, QueryList, ɵAttributeMarker as AttributeMarker} from '../../src/core';
+import {ComponentDef, DirectiveDef, InheritDefinitionFeature, ProvidersFeature, RenderFlags, allocHostVars, bind, createContentQuery, createViewQuery, defineBase, defineComponent, defineDirective, directiveInject, element, elementEnd, elementProperty, elementStart, load, loadContentQuery, loadViewQuery, query, queryRefresh} from '../../src/render3/index';
 import {getLView} from '../../src/render3/state';
 import {getNativeByIndex} from '../../src/render3/util';
 
@@ -545,6 +545,65 @@ describe('InheritDefinitionFeature', () => {
     subDef.contentQueriesRefresh !(1, 2);
 
     expect(log).toEqual([['super', 1, 2], ['sub', 1, 2]]);
+  });
+
+  it('should compose contentQueries and contentQueriesRefresh', () => {
+    let dirInstance: SubDirective;
+    class SuperDirective {
+      // @ContentChildren('foo')
+      foos !: QueryList<ElementRef>;
+
+      static ngDirectiveDef = defineDirective({
+        type: SuperDirective,
+        selectors: [['', 'super-dir', '']],
+        factory: () => new SuperDirective(),
+        contentQueries: (dirIndex: number) => { createContentQuery(dirIndex, ['foo'], true); },
+        contentQueriesRefresh: (dirIndex: number) => {
+          let tmp: any;
+          const instance = load<SuperDirective>(dirIndex);
+          queryRefresh(tmp = loadContentQuery<ElementRef>()) && (instance.foos = tmp);
+        }
+      });
+    }
+
+    class SubDirective extends SuperDirective {
+      // @ContentChildren('bar')
+      bars !: QueryList<ElementRef>;
+
+      static ngDirectiveDef = defineDirective({
+        type: SubDirective,
+        selectors: [['', 'sub-dir', '']],
+        factory: () => new SubDirective(),
+        contentQueries: (dirIndex: number) => { createContentQuery(dirIndex, ['bar'], true); },
+        contentQueriesRefresh: (dirIndex: number) => {
+          let tmp: any;
+          dirInstance = load<SubDirective>(dirIndex);
+          queryRefresh(tmp = loadContentQuery<ElementRef>()) && (dirInstance.bars = tmp);
+        },
+        features: [InheritDefinitionFeature]
+      });
+    }
+
+    /**
+     * <div with-content>
+     *   <span #foo></span>
+     *   <span #bar></span>
+     * </div>
+     */
+    const AppComponent = createComponent('app-component', function(rf: RenderFlags, ctx: any) {
+      if (rf & RenderFlags.Create) {
+        elementStart(0, 'div', [AttributeMarker.SelectOnly, 'sub-dir']);
+        {
+          element(1, 'span', null, ['foo', '']);
+          element(3, 'span', null, ['bar', '']);
+        }
+        elementEnd();
+      }
+    }, 5, 0, [SubDirective]);
+
+    const fixture = new ComponentFixture(AppComponent);
+    expect(dirInstance !.foos.length).toBe(1);
+    expect(dirInstance !.bars.length).toBe(1);
   });
 
   it('should throw if inheriting a component from a directive', () => {

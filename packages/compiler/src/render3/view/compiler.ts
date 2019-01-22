@@ -512,9 +512,9 @@ function createContentQueriesFunction(
     meta: R3DirectiveMetadata, constantPool: ConstantPool): o.Expression|null {
   if (meta.queries.length) {
     const statements: o.Statement[] = meta.queries.map((query: R3QueryMetadata) => {
-      const queryDefinition = createQueryDefinition(query, constantPool);
-      return o.importExpr(R3.registerContentQuery)
-          .callFn([queryDefinition, o.variable('dirIndex')])
+      // const queryDefinition = createQueryDefinition(query, constantPool);
+      return o.importExpr(R3.createContentQuery)
+          .callFn([o.variable('dirIndex')].concat(prepareQueryParams(query, constantPool) as any))
           .toStmt();
     });
     const typeName = meta.name;
@@ -546,7 +546,7 @@ function createContentQueriesRefreshFunction(meta: R3DirectiveMetadata): o.Expre
 
     meta.queries.forEach((query: R3QueryMetadata, idx: number) => {
       const loadQLArg = o.variable('queryStartIndex');
-      const getQueryList = o.importExpr(R3.loadQueryList).callFn([
+      const getQueryList = o.importExpr(R3.loadContentQuery).callFn([
         idx > 0 ? loadQLArg.plus(o.literal(idx)) : loadQLArg
       ]);
       const assignToTemporary = temporary().set(getQueryList);
