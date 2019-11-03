@@ -38,7 +38,7 @@ import {isAnimationProp} from '../util/attrs_utils';
 import {INTERPOLATION_DELIMITER, renderStringify, stringifyForError} from '../util/misc_utils';
 import {getInitialStylingValue} from '../util/styling_utils';
 import {findComponentView, getLViewParent} from '../util/view_traversal_utils';
-import {getComponentLViewByIndex, getNativeByIndex, getNativeByTNode, getTNode, isCreationMode, readPatchedLView, resetPreOrderHookFlags, unwrapRNode, viewAttachedToChangeDetector} from '../util/view_utils';
+import {getComponentLViewByIndex, getNativeByIndex, getNativeByTNode, getTNode, isCreationMode, isViewDestroyed, readPatchedLView, resetPreOrderHookFlags, unwrapRNode, viewAttachedToChangeDetector} from '../util/view_utils';
 
 import {selectIndexInternal} from './advance';
 import {LCleanup, LViewBlueprint, MatchesArray, TCleanup, TNodeConstructor, TNodeInitialInputs, TNodeLocalNames, TViewComponents, TViewConstructor, attachLContainerDebug, attachLViewDebug, cloneToLViewFromTViewBlueprint, cloneToTViewData} from './lview_debug';
@@ -1698,6 +1698,7 @@ export function tickRootContext(rootContext: RootContext) {
 }
 
 export function detectChangesInternal<T>(view: LView, context: T) {
+  if (isViewDestroyed(view)) return;
   const rendererFactory = view[RENDERER_FACTORY];
   if (rendererFactory.begin) rendererFactory.begin();
   try {
