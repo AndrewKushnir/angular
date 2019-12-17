@@ -31,6 +31,7 @@ import {RNode, RendererFactory3, domRendererFactory3, isProceduralRenderer} from
 import {LView, LViewFlags, TVIEW, TViewType} from './interfaces/view';
 import {enterView, leaveView} from './state';
 import {defaultScheduler} from './util/misc_utils';
+import {r3SelectorListToString} from './util/selector_utils';
 import {getTNode} from './util/view_utils';
 import {createElementRef} from './view_engine_compatibility';
 import {RootViewRef, ViewRef} from './view_ref';
@@ -113,9 +114,7 @@ export class ComponentFactory<T> extends viewEngine_ComponentFactory<T> {
       private componentDef: ComponentDef<any>, private ngModule?: viewEngine_NgModuleRef<any>) {
     super();
     this.componentType = componentDef.type;
-
-    // default to 'div' in case this component has an attribute selector
-    this.selector = componentDef.selectors[0][0] as string || 'div';
+    this.selector = r3SelectorListToString(componentDef.selectors);
     this.ngContentSelectors =
         componentDef.ngContentSelectors ? componentDef.ngContentSelectors : [];
     this.isBoundToModule = !!ngModule;
@@ -133,9 +132,11 @@ export class ComponentFactory<T> extends viewEngine_ComponentFactory<T> {
         rootViewInjector.get(RendererFactory2, domRendererFactory3) as RendererFactory3;
     const sanitizer = rootViewInjector.get(Sanitizer, null);
 
+    // default to 'div' in case this component has an attribute selector
+    const elementName = this.componentDef.selectors[0][0] as string || 'div';
     const hostRNode = rootSelectorOrNode ?
         locateHostElement(rendererFactory, rootSelectorOrNode, this.componentDef.encapsulation) :
-        elementCreate(this.selector, rendererFactory.createRenderer(null, this.componentDef), null);
+        elementCreate(elementName, rendererFactory.createRenderer(null, this.componentDef), null);
 
     const rootFlags = this.componentDef.onPush ? LViewFlags.Dirty | LViewFlags.IsRoot :
                                                  LViewFlags.CheckAlways | LViewFlags.IsRoot;
