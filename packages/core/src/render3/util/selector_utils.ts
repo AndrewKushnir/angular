@@ -18,8 +18,6 @@ function r3SelectorToString(selector: CssSelector): string {
     result += selector[0];
   }
   if (isNonEmptyString(selector[1])) {
-    // TODO: check escaping! [attr=some'value"test]
-    // TODO: check for [attr=''] vs [attr]
     const value = selector[2] ? '=' + selector[2] : '';
     result += '[' + selector[1] + value + ']';
   } else if (typeof selector[1] === 'number') {
