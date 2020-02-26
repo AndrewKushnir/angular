@@ -32,7 +32,13 @@ export const FLAGS = 2;
 export const PARENT = 3;
 export const NEXT = 4;
 export const QUERIES = 5;
-export const T_HOST = 6;
+// export const T_HOST = 6;
+export const T_HOST: 6 = {
+  toString() {
+    debugger;
+    return 6;
+  }
+} as any;
 export const CLEANUP = 7;
 export const CONTEXT = 8;
 export const INJECTOR = 9;

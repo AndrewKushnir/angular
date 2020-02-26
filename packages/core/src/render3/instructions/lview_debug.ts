@@ -218,7 +218,8 @@ class TNode implements ITNode {
 
   get template_(): string {
     const buf: string[] = [];
-    buf.push('<', this.tagName || this.type_);
+    const tagName = this.type == TNodeType.Element ? this.tagName || this.type_ : this.type_;
+    buf.push('<', tagName);
     if (this.attrs) {
       for (let i = 0; i < this.attrs.length;) {
         const attrName = this.attrs[i++];
@@ -231,7 +232,7 @@ class TNode implements ITNode {
     }
     buf.push('>');
     processTNodeChildren(this.child, buf);
-    buf.push('</', this.tagName || this.type_, '>');
+    buf.push('</', tagName, '>');
     return buf.join('');
   }
 

@@ -26,27 +26,20 @@ import {getNativeByTNode, unwrapRNode} from './util/view_utils';
 
 const unusedValueToPlacateAjd = unused1 + unused2 + unused3 + unused4 + unused5;
 
-export function getLContainer(tNode: TViewNode, embeddedView: LView): LContainer|null {
+export function getLContainer(embeddedView: LView): LContainer|null {
   ngDevMode && assertLView(embeddedView);
   const container = embeddedView[PARENT] as LContainer;
-  if (tNode.index === -1) {
-    // This is a dynamically created view inside a dynamic container.
-    // The parent isn't an LContainer if the embedded view hasn't been attached yet.
-    return isLContainer(container) ? container : null;
-  } else {
-    ngDevMode && assertLContainer(container);
-    // This is a inline view node (e.g. embeddedViewStart)
-    return container;
-  }
+  // This is a dynamically created view inside a dynamic container.
+  // The parent isn't an LContainer if the embedded view hasn't been attached yet.
+  return isLContainer(container) ? container : null;
 }
-
 
 /**
  * Retrieves render parent for a given view.
  * Might be null if a view is not yet attached to any container.
  */
-export function getContainerRenderParent(tViewNode: TViewNode, view: LView): RElement|null {
-  const container = getLContainer(tViewNode, view);
+export function getContainerRenderParent(view: LView): RElement|null {
+  const container = getLContainer(view);
   return container ? nativeParentNode(view[RENDERER], container[NATIVE]) : null;
 }
 
@@ -141,8 +134,7 @@ export function addRemoveViewFromContainer(
     tView: TView, lView: LView, insertMode: false, beforeNode: null): void;
 export function addRemoveViewFromContainer(
     tView: TView, lView: LView, insertMode: boolean, beforeNode: RNode | null): void {
-  const renderParent = getContainerRenderParent(tView.node as TViewNode, lView);
-  ngDevMode && assertNodeType(tView.node as TNode, TNodeType.View);
+  const renderParent = getContainerRenderParent(lView);
   if (renderParent) {
     const renderer = lView[RENDERER];
     const action = insertMode ? WalkTNodeTreeAction.Insert : WalkTNodeTreeAction.Detach;
@@ -390,7 +382,7 @@ export function getParentState(lViewOrLContainer: LView | LContainer, rootView: 
       tNode.type === TNodeType.View) {
     // if it's an embedded view, the state needs to go up to the container, in case the
     // container has a next
-    return getLContainer(tNode as TViewNode, lViewOrLContainer);
+    return getLContainer(lViewOrLContainer);
   } else {
     // otherwise, use parent view for containers or component views
     return lViewOrLContainer[PARENT] === rootView ? null : lViewOrLContainer[PARENT];
@@ -524,7 +516,7 @@ function getRenderParent(tView: TView, tNode: TNode, currentView: LView): REleme
   // or a component view.
   if (parentTNode == null) {
     const hostTNode = currentView[T_HOST] !;
-    if (hostTNode.type === TNodeType.View) {
+    if (currentView[HOST] === null) {
       // We are inserting a root element of an embedded view We might delay insertion of children
       // for a given view if it is disconnected. This might happen for 2 main reasons:
       // - view is not inserted into any container(view was created but not inserted yet)
@@ -532,11 +524,11 @@ function getRenderParent(tView: TView, tNode: TNode, currentView: LView): REleme
       // (container might be part of projection or child of a view that is not inserted yet).
       // In other words we can insert children of a given view if this view was inserted into a
       // container and the container itself has its render parent determined.
-      return getContainerRenderParent(hostTNode as TViewNode, currentView);
+      return getContainerRenderParent(currentView);
     } else {
       // We are inserting a root element of the component view into the component host element and
       // it should always be eager.
-      ngDevMode && assertNodeOfPossibleTypes(hostTNode, TNodeType.Element);
+      // ngDevMode && assertNodeOfPossibleTypes(hostTNode, TNodeType.Element);
       return currentView[HOST];
     }
   } else {
@@ -635,7 +627,7 @@ export function nativeNextSibling(renderer: Renderer3, node: RNode): RNode|null 
  */
 function getNativeAnchorNode(parentTNode: TNode, lView: LView): RNode|null {
   if (parentTNode.type === TNodeType.View) {
-    const lContainer = getLContainer(parentTNode as TViewNode, lView);
+    const lContainer = getLContainer(lView);
     if (lContainer === null) return null;
     const index = lContainer.indexOf(lView, CONTAINER_HEADER_OFFSET) - CONTAINER_HEADER_OFFSET;
     return getBeforeNodeForView(index, lContainer);
@@ -816,7 +808,7 @@ function applyView(
     tView: TView, lView: LView, renderer: Renderer3, action: WalkTNodeTreeAction,
     renderParent: RElement | null, beforeNode: RNode | null) {
   ngDevMode && assertNodeType(tView.node !, TNodeType.View);
-  const viewRootTNode: TNode|null = tView.node !.child;
+  const viewRootTNode: TNode|null = tView.firstChild;
   applyNodes(renderer, action, viewRootTNode, lView, renderParent, beforeNode, false);
 }
 

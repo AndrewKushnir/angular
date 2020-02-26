@@ -106,7 +106,8 @@ export function createTemplateRef<T>(
         const embeddedTView = this._declarationTContainer.tViews as TView;
         const embeddedLView = createLView(
             this._declarationView, embeddedTView, context, LViewFlags.CheckAlways, null,
-            embeddedTView.node);
+            this._declarationTContainer as any);
+        // embeddedTView.node);
 
         const declarationLContainer = this._declarationView[this._declarationTContainer.index];
         ngDevMode && assertLContainer(declarationLContainer);

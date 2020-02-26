@@ -62,8 +62,12 @@ function templateFirstCreatePass(
   const embeddedTView = tNode.tViews = createTView(
       TViewType.Embedded, -1, templateFn, decls, vars, tView.directiveRegistry, tView.pipeRegistry,
       null, tView.schemas, tViewConsts);
-  const embeddedTViewNode = createTNode(tView, null, TNodeType.View, -1, null, null) as TViewNode;
+  // TODO(commit): why do we need TNodeView at all? One would expect that the TView.firstChild would
+  // point to embeddedTView but it does not
+  const embeddedTViewNode =
+      createTNode(embeddedTView, null, TNodeType.View, -1, null, null) as TViewNode;
   embeddedTViewNode.injectorIndex = tNode.injectorIndex;
+  // TODO(commit):  node property seems un-needed. Explore removing it.
   embeddedTView.node = embeddedTViewNode;
 
   if (tView.queries !== null) {
