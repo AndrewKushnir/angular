@@ -273,6 +273,49 @@ describe('TestBed', () => {
     expect(hello.nativeElement).toHaveText('Hello injected World a second time!');
   });
 
+  onlyInIvy('Destroy hook of useFactory provider is invoked correctly')
+      .it('should call ngOnDestroy for a service that was overridden with useFactory', () => {
+        const log: string[] = [];
+
+        @Injectable()
+        class ServiceA {
+          public name = 'ServiceA';
+          ngOnDestroy() { log.push('ServiceA.ngOnDestroy'); }
+        }
+
+        class FakeServiceA {
+          name = 'FakeServiceA';
+          ngOnDestroy() { log.push('FakeServiceA.ngOnDestroy'); }
+        }
+
+        @Component({
+          selector: 'comp-a',
+          template: `{{ serviceA.name }}`,
+          providers: [ServiceA],
+        })
+        class ComponentA {
+          constructor(public serviceA: ServiceA) {}
+        }
+
+        TestBed.configureTestingModule({
+          declarations: [ComponentA],
+        });
+
+        TestBed.overrideProvider(ServiceA, {
+          useFactory: () => new FakeServiceA(),
+        });
+
+        const fixture = TestBed.createComponent(ComponentA);
+        fixture.detectChanges();
+
+        const service = TestBed.inject(ServiceA);
+        expect(service.name).toBe('FakeServiceA');
+
+        fixture.destroy();
+
+        expect(log).toEqual(['FakeServiceA.ngOnDestroy']);
+      });
+
   it('should not call ngOnDestroy for a service that was overridden', () => {
     SimpleService.ngOnDestroyCalls = 0;
 

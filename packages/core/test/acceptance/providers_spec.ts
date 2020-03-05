@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Component, Directive, Inject, Injectable, InjectionToken, Injector, NgModule, Optional, forwardRef} from '@angular/core';
+import {Component, Directive, ElementRef, Inject, Injectable, InjectionToken, Injector, NgModule, Optional, forwardRef} from '@angular/core';
 import {TestBed, async, inject} from '@angular/core/testing';
 import {By} from '@angular/platform-browser';
 import {expect} from '@angular/platform-browser/testing/src/matchers';
@@ -346,6 +346,84 @@ describe('providers', () => {
           expect(destroyCalls).toBe(2);
         });
 
+    onlyInIvy('Destroy hook of useFactory provider is invoked correctly')
+        .it('should invoke ngOnDestroy for useFactory providers provided in Component', () => {
+          const log: string[] = [];
+
+          @Injectable()
+          class HelloService {
+            public name = 'HelloService';
+            ngOnDestroy() { log.push('HelloService.ngOnDestroy'); }
+          }
+
+          @Component({
+            selector: 'hello',
+            template: `{{ helloService.name }}`,
+            providers: [{
+              provide: HelloService,
+              useFactory: () => new HelloService(),
+            }],
+          })
+          class HelloComponent {
+            constructor(public helloService: HelloService) {}
+          }
+
+          TestBed.configureTestingModule({
+            declarations: [HelloComponent],
+          });
+
+          const fixture = TestBed.createComponent(HelloComponent);
+          fixture.detectChanges();
+
+          expect(fixture.nativeElement.textContent).toBe('HelloService');
+
+          fixture.destroy();
+
+          expect(log).toEqual(['HelloService.ngOnDestroy']);
+        });
+
+    onlyInIvy('Destroy hook of useFactory provider is invoked correctly')
+        .it('should invoke ngOnDestroy for useFactory providers provided in Directive', () => {
+          const log: string[] = [];
+
+          @Injectable()
+          class ServiceA {
+            public name = 'ServiceA';
+            ngOnDestroy() { log.push('ServiceA.ngOnDestroy'); }
+          }
+
+          @Directive({
+            selector: '[dir]',
+            providers: [{
+              provide: ServiceA,
+              useFactory: () => new ServiceA(),
+            }],
+          })
+          class DirectiveA {
+            constructor(public elRef: ElementRef, public serviceA: ServiceA) {}
+            ngOnInit() { this.elRef.nativeElement.innerHTML = this.serviceA.name; }
+          }
+
+          @Component({
+            selector: 'comp-a',
+            template: '<div dir></div>',
+          })
+          class ComponentA {
+          }
+
+          TestBed.configureTestingModule({
+            declarations: [DirectiveA, ComponentA],
+          });
+
+          const fixture = TestBed.createComponent(ComponentA);
+          fixture.detectChanges();
+
+          expect(fixture.nativeElement.textContent).toBe('ServiceA');
+
+          fixture.destroy();
+
+          expect(log).toEqual(['ServiceA.ngOnDestroy']);
+        });
   });
 
   describe('components and directives', () => {

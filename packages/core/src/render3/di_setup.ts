@@ -9,7 +9,7 @@
 
 import {resolveForwardRef} from '../di/forward_ref';
 import {ClassProvider, Provider} from '../di/interface/provider';
-import {isClassProvider, isTypeProvider, providerToFactory} from '../di/r3_injector';
+import {isClassProvider, isFactoryProvider, isTypeProvider, providerToFactory} from '../di/r3_injector';
 
 import {diPublicInInjector, getNodeInjectable, getOrCreateNodeInjectorForNode} from './di';
 import {ɵɵdirectiveInject} from './instructions/all';
@@ -176,6 +176,17 @@ function resolveProvider(
 }
 
 /**
+ * Function is used as a destroy hook for Factory Providers. This function is invoked in a context
+ * of a provider instance, checks whether there is an `ngOnDestroy` function and invokes it if it's
+ * present.
+ */
+function ngOnDestroyForFactoryProviders(this: any) {
+  if (this.ngOnDestroy) {
+    this.ngOnDestroy();
+  }
+}
+
+/**
  * Registers the `ngOnDestroy` hook of a provider, if the provider supports destroy hooks.
  * @param tView `TView` in which to register the hook.
  * @param provider Provider whose hook should be registered.
@@ -183,10 +194,19 @@ function resolveProvider(
  */
 function registerDestroyHooksIfSupported(
     tView: TView, provider: Exclude<Provider, any[]>, contextIndex: number) {
-  const providerIsTypeProvider = isTypeProvider(provider);
-  if (providerIsTypeProvider || isClassProvider(provider)) {
-    const prototype = ((provider as ClassProvider).useClass || provider).prototype;
-    const ngOnDestroy = prototype.ngOnDestroy;
+  const isTypeOrClassProvider = isTypeProvider(provider) || isClassProvider(provider);
+  if (isTypeOrClassProvider || isFactoryProvider(provider)) {
+    let ngOnDestroy;
+    if (isTypeOrClassProvider) {
+      const prototype = ((provider as ClassProvider).useClass || provider).prototype;
+      ngOnDestroy = prototype.ngOnDestroy;
+    } else {
+      // For factory providers, since we do not have a way to identify whether there is an
+      // `ngOnDestroy` hook before calling a factory function, we register a special function
+      // that would be invoked at destroy time and check whether `ngOnDestroy` is present on a
+      // provider instance (and call the function if it exists).
+      ngOnDestroy = ngOnDestroyForFactoryProviders;
+    }
     if (ngOnDestroy) {
       (tView.destroyHooks || (tView.destroyHooks = [])).push(contextIndex, ngOnDestroy);
     }
