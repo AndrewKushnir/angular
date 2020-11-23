@@ -27,6 +27,7 @@
       "object"
     ],
     "require-internal-with-underscore": true,
+    "no-any-extended": [true, "goldens/no-any/config.json"],
     "no-toplevel-property-access": [
       true,
       "packages/animations/src/",
