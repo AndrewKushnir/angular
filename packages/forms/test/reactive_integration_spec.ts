@@ -7,10 +7,10 @@
  */
 
 import {ɵgetDOM as getDOM} from '@angular/common';
-import {Component, Directive, forwardRef, Input, Type} from '@angular/core';
+import {Component, Directive, forwardRef, Input, OnInit, Type} from '@angular/core';
 import {ComponentFixture, fakeAsync, TestBed, tick} from '@angular/core/testing';
 import {expect} from '@angular/core/testing/src/testing_internal';
-import {AbstractControl, AsyncValidator, AsyncValidatorFn, COMPOSITION_BUFFER_MODE, ControlValueAccessor, DefaultValueAccessor, FormArray, FormControl, FormControlDirective, FormControlName, FormGroup, FormGroupDirective, FormsModule, NG_ASYNC_VALIDATORS, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, Validator, Validators} from '@angular/forms';
+import {AbstractControl, AsyncValidator, AsyncValidatorFn, COMPOSITION_BUFFER_MODE, ControlValueAccessor, DefaultValueAccessor, FormArray, FormControl, FormControlDirective, FormControlName, FormGroup, FormGroupDirective, FormsModule, NG_ASYNC_VALIDATORS, NG_VALIDATORS, NG_VALUE_ACCESSOR, NgControl, ReactiveFormsModule, Validator, Validators} from '@angular/forms';
 import {By} from '@angular/platform-browser/src/dom/debug/by';
 import {dispatchEvent, sortedClassList} from '@angular/platform-browser/testing/src/browser_util';
 import {merge, NEVER, of, timer} from 'rxjs';
@@ -770,6 +770,40 @@ const ValueAccessorB = createControlValueAccessor('[cva-b]');
 
            form.reset();
          });
+    });
+
+    describe('di', () => {
+      fit('should have `control` field of NgControl available', () => {
+        let control;
+        @Directive({selector: '[ctrl]'})
+        class GetControlDir implements OnInit {
+          @Input() ctrl: any;
+          constructor(private ngControl: NgControl) {
+            debugger;
+            // control = ngControl.control;
+          }
+
+          ngOnInit() {
+            debugger;
+            const a = this.ngControl.control;
+          }
+        }
+
+        @Component({
+          template: `
+            <ng-container [formGroup]="form">
+              <input formControlName="login" [ctrl]="true">
+            </ng-container>
+          `
+        })
+        class MyComp {
+          form = new FormGroup({login: new FormControl('abc')});
+        }
+
+        const fixture = initTest(MyComp, GetControlDir);
+        fixture.detectChanges();
+        debugger;
+      });
     });
 
     describe('setting status classes', () => {
