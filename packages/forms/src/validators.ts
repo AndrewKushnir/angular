@@ -653,14 +653,17 @@ export function mergeValidators<V>(controlValidators: V|V[]|null, dirValidator: 
 /**
  * Retrieves the list of raw synchronous validators attached to a given control.
  */
-export function getControlValidators(control: AbstractControl): ValidatorFn|ValidatorFn[]|null {
-  return (control as any)._rawValidators as ValidatorFn | ValidatorFn[] | null;
+export function getControlValidators(control: AbstractControl): Validator|ValidatorFn|
+    (Validator | ValidatorFn)[]|null {
+  return (control as any)._rawValidators as Validator | ValidatorFn | (Validator | ValidatorFn)[] |
+      null;
 }
 
 /**
  * Retrieves the list of raw asynchronous validators attached to a given control.
  */
-export function getControlAsyncValidators(control: AbstractControl): AsyncValidatorFn|
-    AsyncValidatorFn[]|null {
-  return (control as any)._rawAsyncValidators as AsyncValidatorFn | AsyncValidatorFn[] | null;
+export function getControlAsyncValidators(control: AbstractControl): AsyncValidator|
+    AsyncValidatorFn|(AsyncValidator | AsyncValidatorFn)[]|null {
+  return (control as any)._rawAsyncValidators as AsyncValidator | AsyncValidatorFn |
+      (AsyncValidator | AsyncValidatorFn)[] | null;
 }

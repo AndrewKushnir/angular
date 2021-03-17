@@ -8,7 +8,7 @@
 
 import {Injectable} from '@angular/core';
 
-import {AsyncValidatorFn, ValidatorFn} from './directives/validators';
+import {AsyncValidator, AsyncValidatorFn, Validator, ValidatorFn} from './directives/validators';
 import {ReactiveFormsModule} from './form_providers';
 import {AbstractControl, AbstractControlOptions, FormArray, FormControl, FormGroup, FormHooks} from './model';
 
@@ -83,8 +83,9 @@ export class FormBuilder {
       options: AbstractControlOptions|{[key: string]: any}|null = null): FormGroup {
     const controls = this._reduceControls(controlsConfig);
 
-    let validators: ValidatorFn|ValidatorFn[]|null = null;
-    let asyncValidators: AsyncValidatorFn|AsyncValidatorFn[]|null = null;
+    let validators: Validator|ValidatorFn|(Validator | ValidatorFn)[]|null = null;
+    let asyncValidators: AsyncValidator|AsyncValidatorFn|(AsyncValidator | AsyncValidatorFn)[]|
+        null = null;
     let updateOn: FormHooks|undefined = undefined;
 
     if (options != null) {
@@ -127,8 +128,10 @@ export class FormBuilder {
    * </code-example>
    */
   control(
-      formState: any, validatorOrOpts?: ValidatorFn|ValidatorFn[]|AbstractControlOptions|null,
-      asyncValidator?: AsyncValidatorFn|AsyncValidatorFn[]|null): FormControl {
+      formState: any,
+      validatorOrOpts?: Validator|ValidatorFn|(Validator|ValidatorFn)[]|AbstractControlOptions|null,
+      asyncValidator?: AsyncValidator|AsyncValidatorFn|(AsyncValidator|AsyncValidatorFn)[]|
+      null): FormControl {
     return new FormControl(formState, validatorOrOpts, asyncValidator);
   }
 
@@ -148,8 +151,9 @@ export class FormBuilder {
    */
   array(
       controlsConfig: any[],
-      validatorOrOpts?: ValidatorFn|ValidatorFn[]|AbstractControlOptions|null,
-      asyncValidator?: AsyncValidatorFn|AsyncValidatorFn[]|null): FormArray {
+      validatorOrOpts?: Validator|ValidatorFn|(Validator|ValidatorFn)[]|AbstractControlOptions|null,
+      asyncValidator?: AsyncValidator|AsyncValidatorFn|(AsyncValidator|AsyncValidatorFn)[]|
+      null): FormArray {
     const controls = controlsConfig.map(c => this._createControl(c));
     return new FormArray(controls, validatorOrOpts, asyncValidator);
   }

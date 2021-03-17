@@ -123,12 +123,14 @@ export interface AbstractControlOptions {
    * @description
    * The list of validators applied to a control.
    */
-  validators?: ValidatorFn|ValidatorFn[]|null;
+  validators?: Validator|ValidatorFn|(Validator|ValidatorFn)[]|null;
+
   /**
    * @description
    * The list of async validators applied to control.
    */
-  asyncValidators?: AsyncValidatorFn|AsyncValidatorFn[]|null;
+  asyncValidators?: AsyncValidator|AsyncValidatorFn|(AsyncValidator|AsyncValidatorFn)[]|null;
+
   /**
    * @description
    * The event name for control to update upon.
@@ -438,7 +440,7 @@ export abstract class AbstractControl {
    * `updateValueAndValidity()` for the new validation to take effect.
    *
    */
-  setValidators(newValidator: Validator|Validator[]|ValidatorFn|ValidatorFn[]|null): void {
+  setValidators(newValidator: Validator|ValidatorFn|(Validator|ValidatorFn)[]|null): void {
     this._rawValidators = newValidator;
     this._composedValidatorFn = coerceToValidatorFn(newValidator);
   }
@@ -451,8 +453,8 @@ export abstract class AbstractControl {
    * `updateValueAndValidity()` for the new validation to take effect.
    *
    */
-  setAsyncValidators(newValidator: AsyncValidator|AsyncValidator[]|AsyncValidatorFn|
-                     AsyncValidatorFn[]|null): void {
+  setAsyncValidators(newValidator: AsyncValidator|AsyncValidatorFn|
+                     (AsyncValidator|AsyncValidatorFn)[]|null): void {
     this._rawAsyncValidators = newValidator;
     this._composedAsyncValidatorFn = coerceToAsyncValidatorFn(newValidator);
   }

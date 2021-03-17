@@ -17,7 +17,7 @@ import {DefaultValueAccessor} from './default_value_accessor';
 import {NgControl} from './ng_control';
 import {FormArrayName} from './reactive_directives/form_group_name';
 import {ReactiveErrors} from './reactive_errors';
-import {AsyncValidatorFn, Validator, ValidatorFn} from './validators';
+import {AsyncValidator, AsyncValidatorFn, Validator, ValidatorFn} from './validators';
 
 
 export function controlPath(name: string|null, parent: ControlContainer): string[] {
@@ -130,7 +130,7 @@ export function setUpValidators(
     handleOnValidatorChange: boolean): void {
   const validators = getControlValidators(control);
   if (dir.validator !== null) {
-    control.setValidators(mergeValidators<ValidatorFn>(validators, dir.validator));
+    control.setValidators(mergeValidators<Validator|ValidatorFn>(validators, dir.validator));
   } else if (typeof validators === 'function') {
     // If sync validators are represented by a single validator function, we force the
     // `Validators.compose` call to happen by executing the `setValidators` function with
@@ -145,7 +145,7 @@ export function setUpValidators(
   const asyncValidators = getControlAsyncValidators(control);
   if (dir.asyncValidator !== null) {
     control.setAsyncValidators(
-        mergeValidators<AsyncValidatorFn>(asyncValidators, dir.asyncValidator));
+        mergeValidators<AsyncValidator|AsyncValidatorFn>(asyncValidators, dir.asyncValidator));
   } else if (typeof asyncValidators === 'function') {
     control.setAsyncValidators([asyncValidators]);
   }
