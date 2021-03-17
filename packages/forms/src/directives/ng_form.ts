@@ -9,7 +9,7 @@
 import {AfterViewInit, Directive, EventEmitter, forwardRef, Inject, Input, Optional, Self} from '@angular/core';
 
 import {AbstractControl, FormControl, FormGroup, FormHooks} from '../model';
-import {composeAsyncValidators, composeValidators, NG_ASYNC_VALIDATORS, NG_VALIDATORS} from '../validators';
+import {NG_ASYNC_VALIDATORS, NG_VALIDATORS} from '../validators';
 
 import {ControlContainer} from './control_container';
 import {Form} from './form_interface';
@@ -135,8 +135,7 @@ export class NgForm extends ControlContainer implements Form, AfterViewInit {
       @Optional() @Self() @Inject(NG_ASYNC_VALIDATORS) asyncValidators:
           (AsyncValidator|AsyncValidatorFn)[]) {
     super();
-    this.form =
-        new FormGroup({}, composeValidators(validators), composeAsyncValidators(asyncValidators));
+    this.form = new FormGroup({}, validators, asyncValidators);
   }
 
   /** @nodoc */

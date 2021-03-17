@@ -569,8 +569,12 @@ function executeValidators<V extends GenericValidatorFn>(
   return validators.map(validator => validator(control));
 }
 
-function isValidatorFn<V>(validator: V|Validator|AsyncValidator): validator is V {
-  return !(validator as Validator).validate;
+export function toValidatorFn<V>(validator: ValidatorFn|AsyncValidatorFn|Validator|
+                                 AsyncValidator): V {
+  const validatorFn = (validator as any).validate ?
+      ((c: AbstractControl) => (validator as Validator).validate(c)) :
+      validator;
+  return validatorFn as unknown as V;
 }
 
 /**
@@ -581,12 +585,9 @@ function isValidatorFn<V>(validator: V|Validator|AsyncValidator): validator is V
  * @param validators The set of validators that may contain validators both in plain function form
  *     as well as represented as a validator class.
  */
-export function normalizeValidators<V>(validators: (V|Validator|AsyncValidator)[]): V[] {
-  return validators.map(validator => {
-    return isValidatorFn<V>(validator) ?
-        validator :
-        ((c: AbstractControl) => validator.validate(c)) as unknown as V;
-  });
+export function normalizeValidators<V>(
+    validators: (ValidatorFn|AsyncValidatorFn|Validator|AsyncValidator)[]): V[] {
+  return validators.map(validator => toValidatorFn<V>(validator));
 }
 
 /**
