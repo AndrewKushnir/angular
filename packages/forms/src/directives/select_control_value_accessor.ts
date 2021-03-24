@@ -93,11 +93,9 @@ export class SelectControlValueAccessor extends BuiltInControlValueAccessor impl
   /** @nodoc */
   value: any;
 
-  /** @internal */
-  _optionMap: Map<string, any> = new Map<string, any>();
+  private _optionMap: Map<string, any> = new Map<string, any>();
 
-  /** @internal */
-  _idCounter: number = 0;
+  private _idCounter: number = 0;
 
   /**
    * The registered callback function called when a change event occurs on the input element.
@@ -135,9 +133,9 @@ export class SelectControlValueAccessor extends BuiltInControlValueAccessor impl
    * property is also set if an ID is provided on the option element.
    * @nodoc
    */
-  writeValue(value: any): void {
+  writeValue(value: any, optionId?: string): void {
     this.value = value;
-    const id: string|null = this._getOptionId(value);
+    const id: string|null = optionId ?? this._getOptionId(value);
     if (id == null) {
       this._renderer.setProperty(this._elementRef.nativeElement, 'selectedIndex', -1);
     }
@@ -175,6 +173,31 @@ export class SelectControlValueAccessor extends BuiltInControlValueAccessor impl
   /** @internal */
   _registerOption(): string {
     return (this._idCounter++).toString();
+  }
+
+  _removeOption(id: string) {
+    this._optionMap.delete(id);
+    // TODO: should probably write only when we remove currently active option?
+    this.writeValue(this.value);
+  }
+
+  _updateOption(id: string, newValue: any, previousValue: any) {
+    if (previousValue === newValue) return;
+
+    this._optionMap.set(id, newValue);
+    if (this._isSelectedOption(newValue)) {
+      // New option value matches current value of this <select> element,
+      // so we invoke writeValue to update native element's value (with the new option id).
+      this.writeValue(newValue, id);
+    } else if (this._isSelectedOption(previousValue)) {
+      // Previous value matches current value of this <select> element,
+      // so we invoke writeValue to pick currently active one and update native element's value.
+      this.writeValue(newValue);
+    }
+  }
+
+  _isSelectedOption(optionValue: any) {
+    return this._compareWith(optionValue, this.value);
   }
 
   /** @internal */
@@ -218,6 +241,12 @@ export class NgSelectOption implements OnDestroy {
   }
 
   /**
+   * Keep track of the current value. This is needed to check if the value of the currently active
+   * option is changed, so the option is no longer selected/active.
+   */
+  private _currentValue: any;
+
+  /**
    * @description
    * Tracks the value bound to the option element. Unlike the value binding,
    * ngValue supports binding to objects.
@@ -225,9 +254,9 @@ export class NgSelectOption implements OnDestroy {
   @Input('ngValue')
   set ngValue(value: any) {
     if (this._select == null) return;
-    this._select._optionMap.set(this.id, value);
     this._setElementValue(_buildValueString(this.id, value));
-    this._select.writeValue(this._select.value);
+    this._select._updateOption(this.id, value, this._currentValue);
+    this._currentValue = value;
   }
 
   /**
@@ -249,8 +278,7 @@ export class NgSelectOption implements OnDestroy {
   /** @nodoc */
   ngOnDestroy(): void {
     if (this._select) {
-      this._select._optionMap.delete(this.id);
-      this._select.writeValue(this._select.value);
+      this._select._removeOption(this.id);
     }
   }
 }
