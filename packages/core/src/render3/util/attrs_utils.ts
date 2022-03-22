@@ -70,6 +70,8 @@ export function setUpAttributes(renderer: Renderer3, native: RElement, attrs: TA
       const attrVal = attrs[++i];
       // Standard attributes
       ngDevMode && ngDevMode.rendererSetAttribute++;
+      console.log(`FW: img.setAttribute('${attrName}', '${attrVal}')`);
+
       if (isAnimationProp(attrName)) {
         if (isProc) {
           (renderer as ProceduralRenderer3).setProperty(native, attrName, attrVal);

@@ -39,6 +39,7 @@ export function ɵɵproperty<T>(
   if (bindingUpdated(lView, bindingIndex, value)) {
     const tView = getTView();
     const tNode = getSelectedTNode();
+    console.log(`FW: img.${propName} = '${value}'`);
     elementPropertyInternal(
         tView, tNode, lView, propName, value, lView[RENDERER], sanitizer, false);
     ngDevMode && storePropertyBindingMetadata(tView.data, tNode, propName, bindingIndex);

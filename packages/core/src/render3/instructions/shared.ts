@@ -554,6 +554,7 @@ export function executeContentQueries(tView: TView, tNode: TNode, lView: LView) 
  */
 export function createDirectivesInstances(tView: TView, lView: LView, tNode: TDirectiveHostNode) {
   if (!getBindingsEnabled()) return;
+  console.log('FW: createDirectivesInstances()');
   instantiateAllDirectives(tView, lView, tNode, getNativeByTNode(tNode, lView));
   if ((tNode.flags & TNodeFlags.hasHostBindings) === TNodeFlags.hasHostBindings) {
     invokeDirectivesHostBindings(tView, lView, tNode);

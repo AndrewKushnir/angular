@@ -131,6 +131,7 @@ export function createCommentNode(renderer: Renderer3, value: string): RComment 
 export function createElementNode(
     renderer: Renderer3, name: string, namespace: string|null): RElement {
   ngDevMode && ngDevMode.rendererCreateElement++;
+  console.log(`FW: const img = document.createElement('img')`);
   if (isProceduralRenderer(renderer)) {
     return renderer.createElement(name, namespace);
   } else {
@@ -638,6 +639,7 @@ function nativeAppendChild(renderer: Renderer3, parent: RElement, child: RNode):
 
 function nativeAppendOrInsertBefore(
     renderer: Renderer3, parent: RElement, child: RNode, beforeNode: RNode|null, isMove: boolean) {
+  console.log('FW: parentElement.appendChild(img)');
   if (beforeNode !== null) {
     nativeInsertBefore(renderer, parent, child, beforeNode, isMove);
   } else {
