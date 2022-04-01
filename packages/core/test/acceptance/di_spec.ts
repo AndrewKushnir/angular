@@ -9,10 +9,39 @@
 import {CommonModule} from '@angular/common';
 import {Attribute, ChangeDetectorRef, Component, ComponentFactoryResolver, ComponentRef, Directive, ElementRef, EventEmitter, forwardRef, Host, HostBinding, Inject, Injectable, InjectFlags, InjectionToken, INJECTOR, Injector, Input, LOCALE_ID, NgModule, NgZone, Optional, Output, Pipe, PipeTransform, Self, SkipSelf, TemplateRef, ViewChild, ViewContainerRef, ViewRef, ɵDEFAULT_LOCALE_ID as DEFAULT_LOCALE_ID} from '@angular/core';
 import {ɵINJECTOR_SCOPE} from '@angular/core/src/core';
+import {importProvidersFrom} from '@angular/core/src/di/r3_injector';
 import {ViewRef as ViewRefInternal} from '@angular/core/src/render3/view_ref';
 import {TestBed} from '@angular/core/testing';
 import {By} from '@angular/platform-browser';
 import {BehaviorSubject} from 'rxjs';
+
+describe('importProvidersFrom', () => {
+  fit('should work for NgModules', () => {
+    const A = new InjectionToken('A');
+    const B = new InjectionToken('B');
+    const C = new InjectionToken('C');
+    const D = new InjectionToken('D');
+    @NgModule({
+      providers: [
+        {provide: C, useValue: 'C'},
+        {provide: D, useValue: 'D'},
+      ],
+    })
+    class MyModule2 {
+    }
+    @NgModule({
+      imports: [MyModule2],
+      providers: [
+        {provide: A, useValue: 'A'},
+        {provide: B, useValue: 'B'},
+      ],
+    })
+    class MyModule {
+    }
+    const providers = importProvidersFrom(MyModule);
+    debugger;
+  });
+});
 
 describe('di', () => {
   describe('no dependencies', () => {

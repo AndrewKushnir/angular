@@ -99,6 +99,133 @@ export function createInjectorWithoutInjectorInstances(
   return new R3Injector(defType, additionalProviders, parent || getNullInjector(), name);
 }
 
+/**
+ * Add an `InjectorType` or `InjectorTypeWithProviders` and all of its transitive providers
+ * to this injector.
+ *
+ * If an `InjectorTypeWithProviders` that declares providers besides the type is specified,
+ * the function will return "true" to indicate that the providers of the type definition need
+ * to be processed. This allows us to process providers of injector types after all imports of
+ * an injector definition are processed. (following View Engine semantics: see FW-1349)
+ */
+export function walkProviderTree(
+    defOrWrappedDef: InjectorType<any>|InjectorTypeWithProviders<any>,
+    visitProvider: (provider: any, injectorType: any, providers: any[]) => void,
+    visitInjectorType: (injectorType: any) => void,  //
+    parents: InjectorType<any>[] = [],
+    dedupStack: InjectorType<any>[] = []): defOrWrappedDef is InjectorTypeWithProviders<any> {
+  defOrWrappedDef = resolveForwardRef(defOrWrappedDef);
+  if (!defOrWrappedDef) return false;
+
+  // Either the defOrWrappedDef is an InjectorType (with injector def) or an
+  // InjectorDefTypeWithProviders (aka ModuleWithProviders). Detecting either is a megamorphic
+  // read, so care is taken to only do the read once.
+
+  // First attempt to read the injector def (`ɵinj`).
+  let def = getInjectorDef(defOrWrappedDef);
+
+  // If that's not present, then attempt to read ngModule from the InjectorDefTypeWithProviders.
+  const ngModule =
+      (def == null) && (defOrWrappedDef as InjectorTypeWithProviders<any>).ngModule || undefined;
+
+  // Determine the InjectorType. In the case where `defOrWrappedDef` is an `InjectorType`,
+  // then this is easy. In the case of an InjectorDefTypeWithProviders, then the definition type
+  // is the `ngModule`.
+  const defType: InjectorType<any> =
+      (ngModule === undefined) ? (defOrWrappedDef as InjectorType<any>) : ngModule;
+
+  // Check for circular dependencies.
+  if (ngDevMode && parents.indexOf(defType) !== -1) {
+    const defName = stringify(defType);
+    const path = parents.map(stringify);
+    throwCyclicDependencyError(defName, path);
+  }
+
+  // Check for multiple imports of the same module
+  const isDuplicate = dedupStack.indexOf(defType) !== -1;
+
+  // Finally, if defOrWrappedType was an `InjectorDefTypeWithProviders`, then the actual
+  // `InjectorDef` is on its `ngModule`.
+  if (ngModule !== undefined) {
+    def = getInjectorDef(ngModule);
+  }
+
+  // If no definition was found, it might be from exports. Remove it.
+  if (def == null) {
+    return false;
+  }
+
+  // Add providers in the same way that @NgModule resolution did:
+
+  // First, include providers from any imports.
+  if (def.imports != null && !isDuplicate) {
+    // Before processing defType's imports, add it to the set of parents. This way, if it ends
+    // up deeply importing itself, this can be detected.
+    ngDevMode && parents.push(defType);
+    // Add it to the set of dedups. This way we can detect multiple imports of the same module
+    dedupStack.push(defType);
+
+    let importTypesWithProviders: (InjectorTypeWithProviders<any>[])|undefined;
+    try {
+      deepForEach(def.imports, imported => {
+        if (walkProviderTree(imported, visitProvider, visitInjectorType, parents, dedupStack)) {
+          if (importTypesWithProviders === undefined) importTypesWithProviders = [];
+          // If the processed import is an injector type with providers, we store it in the
+          // list of import types with providers, so that we can process those afterwards.
+          importTypesWithProviders.push(imported);
+        }
+      });
+    } finally {
+      // Remove it from the parents set when finished.
+      ngDevMode && parents.pop();
+    }
+
+    // Imports which are declared with providers (TypeWithProviders) need to be processed
+    // after all imported modules are processed. This is similar to how View Engine
+    // processes/merges module imports in the metadata resolver. See: FW-1349.
+    if (importTypesWithProviders !== undefined) {
+      for (let i = 0; i < importTypesWithProviders.length; i++) {
+        const {ngModule, providers} = importTypesWithProviders[i];
+        deepForEach(
+            providers!, provider => visitProvider(provider, ngModule, providers || EMPTY_ARRAY));
+      }
+    }
+  }
+  // Track the InjectorType and add a provider for it.
+  // It's important that this is done after the def's imports.
+  visitInjectorType(defType);
+
+  // Next, include providers listed on the definition itself.
+  const defProviders = def.providers;
+  if (defProviders != null && !isDuplicate) {
+    const injectorType = defOrWrappedDef as InjectorType<any>;
+    deepForEach(defProviders, provider => visitProvider(provider, injectorType, defProviders));
+  }
+
+  return (
+      ngModule !== undefined &&
+      (defOrWrappedDef as InjectorTypeWithProviders<any>).providers !== undefined);
+}
+
+const INJECTOR_INITIALIZER = new InjectionToken(ngDevMode ? 'Injector Initializer' : '');
+
+const noop = () => {};
+
+export function importProvidersFrom(injectorType: Type<unknown>): StaticProvider[] {
+  const providers: StaticProvider[] = [];
+  const visitInjectorType = (injectorType: InjectorType<any>) => {
+    // push INJECTOR_INITIALIZER
+    providers.push({
+      provide: INJECTOR_INITIALIZER,
+      useFactory: noop,
+      deps: [injectorType],
+      multi: true,
+    });
+  };
+  const visitProvider = (provider: StaticProvider) => providers.push(provider);
+  walkProviderTree(injectorType as InjectorType<any>, visitProvider, visitInjectorType);
+  return providers;
+}
 export class R3Injector {
   /**
    * Map of tokens to records which contain the instances of those tokens.
@@ -136,8 +263,6 @@ export class R3Injector {
   constructor(
       def: InjectorType<any>, additionalProviders: StaticProvider[]|null, readonly parent: Injector,
       source: string|null = null) {
-    const dedupStack: InjectorType<any>[] = [];
-
     // Start off by creating Records for every provider declared in every InjectorType
     // included transitively in additional providers then do the same for `def`. This order is
     // important because `def` may include providers that override ones in additionalProviders.
@@ -146,7 +271,16 @@ export class R3Injector {
             additionalProviders,
             provider => this.processProvider(provider, def, additionalProviders));
 
-    deepForEach([def], injectorDef => this.processInjectorType(injectorDef, [], dedupStack));
+    const visitInjectorType = (injectorType: any) => {
+      this.injectorDefTypes.add(injectorType);
+      const factory = getFactoryDef(injectorType) || (() => new injectorType());
+      this.records.set(injectorType, makeRecord(factory, NOT_YET));
+    };
+    const visitProvider = (provider: any, injectorType: any, providers: any[]) => {
+      this.processProvider(provider, injectorType, providers);
+    };
+    deepForEach(
+        [def], injectorDef => walkProviderTree(injectorDef, visitProvider, visitInjectorType));
 
     // Make sure the INJECTOR token provides this injector.
     this.records.set(INJECTOR, makeRecord(undefined, this));
@@ -260,116 +394,6 @@ export class R3Injector {
           RuntimeErrorCode.INJECTOR_ALREADY_DESTROYED,
           ngDevMode && 'Injector has already been destroyed.');
     }
-  }
-
-  /**
-   * Add an `InjectorType` or `InjectorTypeWithProviders` and all of its transitive providers
-   * to this injector.
-   *
-   * If an `InjectorTypeWithProviders` that declares providers besides the type is specified,
-   * the function will return "true" to indicate that the providers of the type definition need
-   * to be processed. This allows us to process providers of injector types after all imports of
-   * an injector definition are processed. (following View Engine semantics: see FW-1349)
-   */
-  private processInjectorType(
-      defOrWrappedDef: InjectorType<any>|InjectorTypeWithProviders<any>,
-      parents: InjectorType<any>[],
-      dedupStack: InjectorType<any>[]): defOrWrappedDef is InjectorTypeWithProviders<any> {
-    defOrWrappedDef = resolveForwardRef(defOrWrappedDef);
-    if (!defOrWrappedDef) return false;
-
-    // Either the defOrWrappedDef is an InjectorType (with injector def) or an
-    // InjectorDefTypeWithProviders (aka ModuleWithProviders). Detecting either is a megamorphic
-    // read, so care is taken to only do the read once.
-
-    // First attempt to read the injector def (`ɵinj`).
-    let def = getInjectorDef(defOrWrappedDef);
-
-    // If that's not present, then attempt to read ngModule from the InjectorDefTypeWithProviders.
-    const ngModule =
-        (def == null) && (defOrWrappedDef as InjectorTypeWithProviders<any>).ngModule || undefined;
-
-    // Determine the InjectorType. In the case where `defOrWrappedDef` is an `InjectorType`,
-    // then this is easy. In the case of an InjectorDefTypeWithProviders, then the definition type
-    // is the `ngModule`.
-    const defType: InjectorType<any> =
-        (ngModule === undefined) ? (defOrWrappedDef as InjectorType<any>) : ngModule;
-
-    // Check for circular dependencies.
-    if (ngDevMode && parents.indexOf(defType) !== -1) {
-      const defName = stringify(defType);
-      const path = parents.map(stringify);
-      throwCyclicDependencyError(defName, path);
-    }
-
-    // Check for multiple imports of the same module
-    const isDuplicate = dedupStack.indexOf(defType) !== -1;
-
-    // Finally, if defOrWrappedType was an `InjectorDefTypeWithProviders`, then the actual
-    // `InjectorDef` is on its `ngModule`.
-    if (ngModule !== undefined) {
-      def = getInjectorDef(ngModule);
-    }
-
-    // If no definition was found, it might be from exports. Remove it.
-    if (def == null) {
-      return false;
-    }
-
-    // Add providers in the same way that @NgModule resolution did:
-
-    // First, include providers from any imports.
-    if (def.imports != null && !isDuplicate) {
-      // Before processing defType's imports, add it to the set of parents. This way, if it ends
-      // up deeply importing itself, this can be detected.
-      ngDevMode && parents.push(defType);
-      // Add it to the set of dedups. This way we can detect multiple imports of the same module
-      dedupStack.push(defType);
-
-      let importTypesWithProviders: (InjectorTypeWithProviders<any>[])|undefined;
-      try {
-        deepForEach(def.imports, imported => {
-          if (this.processInjectorType(imported, parents, dedupStack)) {
-            if (importTypesWithProviders === undefined) importTypesWithProviders = [];
-            // If the processed import is an injector type with providers, we store it in the
-            // list of import types with providers, so that we can process those afterwards.
-            importTypesWithProviders.push(imported);
-          }
-        });
-      } finally {
-        // Remove it from the parents set when finished.
-        ngDevMode && parents.pop();
-      }
-
-      // Imports which are declared with providers (TypeWithProviders) need to be processed
-      // after all imported modules are processed. This is similar to how View Engine
-      // processes/merges module imports in the metadata resolver. See: FW-1349.
-      if (importTypesWithProviders !== undefined) {
-        for (let i = 0; i < importTypesWithProviders.length; i++) {
-          const {ngModule, providers} = importTypesWithProviders[i];
-          deepForEach(
-              providers!,
-              provider => this.processProvider(provider, ngModule, providers || EMPTY_ARRAY));
-        }
-      }
-    }
-    // Track the InjectorType and add a provider for it. It's important that this is done after the
-    // def's imports.
-    this.injectorDefTypes.add(defType);
-    const factory = getFactoryDef(defType) || (() => new defType());
-    this.records.set(defType, makeRecord(factory, NOT_YET));
-
-    // Next, include providers listed on the definition itself.
-    const defProviders = def.providers;
-    if (defProviders != null && !isDuplicate) {
-      const injectorType = defOrWrappedDef as InjectorType<any>;
-      deepForEach(
-          defProviders, provider => this.processProvider(provider, injectorType, defProviders));
-    }
-
-    return (
-        ngModule !== undefined &&
-        (defOrWrappedDef as InjectorTypeWithProviders<any>).providers !== undefined);
   }
 
   /**
