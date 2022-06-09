@@ -561,7 +561,7 @@ function createHostBindingsFunction(
         // invoking sanitization function.
         sanitizerFn = o.importExpr(R3.sanitizeUrlOrResourceUrl);
       } else {
-        sanitizerFn = resolveSanitizationFn(securityContexts[0], isAttribute);
+        sanitizerFn = resolveSanitizationFn(securityContexts[0], bindingName, isAttribute);
       }
     }
     const instructionParams = [o.literal(bindingName), bindingExpr.currValExpr];

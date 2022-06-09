@@ -783,7 +783,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
           const params: any[] = [];
           const [attrNamespace, attrName] = splitNsName(input.name);
           const isAttributeBinding = inputType === BindingType.Attribute;
-          const sanitizationRef = resolveSanitizationFn(input.securityContext, isAttributeBinding);
+          const sanitizationRef =
+              resolveSanitizationFn(input.securityContext, attrName, isAttributeBinding);
           if (sanitizationRef) params.push(sanitizationRef);
           if (attrNamespace) {
             const namespaceLiteral = o.literal(attrNamespace);
@@ -2160,7 +2161,8 @@ export function makeBindingParser(
   return new BindingParser(new Parser(new Lexer()), interpolationConfig, elementRegistry, []);
 }
 
-export function resolveSanitizationFn(context: core.SecurityContext, isAttribute?: boolean) {
+export function resolveSanitizationFn(
+    context: core.SecurityContext, attributeName: string, isAttribute?: boolean) {
   switch (context) {
     case core.SecurityContext.HTML:
       return o.importExpr(R3.sanitizeHtml);
@@ -2172,6 +2174,15 @@ export function resolveSanitizationFn(context: core.SecurityContext, isAttribute
       // to sanitization (only [attr.style] values are explicitly sanitized)
       return isAttribute ? o.importExpr(R3.sanitizeStyle) : null;
     case core.SecurityContext.URL:
+      // Currently, the `srcset` belongs to the SecurityContext.URL group,
+      // see `packages/compiler/src/schema/dom_security_schema.ts`. However,
+      // it requires a special handling due to the possible `srcset` format,
+      // which might include multiple URLs, for example: `small.png 100w, large.png 200w`.
+      // In this case, all URLs within the `srcset` value must be sanitized,
+      // so we use a special instruction to take care of it.
+      if (attributeName === 'srcset') {
+        return o.importExpr(R3.sanitizeSrcset);
+      }
       return o.importExpr(R3.sanitizeUrl);
     case core.SecurityContext.RESOURCE_URL:
       return o.importExpr(R3.sanitizeResourceUrl);

@@ -195,6 +195,62 @@ describe('attribute binding', () => {
     // should not start with `unsafe:`.
     expect(a.href.indexOf('unsafe:')).toBe(-1);
   });
+
+  it('should sanitize `srcset` attribute values (single URL)', () => {
+    @Component({
+      template: `<img [attr.srcset]="badUrl">`,
+    })
+    class Comp {
+      badUrl: string|SafeUrl = 'javascript:true';
+    }
+
+    TestBed.configureTestingModule({declarations: [Comp]});
+    const fixture = TestBed.createComponent(Comp);
+    fixture.detectChanges();
+
+    const img = fixture.debugElement.query(By.css('img')).nativeElement;
+    // NOTE: different browsers will add `//` into the URI.
+    expect(img.srcset.indexOf('unsafe:')).toBe(0);
+
+    const domSanitizer: DomSanitizer = TestBed.inject(DomSanitizer);
+    fixture.componentInstance.badUrl =
+        domSanitizer.bypassSecurityTrustUrl('javascript:alert("this is fine")');
+    fixture.detectChanges();
+
+    // should not start with `unsafe:`.
+    expect(img.srcset.indexOf('unsafe:')).toBe(-1);
+  });
+
+  // TODO:
+  // - add Ngtsc tests to make sure we produce the right output (which includes `sanitizeSrcset`)
+  // - add tests that would use `source` tag, since it may also have `srcset` attribute
+  // - for each test above, check both single URL value as well as multiple URLs (in `srcset`
+  // format)
+  it('should sanitize `srcset` attribute values (multiple URLs)', () => {
+    @Component({
+      template: `<img [attr.srcset]="badSrcSet">`,
+    })
+    class Comp {
+      badSrcSet: string|SafeUrl = 'javascript:true 100w, javascript:true 200w';
+    }
+
+    TestBed.configureTestingModule({declarations: [Comp]});
+    const fixture = TestBed.createComponent(Comp);
+    fixture.detectChanges();
+
+    const img = fixture.debugElement.query(By.css('img')).nativeElement;
+    // NOTE: different browsers will add `//` into the URI, so just count
+    // the number of times the `unsafe:` prefix is present in the `srcset`.
+    expect(img.srcset.match(/unsafe\:/g).length).toBe(2);
+
+    const domSanitizer: DomSanitizer = TestBed.inject(DomSanitizer);
+    fixture.componentInstance.badSrcSet = domSanitizer.bypassSecurityTrustUrl(
+        'javascript:true 100w, javascript:true 200w, javascript:true 300w');
+    fixture.detectChanges();
+
+    // Should not contain any `unsafe:` prefixes.
+    expect(img.srcset.indexOf('unsafe:')).toBe(-1);
+  });
 });
 
 describe('attribute interpolation', () => {

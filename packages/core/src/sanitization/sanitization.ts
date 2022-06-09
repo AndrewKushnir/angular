@@ -19,7 +19,7 @@ import {allowSanitizationBypassAndThrow, BypassType, unwrapSafeValue} from './by
 import {_sanitizeHtml as _sanitizeHtml} from './html_sanitizer';
 import {Sanitizer} from './sanitizer';
 import {SecurityContext} from './security';
-import {_sanitizeUrl as _sanitizeUrl} from './url_sanitizer';
+import {_sanitizeUrl as _sanitizeUrl, sanitizeSrcset} from './url_sanitizer';
 
 
 
@@ -73,8 +73,7 @@ export function ɵɵsanitizeStyle(unsafeStyle: any): string {
 
 /**
  * A `url` sanitizer which converts untrusted `url` **string** into trusted string by removing
- * dangerous
- * content.
+ * dangerous content.
  *
  * This method parses the `url` and locates potentially dangerous content (such as javascript) and
  * removes it.
@@ -96,6 +95,31 @@ export function ɵɵsanitizeUrl(unsafeUrl: any): string {
     return unwrapSafeValue(unsafeUrl);
   }
   return _sanitizeUrl(renderStringify(unsafeUrl));
+}
+
+/**
+ * Sanitizer which handles string values in the `srcset` format, which might potentially have
+ * multiple URLs. If that's the case, this sanitizer applies the `sanitizeUrl` for each URL found
+ * in the string.
+ *
+ * It is possible to mark a string as trusted by calling {@link bypassSanitizationTrustUrl}.
+ *
+ * @param unsafeSrcset untrusted `srcset`, typically from the user.
+ * @returns `srcset` string which is safe to bind to the `srcset` properties such as `<img srcset>`.
+ *
+ * @codeGenApi
+ */
+export function ɵɵsanitizeSrcset(unsafeSrcset: any): string {
+  const sanitizer = getSanitizer();
+  if (sanitizer) {
+    // Use the `SecurityContext.URL` context based on the configuration
+    // within the `packages/compiler/src/schema/dom_security_schema.ts`.
+    return sanitizer.sanitize(SecurityContext.URL, unsafeSrcset) || '';
+  }
+  if (allowSanitizationBypassAndThrow(unsafeSrcset, BypassType.Url)) {
+    return unwrapSafeValue(unsafeSrcset);
+  }
+  return sanitizeSrcset(renderStringify(unsafeSrcset));
 }
 
 /**

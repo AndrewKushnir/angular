@@ -280,6 +280,7 @@ export {
   ɵɵsanitizeUrlOrResourceUrl,
   ɵɵtrustConstantHtml,
   ɵɵtrustConstantResourceUrl,
+  ɵɵsanitizeSrcset,
 } from './sanitization/sanitization';
 export {
   noSideEffects as ɵnoSideEffects,
