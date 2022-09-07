@@ -7,7 +7,7 @@
  */
 
 import {CommonModule, DOCUMENT, XhrFactory, ɵPLATFORM_BROWSER_ID as PLATFORM_BROWSER_ID} from '@angular/common';
-import {APP_ID, ApplicationModule, ApplicationRef, createPlatformFactory, EnvironmentProviders, ErrorHandler, Inject, InjectionToken, ModuleWithProviders, NgModule, NgZone, Optional, PLATFORM_ID, PLATFORM_INITIALIZER, platformCore, PlatformRef, Provider, RendererFactory2, SkipSelf, StaticProvider, Testability, TestabilityRegistry, Type, ɵINJECTOR_SCOPE as INJECTOR_SCOPE, ɵinternalCreateApplication as internalCreateApplication, ɵsetDocument, ɵTESTABILITY as TESTABILITY, ɵTESTABILITY_GETTER as TESTABILITY_GETTER} from '@angular/core';
+import {APP_ID, ApplicationModule, ApplicationRef, createPlatformFactory, DELEGATE_RENDERER_FACTORY_FN, EnvironmentProviders, ErrorHandler, HydrationRenderer, inject, Inject, Injectable, InjectionToken, ModuleWithProviders, NgModule, NgZone, Optional, PLATFORM_ID, PLATFORM_INITIALIZER, platformCore, PlatformRef, Provider, Renderer2, RendererFactory2, RendererType2, SkipSelf, StaticProvider, Testability, TestabilityRegistry, Type, ɵINJECTOR_SCOPE as INJECTOR_SCOPE, ɵinternalCreateApplication as internalCreateApplication, ɵsetDocument, ɵTESTABILITY as TESTABILITY, ɵTESTABILITY_GETTER as TESTABILITY_GETTER} from '@angular/core';
 
 import {BrowserDomAdapter} from './browser/browser_adapter';
 import {SERVER_TRANSITION_PROVIDERS, TRANSITION_ID} from './browser/server-transition';
@@ -95,6 +95,63 @@ export interface ApplicationConfig {
 export function bootstrapApplication(
     rootComponent: Type<unknown>, options?: ApplicationConfig): Promise<ApplicationRef> {
   return internalCreateApplication({rootComponent, ...createProvidersConfig(options)});
+}
+
+export function provideHydrationSupport() {
+  return [{provide: RendererFactory2, useClass: HydrationRendererFactory2}];
+}
+
+/**
+ * Internal registry of DOM nodes participating in hydration.
+ */
+const HYDRATION_NODE_REGISTRY = new InjectionToken(NG_DEV_MODE ? 'HYDRATION_NODE_REGISTRY' : '', {
+  providedIn: 'root',
+  factory: () => new Map(),
+});
+
+@Injectable()
+export class HydrationRendererFactory2 implements RendererFactory2 {
+  private document = inject(DOCUMENT);
+  private nodeRegistry = inject(HYDRATION_NODE_REGISTRY);
+  private delegateRendererFactory2: RendererFactory2;
+
+  constructor() {
+    // TODO: currently we use `DomRendererFactory2` as a delegate renderer,
+    // but a renderer might be configured by developers, so we should find
+    // a way to use a configured renderer instead.
+    const delegateRendererFn = inject(DELEGATE_RENDERER_FACTORY_FN, {optional: true});
+    const domRendererFactory = inject(DomRendererFactory2);
+    this.delegateRendererFactory2 = delegateRendererFn?.(domRendererFactory) ?? domRendererFactory;
+  }
+
+  createRenderer(element: any, type: RendererType2|null): Renderer2 {
+    const delegateRenderer = this.delegateRendererFactory2.createRenderer(element, type);
+    return new HydrationRenderer(this.document, this.nodeRegistry, delegateRenderer);
+  }
+
+  begin() {}
+  end() {}
+}
+
+/**
+ * *** WARNING: EXTREMELY EXPERIMENTAL API! ***
+ *
+ * Hydrates an application, trying to pick up existing nodes from the DOM
+ * instead of creating new ones like `bootstrapApplication` does. The DOM
+ * structure *must* be produced by the serialization functions like
+ * `renderModule` (for NgModule cases) and `renderApplication` (for standalone
+ * components cases).
+ *
+ * @developerPreview
+ * @publicApi
+ */
+export function hydrateApplication<T>(
+    rootComponent: Type<T>, options?: {providers: Provider[]}): Promise<ApplicationRef> {
+  const renderer: Provider[] = [
+    {provide: RendererFactory2, useClass: HydrationRendererFactory2},
+  ];
+  const providers = [...(options?.providers || []), ...renderer];
+  return bootstrapApplication(rootComponent, {providers});
 }
 
 /**

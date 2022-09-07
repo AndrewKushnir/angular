@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
+import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵclearTrackedLViews, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
 import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
@@ -14,6 +14,12 @@ import {PlatformState} from './platform_state';
 import {platformDynamicServer, platformServer, ServerModule} from './server';
 import {BEFORE_APP_SERIALIZED, INITIAL_CONFIG} from './tokens';
 import {TRANSFER_STATE_SERIALIZATION_PROVIDERS} from './transfer_state';
+
+/**
+ * Enables extra profiling output in the console (such as
+ * an execution time of a particular function/subsystem).
+ */
+const ENABLE_PROFILING = true;
 
 interface PlatformOptions {
   document?: string|Document;
@@ -43,6 +49,33 @@ function appendServerContextInfo(serverContext: string, applicationRef: Applicat
       renderer.setAttribute(element, 'ng-server-context', serverContext);
     }
   });
+}
+
+/**
+ * Helper function to replace serialized comment nodes with
+ * a more compact representation, i.e. `<!--1|5-->` -> `<!1|5>`.
+ * Ideally, it should be a part of Domino and there should be
+ * no need to go over the HTML string once again, but Domino
+ * doesn't support this at the moment.
+ */
+function compactCommentNodes(content: string): string {
+  const shorten = () => content.replace(/<!--(.*?)-->/g, '<!$1>');
+
+  if (ENABLE_PROFILING) {
+    const lengthBefore = content.length;
+    console.time('compactCommentNodes');
+
+    content = shorten();
+
+    const lengthAfter = content.length;
+    console.timeEnd('compactCommentNodes');
+    console.log(
+        'compactCommentNodes: original size: ', lengthBefore, ', new size: ', lengthAfter,
+        ', saved: ', lengthBefore - lengthAfter);
+  } else {
+    content = shorten();  // same as above, but without extra logging
+  }
+  return content;
 }
 
 function _render<T>(
@@ -90,7 +123,30 @@ the server-rendered app can be properly bootstrapped into a client app.`);
           }
 
           const complete = () => {
-            const output = platformState.renderToString();
+            let preAnnotatedOutput: string|null = null;
+            if (ENABLE_PROFILING) {
+              // Check the HTML output size before we add extra markers.
+              preAnnotatedOutput = platformState.renderToString();
+              console.log('Pre-annotated output size: ', preAnnotatedOutput.length);
+            }
+
+            annotateForHydration(platformState.getDocument());
+
+            ENABLE_PROFILING && console.time('renderToString');
+            let output = platformState.renderToString();
+            ENABLE_PROFILING && console.timeEnd('renderToString');
+
+            // Shortens `<!--1|5-->` to `<!1|5>`.
+            output = compactCommentNodes(output);
+
+            if (ENABLE_PROFILING) {
+              const overheadInBytes = output.length - preAnnotatedOutput!.length;
+              const overheadInPercent = Math.round((overheadInBytes / output.length) * 10000) / 100;
+              console.log(
+                  '* Hydration annotation HTML size overhead: ', overheadInBytes, ' chars, ',
+                  overheadInPercent, '%');
+            }
+
             platform.destroy();
             return output;
           };
@@ -108,6 +164,51 @@ the server-rendered app can be properly bootstrapped into a client app.`);
               .then(complete);
         });
   });
+}
+
+/**
+ * Created a hydration key value based on an lView index and and element id.
+ * This value is used during the hydration process on a client to find
+ * corresponding nodes in the DOM.
+ */
+function hydrationKey(lViewId: string, elementId: string, delimiter = '|'): string {
+  return `${lViewId}${delimiter}${elementId}`;
+}
+
+/**
+ * Annotates document nodes with extra info needed for hydration on a client later:
+ * - for comment nodes: insert hydration key as a content
+ * - for element nodes: add a new `ngh` attribute
+ * - for text nodes: create a new comment node with a key
+ *                   and append this comment node after the text node
+ */
+function annotateForHydration(doc: Document) {
+  ENABLE_PROFILING && console.time('* Hydration annotation exec time overhead');
+
+  const visitNode = (node: any) => {
+    const hydrationKey = node.__ngh__;
+    if (hydrationKey) {
+      if (node.nodeType === Node.COMMENT_NODE) {
+        node.textContent = hydrationKey;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        node.setAttribute('ngh', hydrationKey);
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        // Note: `?` is a special marker that represents a marker for a text node.
+        const key = hydrationKey.replace('|', '?');
+        const marker = doc.createComment(key);
+        node.after(marker);
+      }
+    }
+
+    let current = node.firstChild;
+    while (current) {
+      visitNode(current);
+      current = current.nextSibling;
+    }
+  };
+  visitNode(doc.body);
+
+  ENABLE_PROFILING && console.timeEnd('* Hydration annotation exec time overhead');
 }
 
 /**
@@ -149,9 +250,18 @@ export function renderModule<T>(moduleType: Type<T>, options: {
   url?: string,
   extraProviders?: StaticProvider[],
 }): Promise<string> {
+  ENABLE_PROFILING && console.log('--------------');
+  ENABLE_PROFILING && console.time('renderModule (total time)');
+  ɵclearTrackedLViews();
   const {document, url, extraProviders: platformProviders} = options;
+  ENABLE_PROFILING && console.time('createPlatform');
   const platform = _getPlatform(platformDynamicServer, {document, url, platformProviders});
-  return _render(platform, platform.bootstrapModule(moduleType));
+  ENABLE_PROFILING && console.timeEnd('createPlatform');
+  return _render(platform, platform.bootstrapModule(moduleType)).then((result: string) => {
+    ENABLE_PROFILING && console.timeEnd('renderModule (total time)');
+    ENABLE_PROFILING && console.log('--------------');
+    return result;
+  });
 }
 
 /**
@@ -193,15 +303,25 @@ export function renderApplication<T>(rootComponent: Type<T>, options: {
   providers?: Array<Provider|EnvironmentProviders>,
   platformProviders?: Provider[],
 }): Promise<string> {
+  ENABLE_PROFILING && console.log('--------------');
+  ENABLE_PROFILING && console.time('renderApplication (total time)');
+  ɵclearTrackedLViews();
   const {document, url, platformProviders, appId} = options;
+  ENABLE_PROFILING && console.time('createPlatform');
   const platform = _getPlatform(platformDynamicServer, {document, url, platformProviders});
+  ENABLE_PROFILING && console.timeEnd('createPlatform');
   const appProviders = [
     importProvidersFrom(BrowserModule.withServerTransition({appId})),
     importProvidersFrom(ServerModule),
     ...TRANSFER_STATE_SERIALIZATION_PROVIDERS,
     ...(options.providers ?? []),
   ];
-  return _render(platform, internalCreateApplication({rootComponent, appProviders}));
+  return _render(platform, internalCreateApplication({rootComponent, appProviders}))
+      .then((result: string) => {
+        ENABLE_PROFILING && console.timeEnd('renderApplication (total time)');
+        ENABLE_PROFILING && console.log('--------------');
+        return result;
+      });
 }
 
 /**

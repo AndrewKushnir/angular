@@ -12,10 +12,11 @@ import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNodeType} from '../interfaces/node';
 import {isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, LView, RENDERER, TView, TViewType} from '../interfaces/view';
-import {appendChild} from '../node_manipulation';
+import {appendChild, createCommentNode} from '../node_manipulation';
 import {getLView, getTView, setCurrentTNode} from '../state';
 import {getConstant} from '../util/view_utils';
-import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
+
+import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getHydrationKey, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
 
 
@@ -79,7 +80,8 @@ export function ɵɵtemplate(
                                         tView.data[adjustedIndex] as TContainerNode;
   setCurrentTNode(tNode, false);
 
-  const comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
+  const hydrationKey = getHydrationKey(lView, index);
+  const comment = createCommentNode(lView[RENDERER], ngDevMode ? 'container' : '', hydrationKey);
   appendChild(tView, lView, comment, tNode);
   attachPatchData(comment, lView);
 

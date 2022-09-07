@@ -31,12 +31,12 @@ import {getNodeInjectable, NodeInjector} from './di';
 import {throwProviderNotFoundError} from './errors_di';
 import {registerPostOrderHooks} from './hooks';
 import {reportUnknownPropertyError} from './instructions/element_validation';
-import {addToViewTree, createLView, createTView, executeContentQueries, getOrCreateComponentTView, getOrCreateTNode, initializeDirectives, invokeDirectivesHostBindings, locateHostElement, markAsComponentHost, markDirtyIfOnPush, renderView, setInputsForProperty} from './instructions/shared';
+import {addToViewTree, createLView, createTView, executeContentQueries, getHydrationKey, getOrCreateComponentTView, getOrCreateTNode, initializeDirectives, invokeDirectivesHostBindings, locateHostElement, markAsComponentHost, markDirtyIfOnPush, renderView, setInputsForProperty} from './instructions/shared';
 import {ComponentDef, DirectiveDef, HostDirectiveDefs} from './interfaces/definition';
 import {PropertyAliasValue, TContainerNode, TElementContainerNode, TElementNode, TNode, TNodeType} from './interfaces/node';
 import {Renderer, RendererFactory} from './interfaces/renderer';
 import {RElement, RNode} from './interfaces/renderer_dom';
-import {CONTEXT, HEADER_OFFSET, LView, LViewFlags, TVIEW, TViewType} from './interfaces/view';
+import {CONTEXT, HEADER_OFFSET, HYDRATION_KEY, LView, LViewFlags, TVIEW, TViewType} from './interfaces/view';
 import {MATH_ML_NAMESPACE, SVG_NAMESPACE} from './namespaces';
 import {createElementNode, setupStaticAttributes, writeDirectClass} from './node_manipulation';
 import {extractAttrsAndClassesFromSelector, stringifyCSSSelectorList} from './node_selector_matcher';
@@ -136,8 +136,8 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
 
   override create(
       injector: Injector, projectableNodes?: any[][]|undefined, rootSelectorOrNode?: any,
-      environmentInjector?: NgModuleRef<any>|EnvironmentInjector|
-      undefined): AbstractComponentRef<T> {
+      environmentInjector?: NgModuleRef<any>|EnvironmentInjector|undefined,
+      ngh?: string): AbstractComponentRef<T> {
     environmentInjector = environmentInjector || this.ngModule;
 
     let realEnvironmentInjector = environmentInjector instanceof EnvironmentInjector ?
@@ -164,12 +164,6 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
     const sanitizer = rootViewInjector.get(Sanitizer, null);
 
     const hostRenderer = rendererFactory.createRenderer(null, this.componentDef);
-    // Determine a tag name used for creating host elements when this component is created
-    // dynamically. Default to 'div' if this component did not specify any tag name in its selector.
-    const elementName = this.componentDef.selectors[0][0] as string || 'div';
-    const hostRNode = rootSelectorOrNode ?
-        locateHostElement(hostRenderer, rootSelectorOrNode, this.componentDef.encapsulation) :
-        createElementNode(hostRenderer, elementName, getNamespace(elementName));
 
     const rootFlags = this.componentDef.onPush ? LViewFlags.Dirty | LViewFlags.IsRoot :
                                                  LViewFlags.CheckAlways | LViewFlags.IsRoot;
@@ -178,7 +172,7 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
     const rootTView = createTView(TViewType.Root, null, null, 1, 0, null, null, null, null, null);
     const rootLView = createLView(
         null, rootTView, null, rootFlags, null, null, rendererFactory, hostRenderer, sanitizer,
-        rootViewInjector, null);
+        rootViewInjector, null, ngh ?? null);
 
     // rootView is the parent when bootstrapping
     // TODO(misko): it looks like we are entering view here but we don't really need to as
@@ -186,6 +180,20 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
     // `createRootComponentView` and `createRootComponent` both read global state. Fixing those
     // issues would allow us to drop this.
     enterView(rootLView);
+
+    // Determine a tag name used for creating host elements when this component is created
+    // dynamically. Default to 'div' if this component did not specify any tag name in its selector.
+    const elementName = this.componentDef.selectors[0][0] as string || 'div';
+    let hostRNode: RElement;
+    if (rootSelectorOrNode) {
+      hostRNode =
+          locateHostElement(hostRenderer, rootSelectorOrNode, this.componentDef.encapsulation);
+    } else {
+      // NOTE: extra annotation for hydration key is just for debugging purposes.
+      const hydrationKey = getHydrationKey(rootLView, `0-ComponentFactory.create`);
+      hostRNode =
+          createElementNode(hostRenderer, elementName, getNamespace(elementName), hydrationKey);
+    }
 
     let component: T;
     let tElementNode: TElementNode;
@@ -204,9 +212,11 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
         rootDirectives = [rootComponentDef];
       }
 
-      const hostTNode = createRootComponentTNode(rootLView, hostRNode);
+      // NOTE: the native node is created *before* LView, which breaks hydration.
+      // We should create LView first!
+      const hostTNode = createRootComponentTNode(rootLView, hostRNode!);
       const componentView = createRootComponentView(
-          hostTNode, hostRNode, rootComponentDef, rootDirectives, rootLView, rendererFactory,
+          hostTNode, hostRNode!, rootComponentDef, rootDirectives, rootLView, rendererFactory,
           hostRenderer);
 
       tElementNode = getTNode(rootTView, HEADER_OFFSET) as TElementNode;
@@ -337,10 +347,13 @@ function createRootComponentView(
   applyRootComponentStyling(rootDirectives, tNode, rNode, hostRenderer);
 
   const viewRenderer = rendererFactory.createRenderer(rNode, rootComponentDef);
+  // Reuse hydration key, since the root LView would not be actually present
+  // on its own in a DOM, only component's LView contents would be present.
+  const hydrationKey = rootView[HYDRATION_KEY];
   const componentView = createLView(
       rootView, getOrCreateComponentTView(rootComponentDef), null,
       rootComponentDef.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways, rootView[tNode.index],
-      tNode, rendererFactory, viewRenderer, sanitizer || null, null, null);
+      tNode, rendererFactory, viewRenderer, sanitizer || null, null, null, hydrationKey);
 
   if (tView.firstCreatePass) {
     markAsComponentHost(tView, tNode, rootDirectives.length - 1);

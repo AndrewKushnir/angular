@@ -9,7 +9,7 @@
 import {AnimationBuilder} from '@angular/animations';
 import {AnimationDriver, ɵAnimationEngine as AnimationEngine, ɵAnimationStyleNormalizer as AnimationStyleNormalizer, ɵNoopAnimationDriver as NoopAnimationDriver, ɵWebAnimationsDriver as WebAnimationsDriver, ɵWebAnimationsStyleNormalizer as WebAnimationsStyleNormalizer} from '@angular/animations/browser';
 import {DOCUMENT} from '@angular/common';
-import {ANIMATION_MODULE_TYPE, ApplicationRef, Inject, Injectable, NgZone, OnDestroy, Provider, RendererFactory2} from '@angular/core';
+import {ANIMATION_MODULE_TYPE, ApplicationRef, DELEGATE_RENDERER_FACTORY_FN, inject, Inject, Injectable, NgZone, OnDestroy, Provider, RendererFactory2} from '@angular/core';
 import {ɵDomRendererFactory2 as DomRendererFactory2} from '@angular/platform-browser';
 
 import {BrowserAnimationBuilder} from './animation_builder';
@@ -35,8 +35,9 @@ export function instantiateDefaultStyleNormalizer() {
   return new WebAnimationsStyleNormalizer();
 }
 
-export function instantiateRendererFactory(
-    renderer: DomRendererFactory2, engine: AnimationEngine, zone: NgZone) {
+export function instantiateAnimationRendererFactory(renderer: DomRendererFactory2) {
+  const engine = inject(AnimationEngine);
+  const zone = inject(NgZone);
   return new AnimationRendererFactory(renderer, engine, zone);
 }
 
@@ -45,9 +46,10 @@ const SHARED_ANIMATION_PROVIDERS: Provider[] = [
   {provide: AnimationStyleNormalizer, useFactory: instantiateDefaultStyleNormalizer},
   {provide: AnimationEngine, useClass: InjectableAnimationEngine}, {
     provide: RendererFactory2,
-    useFactory: instantiateRendererFactory,
-    deps: [DomRendererFactory2, AnimationEngine, NgZone]
-  }
+    useFactory: instantiateAnimationRendererFactory,
+    deps: [DomRendererFactory2]
+  },
+  {provide: DELEGATE_RENDERER_FACTORY_FN, useValue: instantiateAnimationRendererFactory}
 ];
 
 /**

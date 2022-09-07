@@ -50,6 +50,7 @@ export function ɵɵi18nStart(
   const tView = getTView();
   const lView = getLView();
   const adjustedIndex = HEADER_OFFSET + index;
+
   ngDevMode && assertDefined(tView, `tView should be defined`);
   const message = getConstant<string>(tView.consts, messageIndex)!;
   const parentTNode = getCurrentParentTNode() as TElementNode | null;

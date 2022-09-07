@@ -33,7 +33,7 @@ import {Renderer, RendererFactory} from '../interfaces/renderer';
 import {RComment, RElement, RNode, RText} from '../interfaces/renderer_dom';
 import {SanitizerFn} from '../interfaces/sanitization';
 import {isComponentDef, isComponentHost, isContentQueryHost, isRootView} from '../interfaces/type_checks';
-import {CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_COMPONENT_VIEW, DECLARATION_VIEW, EMBEDDED_VIEW_INJECTOR, FLAGS, HEADER_OFFSET, HOST, HostBindingOpCodes, ID, InitPhaseState, INJECTOR, LView, LViewFlags, NEXT, PARENT, RENDERER, RENDERER_FACTORY, SANITIZER, T_HOST, TData, TRANSPLANTED_VIEWS_TO_REFRESH, TVIEW, TView, TViewType} from '../interfaces/view';
+import {CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_COMPONENT_VIEW, DECLARATION_VIEW, EMBEDDED_VIEW_INJECTOR, FLAGS, HEADER_OFFSET, HOST, HostBindingOpCodes, HYDRATION_KEY, ID, InitPhaseState, INJECTOR, LView, LViewFlags, NEXT, PARENT, RENDERER, RENDERER_FACTORY, SANITIZER, T_HOST, TData, TRANSPLANTED_VIEWS_TO_REFRESH, TVIEW, TView, TViewType} from '../interfaces/view';
 import {assertPureTNodeType, assertTNodeType} from '../node_assert';
 import {updateTextNode} from '../node_manipulation';
 import {isInlineTemplate, isNodeMatchingSelectorList} from '../node_selector_matcher';
@@ -120,8 +120,8 @@ function renderChildComponents(hostLView: LView, components: number[]): void {
 export function createLView<T>(
     parentLView: LView|null, tView: TView, context: T|null, flags: LViewFlags, host: RElement|null,
     tHostNode: TNode|null, rendererFactory: RendererFactory|null, renderer: Renderer|null,
-    sanitizer: Sanitizer|null, injector: Injector|null,
-    embeddedViewInjector: Injector|null): LView {
+    sanitizer: Sanitizer|null, injector: Injector|null, embeddedViewInjector: Injector|null,
+    hydrationKey: string|null): LView {
   const lView = tView.blueprint.slice() as LView;
   lView[HOST] = host;
   lView[FLAGS] = flags | LViewFlags.CreationMode | LViewFlags.Attached | LViewFlags.FirstLViewPass;
@@ -142,6 +142,7 @@ export function createLView<T>(
   lView[T_HOST] = tHostNode;
   lView[ID] = getUniqueLViewId();
   lView[EMBEDDED_VIEW_INJECTOR as any] = embeddedViewInjector;
+  lView[HYDRATION_KEY] = hydrationKey;
   ngDevMode &&
       assertEqual(
           tView.type == TViewType.Embedded ? parentLView !== null : true, true,
@@ -1379,12 +1380,13 @@ function addComponentLogic<T>(lView: LView, hostTNode: TElementNode, def: Compon
   // Only component views should be added to the view tree directly. Embedded views are
   // accessed through their containers because they may be removed / re-added later.
   const rendererFactory = lView[RENDERER_FACTORY];
+  const hydrationKey = lView[HYDRATION_KEY] + ':' + (hostTNode.index - HEADER_OFFSET);
   const componentView = addToViewTree(
       lView,
       createLView(
           lView, tView, null, def.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways, native,
           hostTNode as TElementNode, rendererFactory, rendererFactory.createRenderer(native, def),
-          null, null, null));
+          null, null, null, hydrationKey));
 
   // Component view will always be created before any injected LContainers,
   // so this is a regular element, wrap it with the component view
@@ -1906,4 +1908,19 @@ export function textBindingInternal(lView: LView, index: number, value: string):
   const element = getNativeByIndex(index, lView) as any as RText;
   ngDevMode && assertDefined(element, 'native element should exist');
   updateTextNode(lView[RENDERER], element, value);
+}
+
+/**
+ * Generates a string that represents a key that is used during the hydration
+ * to find a reference to a particular DOM element.
+ */
+export function getHydrationKey(lView: LView<unknown>, instructionIndex: number|string): string {
+  return `${lView[HYDRATION_KEY]}|${instructionIndex}`;
+}
+
+/**
+ * Monkey-patches extra info needed for hydration onto a native element.
+ */
+export function patchHydrationKey(native: any, hydrationKey: string) {
+  (native as any).__ngh__ = hydrationKey;
 }

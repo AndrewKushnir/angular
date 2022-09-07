@@ -7,11 +7,11 @@
  */
 import {assertEqual, assertIndexInRange} from '../../util/assert';
 import {TElementNode, TNodeType} from '../interfaces/node';
-import {HEADER_OFFSET, RENDERER, T_HOST} from '../interfaces/view';
+import {HEADER_OFFSET, RENDERER} from '../interfaces/view';
 import {appendChild, createTextNode} from '../node_manipulation';
 import {getBindingIndex, getLView, getTView, setCurrentTNode} from '../state';
 
-import {getOrCreateTNode} from './shared';
+import {getHydrationKey, getOrCreateTNode} from './shared';
 
 
 
@@ -38,7 +38,8 @@ export function ɵɵtext(index: number, value: string = ''): void {
       getOrCreateTNode(tView, adjustedIndex, TNodeType.Text, value, null) :
       tView.data[adjustedIndex] as TElementNode;
 
-  const textNative = lView[adjustedIndex] = createTextNode(lView[RENDERER], value);
+  const hydrationKey = getHydrationKey(lView, index);
+  const textNative = lView[adjustedIndex] = createTextNode(lView[RENDERER], value, hydrationKey);
   appendChild(tView, lView, textNative, tNode);
 
   // Text nodes are self closing.

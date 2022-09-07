@@ -13,15 +13,15 @@ import {assertNodeInjector} from '../render3/assert';
 import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
 import {getComponentDef} from '../render3/definition';
 import {getParentInjectorLocation, NodeInjector} from '../render3/di';
-import {addToViewTree, createLContainer} from '../render3/instructions/shared';
+import {addToViewTree, createLContainer, getHydrationKey} from '../render3/instructions/shared';
 import {CONTAINER_HEADER_OFFSET, LContainer, NATIVE, VIEW_REFS} from '../render3/interfaces/container';
 import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNodeType} from '../render3/interfaces/node';
 import {RComment, RElement} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
-import {LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
+import {HEADER_OFFSET, ID, LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
-import {addViewToContainer, destroyLView, detachView, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
+import {addViewToContainer, createCommentNode, destroyLView, detachView, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
 import {getParentInjectorIndex, getParentInjectorView, hasParentInjector} from '../render3/util/injector_utils';
 import {getNativeByTNode, unwrapRNode, viewAttachedToContainer} from '../render3/util/view_utils';
@@ -34,6 +34,7 @@ import {createElementRef, ElementRef} from './element_ref';
 import {NgModuleRef} from './ng_module_factory';
 import {TemplateRef} from './template_ref';
 import {EmbeddedViewRef, ViewRef} from './view_ref';
+
 /**
  * Represents a container where one or more views can be attached to a component.
  *
@@ -303,7 +304,8 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       injector = indexOrOptions.injector;
     }
 
-    const viewRef = templateRef.createEmbeddedView(context || <any>{}, injector);
+    const ngh = '' + this._adjustIndex(index);
+    const viewRef = templateRef.createEmbeddedView(context || <any>{}, injector, ngh);
     this.insert(viewRef, index);
     return viewRef;
   }
@@ -416,8 +418,9 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       }
     }
 
-    const componentRef =
-        componentFactory.create(contextInjector, projectableNodes, undefined, environmentInjector);
+    const ngh = '' + this._adjustIndex(index);
+    const componentRef = componentFactory.create(
+        contextInjector, projectableNodes, undefined, environmentInjector, ngh);
     this.insert(componentRef.hostView, index);
     return componentRef;
   }
@@ -568,7 +571,8 @@ export function createContainerRef(
       // manipulation to insert it.
       const renderer = hostLView[RENDERER];
       ngDevMode && ngDevMode.rendererCreateComment++;
-      commentNode = renderer.createComment(ngDevMode ? 'container' : '');
+      const hydrationKey = getHydrationKey(hostLView, hostTNode.index - HEADER_OFFSET);
+      commentNode = createCommentNode(renderer, ngDevMode ? 'container' : '', hydrationKey);
 
       const hostNative = getNativeByTNode(hostTNode, hostLView)!;
       const parentOfHostNative = nativeParentNode(renderer, hostNative);

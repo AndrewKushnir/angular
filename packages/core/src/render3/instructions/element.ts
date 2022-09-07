@@ -22,7 +22,7 @@ import {getConstant} from '../util/view_utils';
 
 import {validateElementIsKnown} from './element_validation';
 import {setDirectiveInputsWhichShadowsStyling} from './property';
-import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
+import {createDirectivesInstances, executeContentQueries, getHydrationKey, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
 
 function elementStartFirstCreatePass(
@@ -85,7 +85,9 @@ export function ɵɵelementStart(
   ngDevMode && assertIndexInRange(lView, adjustedIndex);
 
   const renderer = lView[RENDERER];
-  const native = lView[adjustedIndex] = createElementNode(renderer, name, getNamespace());
+  const hydrationKey = getHydrationKey(lView, index);
+  const native = lView[adjustedIndex] =
+      createElementNode(renderer, name, getNamespace(), hydrationKey);
   const tNode = tView.firstCreatePass ?
       elementStartFirstCreatePass(
           adjustedIndex, tView, lView, native, name, attrsIndex, localRefsIndex) :

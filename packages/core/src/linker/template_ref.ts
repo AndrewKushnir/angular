@@ -10,7 +10,7 @@ import {Injector} from '../di/injector';
 import {assertLContainer} from '../render3/assert';
 import {createLView, renderView} from '../render3/instructions/shared';
 import {TContainerNode, TNode, TNodeType} from '../render3/interfaces/node';
-import {DECLARATION_LCONTAINER, LView, LViewFlags, QUERIES, TView} from '../render3/interfaces/view';
+import {DECLARATION_LCONTAINER, HEADER_OFFSET, HYDRATION_KEY, LView, LViewFlags, QUERIES, TView} from '../render3/interfaces/view';
 import {getCurrentTNode, getLView} from '../render3/state';
 import {ViewRef as R3_ViewRef} from '../render3/view_ref';
 import {assertDefined} from '../util/assert';
@@ -58,7 +58,7 @@ export abstract class TemplateRef<C> {
    * @param injector Injector to be used within the embedded view.
    * @returns The new embedded view object.
    */
-  abstract createEmbeddedView(context: C, injector?: Injector): EmbeddedViewRef<C>;
+  abstract createEmbeddedView(context: C, injector?: Injector, ngh?: string): EmbeddedViewRef<C>;
 
   /**
    * @internal
@@ -78,11 +78,18 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
     super();
   }
 
-  override createEmbeddedView(context: T, injector?: Injector): EmbeddedViewRef<T> {
+  override createEmbeddedView(context: T, injector?: Injector, hydrationKey?: string):
+      EmbeddedViewRef<T> {
     const embeddedTView = this._declarationTContainer.tViews as TView;
+    // debugger;
+    const idx = this._declarationTContainer.index - HEADER_OFFSET;
+    const parentHydrationKey = this._declarationLView[HYDRATION_KEY];
+    // `hydrationKey` is an index in a ViewContainerRef at creation time.
+    const _hydrationKey = parentHydrationKey + ':' +
+        '(' + idx + ':' + (hydrationKey || '') + ')';
     const embeddedLView = createLView(
         this._declarationLView, embeddedTView, context, LViewFlags.CheckAlways, null,
-        embeddedTView.declTNode, null, null, null, null, injector || null);
+        embeddedTView.declTNode, null, null, null, null, injector || null, _hydrationKey);
 
     const declarationLContainer = this._declarationLView[this._declarationTContainer.index];
     ngDevMode && assertLContainer(declarationLContainer);

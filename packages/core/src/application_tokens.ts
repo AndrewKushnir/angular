@@ -8,6 +8,7 @@
 
 import {InjectionToken} from './di';
 import {ComponentRef} from './linker/component_factory';
+import {RendererFactory2} from './render';
 
 
 /**
@@ -90,3 +91,13 @@ export const PACKAGE_ROOT_URL = new InjectionToken<string>('Application Packages
  */
 export const ANIMATION_MODULE_TYPE =
     new InjectionToken<'NoopAnimations'|'BrowserAnimations'>('AnimationModuleType');
+
+/**
+ * Experimental!
+ *
+ * DI token that allows providing a renderer factory that can produce
+ * a renderer that can be used as a delegated one.
+ */
+export const DELEGATE_RENDERER_FACTORY_FN =
+    new InjectionToken<(delegate: RendererFactory2) => RendererFactory2>(
+        'DELEGATE_RENDERER_FACTORY_FN');

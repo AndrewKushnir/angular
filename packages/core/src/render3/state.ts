@@ -134,6 +134,11 @@ interface LFrame {
    * element still gets instantiated along with all of its behavior [directives])
    */
   inI18n: boolean;
+
+  /**
+   * Hydration key for an element which is being created.
+   */
+  currentHydrationKey: string|null;
 }
 
 /**
@@ -392,6 +397,14 @@ export function setInI18nBlock(isInI18nBlock: boolean): void {
   instructionState.lFrame.inI18n = isInI18nBlock;
 }
 
+export function getCurrentHydrationKey(): string|null {
+  return instructionState.lFrame.currentHydrationKey;
+}
+
+export function setCurrentHydrationKey(key: string|null) {
+  instructionState.lFrame.currentHydrationKey = key;
+}
+
 /**
  * Set a new binding root index so that host template functions can execute.
  *
@@ -568,6 +581,7 @@ export function enterView(newView: LView): void {
   newLFrame.contextLView = newView;
   newLFrame.bindingIndex = tView.bindingStartIndex;
   newLFrame.inI18n = false;
+  newLFrame.currentHydrationKey = null;
 }
 
 /**
@@ -597,6 +611,7 @@ function createLFrame(parent: LFrame|null): LFrame {
     parent: parent!,
     child: null,
     inI18n: false,
+    currentHydrationKey: null,
   };
   parent !== null && (parent.child = lFrame);  // link the new LFrame for reuse.
   return lFrame;

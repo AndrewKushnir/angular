@@ -13,12 +13,12 @@ import {TAttributes, TElementContainerNode, TNodeType} from '../interfaces/node'
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
-import {appendChild} from '../node_manipulation';
+import {appendChild, createCommentNode} from '../node_manipulation';
 import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {computeStaticStyling} from '../styling/static_styling';
 import {getConstant} from '../util/view_utils';
 
-import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
+import {createDirectivesInstances, executeContentQueries, getHydrationKey, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
 function elementContainerStartFirstCreatePass(
     index: number, tView: TView, lView: LView, attrsIndex?: number|null,
@@ -80,8 +80,9 @@ export function ɵɵelementContainerStart(
   setCurrentTNode(tNode, true);
 
   ngDevMode && ngDevMode.rendererCreateComment++;
+  const hydrationKey = getHydrationKey(lView, index);
   const native = lView[adjustedIndex] =
-      lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
+      createCommentNode(lView[RENDERER], ngDevMode ? 'ng-container' : '', hydrationKey);
   appendChild(tView, lView, native, tNode);
   attachPatchData(native, lView);
 

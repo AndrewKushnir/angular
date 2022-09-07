@@ -968,7 +968,11 @@ export class ApplicationRef {
     const ngModule =
         isBoundToModule(componentFactory) ? undefined : this._injector.get(NgModuleRef);
     const selectorOrNode = rootSelectorOrNode || componentFactory.selector;
-    const compRef = componentFactory.create(Injector.NULL, [], selectorOrNode, ngModule);
+    // TODO: we should consider passing the `ngh` via state to prevent extra args on
+    // the public API fns? Also, the first bootstrapped component can just be `r` vs `r0`,
+    // this should avoid extra chars (and would likely be the most common case).
+    const ngh = `r${this.components.length}`;
+    const compRef = componentFactory.create(Injector.NULL, [], selectorOrNode, ngModule, ngh);
     const nativeElement = compRef.location.nativeElement;
     const testability = compRef.injector.get(TESTABILITY, null);
     testability?.registerApplication(nativeElement);
@@ -1033,6 +1037,7 @@ export class ApplicationRef {
     NG_DEV_MODE && this.warnIfDestroyed();
     const view = (viewRef as InternalViewRef);
     this._views.push(view);
+    // TODO: update `ngh` for this view to be `v${this._views.length}`.
     view.attachToAppRef(this);
   }
 
