@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {CommonModule, DOCUMENT} from '@angular/common';
+import {CommonModule, DOCUMENT, NG_OPTIMIZED_IMAGE_CONFIG} from '@angular/common';
 import {RuntimeErrorCode} from '@angular/common/src/errors';
 import {Component, Provider} from '@angular/core';
 import {ComponentFixture, TestBed} from '@angular/core/testing';
@@ -739,10 +739,24 @@ describe('Image directive', () => {
          }));
     });
 
-    describe('PRECONNECT_CHECK_BLOCKLIST token', () => {
+    describe('NG_OPTIMIZED_IMAGE_CONFIG token', () => {
+      // TODO: add tests to cover:
+      //  - not providing `NG_OPTIMIZED_IMAGE_CONFIG`
+      //  - providing `NG_OPTIMIZED_IMAGE_CONFIG` at component level (node injector)
+      //  - providing `NG_OPTIMIZED_IMAGE_CONFIG` at the root level (environment injector) + at
+      //    component level (node injector)
+      // - providing a loader with `ensurePreconnect` at the root level (environment injector) to
+      //   test that `PRECONNECT_CHECK_BLOCKLIST` is populated correctly
+      // - providing a loader with `ensurePreconnect` at the component level (node injector) to
+      //   test that `PRECONNECT_CHECK_BLOCKLIST` is populated correctly
+      // - providing a loader with `ensurePreconnect` at both levels to
+      //   test that `PRECONNECT_CHECK_BLOCKLIST` is populated correctly
       it(`should allow passing host names`, withHead('', () => {
            const providers = [
-             {provide: PRECONNECT_CHECK_BLOCKLIST, useValue: 'angular.io', multi: true},
+             {
+               provide: NG_OPTIMIZED_IMAGE_CONFIG,
+               useValue: {preconnectCheckBlocklist: ['angular.io']}
+             },
            ];
            setupTestingModule({imageLoader, extraProviders: providers});
 
@@ -756,9 +770,10 @@ describe('Image directive', () => {
          }));
 
       it(`should allow passing origins`, withHead('', () => {
-           const providers = [
-             {provide: PRECONNECT_CHECK_BLOCKLIST, useValue: 'https://angular.io', multi: true},
-           ];
+           const providers = [{
+             provide: NG_OPTIMIZED_IMAGE_CONFIG,
+             useValue: {preconnectCheckBlocklist: ['https://angular.io']}
+           }];
            setupTestingModule({imageLoader, extraProviders: providers});
 
            const consoleWarnSpy = spyOn(console, 'warn');
@@ -768,54 +783,6 @@ describe('Image directive', () => {
 
            // Expect no warnings in the console.
            expect(consoleWarnSpy.calls.count()).toBe(0);
-         }));
-
-      it(`should allow passing arrays of host names`, withHead('', () => {
-           const providers = [
-             {provide: PRECONNECT_CHECK_BLOCKLIST, useValue: ['https://angular.io'], multi: true},
-           ];
-           setupTestingModule({imageLoader, extraProviders: providers});
-
-           const consoleWarnSpy = spyOn(console, 'warn');
-           const template = '<img ngSrc="a.png" width="100" height="50" priority>';
-           const fixture = createTestComponent(template);
-           fixture.detectChanges();
-
-           // Expect no warnings in the console.
-           expect(consoleWarnSpy.calls.count()).toBe(0);
-         }));
-
-      it(`should allow passing nested arrays of host names`, withHead('', () => {
-           const providers = [
-             {provide: PRECONNECT_CHECK_BLOCKLIST, useValue: [['https://angular.io']], multi: true},
-           ];
-           setupTestingModule({imageLoader, extraProviders: providers});
-
-           const consoleWarnSpy = spyOn(console, 'warn');
-           const template = '<img ngSrc="a.png" width="100" height="50" priority>';
-           const fixture = createTestComponent(template);
-           fixture.detectChanges();
-
-           // Expect no warnings in the console.
-           expect(consoleWarnSpy.calls.count()).toBe(0);
-         }));
-
-      it(`should throw when PRECONNECT_CHECK_BLOCKLIST is not a multi provider`,
-         withHead('', () => {
-           const providers = [
-             {provide: PRECONNECT_CHECK_BLOCKLIST, useValue: 'https://angular.io'},
-           ];
-           setupTestingModule({imageLoader, extraProviders: providers});
-
-           const template = '<img ngSrc="a.png" width="100" height="50" priority>';
-           expect(() => {
-             const fixture = createTestComponent(template);
-             fixture.detectChanges();
-           })
-               .toThrowError(
-                   'NG02957: The blocklist for the preconnect check was not ' +
-                   'provided as an array. Check that the `PRECONNECT_CHECK_BLOCKLIST` token ' +
-                   'is configured as a `multi: true` provider.');
          }));
     });
   });
