@@ -247,6 +247,15 @@ const _PROP_TO_ATTR =
       return inverted;
     }, new Map<string, string>());
 
+/**
+ * The set of security-sensitive attributes of an `<iframe>` that *must* be
+ * applied before setting the `src` or `srcdoc` attribute value.
+ * This ensures that all security-sensitive attributes are taken into account
+ * while creating an instance of an `<iframe>` at runtime.
+ */
+export const IFRAME_SECURITY_SENSITIVE_ATTRS =
+    new Set(['sandbox', 'allow', 'allowfullscreen', 'referrerpolicy', 'loading']);
+
 export class DomElementSchemaRegistry extends ElementSchemaRegistry {
   private _schema = new Map<string, Map<string, string>>();
   // We don't allow binding to events for security reasons. Allowing event bindings would almost

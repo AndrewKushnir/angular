@@ -7506,6 +7506,253 @@ function allTests(os: string) {
       });
     });
 
+    describe('iframe processing', () => {
+      ['sandbox', 'allow', 'allowFullscreen', 'referrerPolicy', 'loading'].forEach(attr => {
+        it('should error when security-sensitive attribute is declared as a property binding',
+           () => {
+             env.write('test.ts', `
+                import {Component} from '@angular/core';
+
+                @Component({
+                  template: \`<iframe [${attr}]="" src="http://angular.io"></iframe>\`
+                })
+                export class SomeComponent {}
+              `);
+
+             const diags = env.driveDiagnostics();
+             expect(diags.length).toBe(1);
+             expect(diags[0].messageText)
+                 .toContain(`The following attributes were declared as bindings: \`${attr}\`.`);
+           });
+
+        it('should error when security-sensitive attribute is declared as an attribute binding',
+           () => {
+             env.write('test.ts', `
+                import {Component} from '@angular/core';
+
+                @Component({
+                  template: \`<iframe [attr.${attr}]="" src="http://angular.io"></iframe>\`
+                })
+                export class SomeComponent {}
+              `);
+
+             const diags = env.driveDiagnostics();
+             expect(diags.length).toBe(1);
+             expect(diags[0].messageText)
+                 .toContain(`The following attributes were declared as bindings: \`${attr}\`.`);
+           });
+
+        it('should error when security-sensitive attribute is declared after `src`', () => {
+          env.write('test.ts', `
+                import {Component} from '@angular/core';
+
+                @Component({
+                  template: \`<iframe src="http://angular.io" ${attr}=""></iframe>\`
+                })
+                export class SomeComponent {}
+              `);
+
+          const diags = env.driveDiagnostics();
+          expect(diags.length).toBe(1);
+          expect(diags[0].messageText)
+              .toContain(
+                  `The following attributes were declared ` +
+                  `after \`src\` or \`srcdoc\`: \`${attr}\`.`);
+        });
+
+        it('should error when security-sensitive attribute is declared after `srcdoc`', () => {
+          env.write('test.ts', `
+                import {Component} from '@angular/core';
+
+                @Component({
+                  template: \`<iframe srcdoc="Hi!" ${attr}=""></iframe>\`
+                })
+                export class SomeComponent {}
+              `);
+
+          const diags = env.driveDiagnostics();
+          expect(diags.length).toBe(1);
+          expect(diags[0].messageText)
+              .toContain(
+                  `The following attributes were declared ` +
+                  `after \`src\` or \`srcdoc\`: \`${attr}\`.`);
+        });
+
+        it('should error when i18n is applied to security-sensitive attributes located after `src`',
+           () => {
+             env.write('test.ts', `
+                import {Component} from '@angular/core';
+
+                @Component({
+                  template: \`<iframe src="http://angular.io" ${attr}="" i18n-${attr}></iframe>\`
+                })
+                export class SomeComponent {}
+              `);
+
+             const diags = env.driveDiagnostics();
+             expect(diags.length).toBe(1);
+             expect(diags[0].messageText)
+                 .toContain(
+                     `The following attributes were declared after ` +
+                     `\`src\` or \`srcdoc\`: \`${attr}\`.`);
+           });
+
+        it('should not error when security-sensitive attribute names are used in class and style bindings',
+           () => {
+             env.write('test.ts', `
+                import {Component} from '@angular/core';
+
+                @Component({
+                  template: \`
+                    <iframe
+                      [class.${attr}]="true"
+                      [style.${attr}]="true"
+                      src="http://angular.io">
+                    </iframe>
+                  \`
+                })
+                export class SomeComponent {}
+              `);
+
+             const diags = env.driveDiagnostics();
+             expect(diags.length).toBe(0);
+           });
+      });
+
+      it('should error when *ngIf is used on an iframe with security-sensitive attributes after `src`',
+         () => {
+           env.write('test.ts', `
+            import {Component} from '@angular/core';
+
+            @Component({
+              template: \`<iframe *ngIf="true" src="http://angular.io" sandbox></iframe>\`
+            })
+            export class SomeComponent {}
+          `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(1);
+           expect(diags[0].messageText)
+               .toContain(
+                   `The following attributes were declared after \`src\` or \`srcdoc\`: \`sandbox\`.`);
+         });
+
+      it('should error when multiple security-sensitive attributes are declared as property bindings',
+         () => {
+           env.write('test.ts', `
+           import {Component} from '@angular/core';
+
+           @Component({
+             template: \`<iframe [allow]="" [sandbox]="" src="http://angular.io"></iframe>\`
+           })
+           export class SomeComponent {}
+         `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(1);
+           expect(diags[0].messageText)
+               .toContain(
+                   `The following attributes were declared as bindings: \`allow\`, \`sandbox\`.`);
+         });
+
+      it('should error when multiple security-sensitive attributes are declared as attribute bindings',
+         () => {
+           env.write('test.ts', `
+           import {Component} from '@angular/core';
+
+           @Component({
+             template: \`<iframe [attr.allow]="" src="http://angular.io" [attr.sandbox]=""></iframe>\`
+           })
+           export class SomeComponent {}
+         `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(1);
+           expect(diags[0].messageText)
+               .toContain(
+                   `The following attributes were declared as bindings: \`allow\`, \`sandbox\`.`);
+         });
+
+      it('should not error when both `src` and `srcdoc` are present', () => {
+        env.write('test.ts', `
+           import {Component} from '@angular/core';
+
+           @Component({
+             template: \`
+              <iframe
+                sandbox="allow-same-origin allow-scripts allow-forms allow-presentation"
+                src="about:blank" [srcdoc]="'Hi!'">
+              </iframe>
+            \`
+           })
+           export class SomeComponent {}
+         `);
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
+      });
+
+      it('should collect all security-sensitive attrs after the first `src` or `srcdoc` (when both are present)',
+         () => {
+           env.write('test.ts', `
+            import {Component} from '@angular/core';
+
+            @Component({
+              template: \`
+                <iframe
+                  sandbox
+                  src="about:blank"
+                  allow
+                  allowFullscreen
+                  [srcdoc]="'Hi!'">
+                </iframe>
+              \`
+            })
+            export class SomeComponent {}
+          `);
+
+           const diags = env.driveDiagnostics();
+           expect(diags.length).toBe(1);
+           expect(diags[0].messageText)
+               .toContain(
+                   `The following attributes were declared after \`src\` or \`srcdoc\`: \`allow\`, \`allowFullscreen\`.`);
+         });
+
+      ['src', 'srcdoc'].forEach(attr => {
+        it(`should not error when security-sensitive attributes are declared statically ` +
+               `before \`${attr}\` (${attr} is a static attribute)`,
+           () => {
+             env.write('test.ts', `
+            import {Component} from '@angular/core';
+
+            @Component({
+              template: \`<iframe allow="" sandbox="" ${attr}="http://angular.io"></iframe>\`
+            })
+            export class SomeComponent {}
+          `);
+
+             const diags = env.driveDiagnostics();
+             expect(diags.length).toBe(0);
+           });
+
+        it(`should not error when security-sensitive attributes are declared statically ` +
+               `before \`${attr}\` (${attr} is a binding)`,
+           () => {
+             env.write('test.ts', `
+              import {Component} from '@angular/core';
+
+              @Component({
+                template: \`<iframe allow="" sandbox="" [${attr}]="'http://angular.io'"></iframe>\`
+              })
+              export class SomeComponent {}
+            `);
+
+             const diags = env.driveDiagnostics();
+             expect(diags.length).toBe(0);
+           });
+      });
+    });
+
     describe('undecorated providers', () => {
       it('should error when an undecorated class, with a non-trivial constructor, is provided directly in a module',
          () => {

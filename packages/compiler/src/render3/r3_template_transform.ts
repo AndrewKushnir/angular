@@ -6,13 +6,14 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ParsedEvent, ParsedProperty, ParsedVariable} from '../expression_parser/ast';
+import {BindingType, ParsedEvent, ParsedProperty, ParsedVariable} from '../expression_parser/ast';
 import * as i18n from '../i18n/i18n_ast';
 import * as html from '../ml_parser/ast';
 import {replaceNgsp} from '../ml_parser/html_whitespaces';
 import {isNgTemplate} from '../ml_parser/tags';
 import {InterpolatedAttributeToken, InterpolatedTextToken} from '../ml_parser/tokens';
 import {ParseError, ParseErrorLevel, ParseSourceSpan} from '../parse_util';
+import {IFRAME_SECURITY_SENSITIVE_ATTRS} from '../schema/dom_element_schema_registry';
 import {isStyleUrlResolvable} from '../style_url_resolver';
 import {BindingParser} from '../template_parser/binding_parser';
 import {PreparsedElementType, preparseElement} from '../template_parser/template_preparser';
@@ -246,6 +247,15 @@ class HtmlAstToIvyAst implements html.Visitor {
     if (isI18nRootElement) {
       this.inI18nBlock = false;
     }
+
+    // While processing `<iframe>`s, ensure that security-sensitive attributes
+    // are set before `src` or `srcdoc` attributes in a template.
+    // See `ensureSafeIframeAttrs` for additional information.
+    if ((parsedElement instanceof t.Element && parsedElement.name === 'iframe') ||
+        (parsedElement instanceof t.Template && parsedElement.tagName === 'iframe')) {
+      this.ensureSafeIframeAttrs(parsedElement);
+    }
+
     return parsedElement;
   }
 
@@ -304,6 +314,77 @@ class HtmlAstToIvyAst implements html.Visitor {
       this.commentNodes.push(new t.Comment(comment.value || '', comment.sourceSpan));
     }
     return null;
+  }
+
+  /**
+   * Ensures that security-sensitive `<iframe>` attributes are:
+   * - defined as static attributes
+   * - located in front of the `src` or `srcdoc` attributes
+   *
+   * This is needed to make sure that all security-sensitive attributes
+   * are applied to an instance of an `<iframe>` before the `src` or
+   * `srcdoc` value gets set. In this case, all security-sensitive attribute
+   * values would be taken into account while creating an `<iframe>` at runtime.
+   *
+   * @param iframe an instance of an Element or a Template (in case of structural directives, for
+   *     ex. `<iframe *ngIf>`) that represents an `<iframe>` node.
+   */
+  private ensureSafeIframeAttrs(iframe: t.Element|t.Template): void {
+    let errorMessage =  //
+        'For security reasons, it\'s required that certain attributes ' +
+        'of an iframe are defined as static attributes, followed by ' +
+        'the `src` or `srcdoc` attributes (either as a static one or as a binding). ' +
+        'This ensures that security-related attributes are applied ' +
+        'before processing the content of an iframe.\n\n';
+
+    const seenSecurityAttrs: string[] = [];
+    const collectSecuritySensitiveAttr = (name: string) => {
+      if (IFRAME_SECURITY_SENSITIVE_ATTRS.has(name.toLowerCase())) {
+        seenSecurityAttrs.push(name);
+      }
+    };
+
+    // Verify that there are *no* security-sensitive attributes
+    // declared as bindings (i.e. present in the `inputs` array),
+    // e.g. `<iframe [sandbox]="..."></iframe>`. This helps to ensure
+    // that all security-sensitive attributes are always applied
+    // to an iframe instance *before* `src` or `srcdoc` attributes.
+    for (let input of iframe.inputs) {
+      if (input.type === BindingType.Attribute || input.type === BindingType.Property) {
+        collectSecuritySensitiveAttr(input.name);
+      }
+    }
+
+    if (seenSecurityAttrs.length > 0) {
+      errorMessage +=  //
+          `The following attributes were declared as bindings: ` +
+          `${formatAttrNames(seenSecurityAttrs)}. To fix this, ` +
+          `declare them as regular static attributes.`;
+      this.reportError(errorMessage, iframe.sourceSpan);
+    } else {
+      // Verify that there are *no* security-sensitive attributes
+      // declared statically *after* the `src` or `srcdoc` ones,
+      // e.g. `<iframe src="..." sandbox></iframe>`.
+      let seenSrcAttr = false;
+      for (let attr of iframe.attributes) {
+        if (attr.name === 'src' || attr.name === 'srcdoc') {
+          seenSrcAttr = true;
+          continue;
+        }
+        // Start collecting security-sensitive attributes after
+        // the first occurrence of `src` or `srcdoc`.
+        if (seenSrcAttr) {
+          collectSecuritySensitiveAttr(attr.name);
+        }
+      }
+      if (seenSecurityAttrs.length > 0) {
+        errorMessage +=  //
+            'The following attributes were declared ' +
+            `after \`src\` or \`srcdoc\`: ${formatAttrNames(seenSecurityAttrs)}. ` +
+            'To fix this, move them before the `src` or `srcdoc` attributes.';
+        this.reportError(errorMessage, iframe.sourceSpan);
+      }
+    }
   }
 
   // convert view engine `ParsedProperty` to a format suitable for IVY
@@ -568,4 +649,8 @@ function textContents(node: html.Element): string|null {
   } else {
     return (node.children[0] as html.Text).value;
   }
+}
+
+function formatAttrNames(attrs: string[]): string {
+  return attrs.map(attr => '`' + attr + '`').join(', ');
 }
