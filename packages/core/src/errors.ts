@@ -67,10 +67,9 @@ export const enum RuntimeErrorCode {
   INVALID_I18N_STRUCTURE = 700,
   MISSING_LOCALE_DATA = 701,
 
-  // standalone errors
+  // Standalone errors
   IMPORT_PROVIDERS_FROM_STANDALONE = 800,
 
-  // JIT Compilation Errors
   // Other
   INVALID_DIFFER_INPUT = 900,
   NO_SUPPORTING_DIFFER_FACTORY = 901,
@@ -82,6 +81,7 @@ export const enum RuntimeErrorCode {
   TYPE_IS_NOT_STANDALONE = 907,
   MISSING_ZONEJS = 908,
   UNEXPECTED_ZONE_STATE = 909,
+  UNSAFE_IFRAME_ATTRS = 910,
 }
 
 /**

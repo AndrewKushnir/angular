@@ -10,12 +10,12 @@ import {formatRuntimeError, RuntimeError, RuntimeErrorCode} from '../../errors';
 import {Type} from '../../interface/type';
 import {CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA, SchemaMetadata} from '../../metadata/schema';
 import {throwError} from '../../util/assert';
+import {CharCode} from '../../util/char_code';
 import {getComponentDef} from '../definition';
 import {ComponentDef} from '../interfaces/definition';
-import {TNodeType} from '../interfaces/node';
+import {TNode, TNodeType} from '../interfaces/node';
 import {RComment, RElement} from '../interfaces/renderer_dom';
 import {CONTEXT, DECLARATION_COMPONENT_VIEW, LView} from '../interfaces/view';
-import {isAnimationProp} from '../util/attrs_utils';
 
 let shouldThrowErrorOnUnknownElement = false;
 
@@ -51,6 +51,13 @@ export function ɵsetUnknownPropertyStrictMode(shouldThrow: boolean) {
  */
 export function ɵgetUnknownPropertyStrictMode() {
   return shouldThrowErrorOnUnknownProperty;
+}
+
+export function isAnimationProp(name: string): boolean {
+  // Perf note: accessing charCodeAt to check for the first character of a string is faster as
+  // compared to accessing a character at index 0 (ex. name[0]). The main reason for this is that
+  // charCodeAt doesn't allocate memory to return a substring.
+  return name.charCodeAt(0) === CharCode.AT_SIGN;
 }
 
 /**
@@ -285,6 +292,7 @@ export const KNOWN_CONTROL_FLOW_DIRECTIVES = new Map([
   ['ngIf', 'NgIf'], ['ngFor', 'NgFor'], ['ngSwitchCase', 'NgSwitchCase'],
   ['ngSwitchDefault', 'NgSwitchDefault']
 ]);
+
 /**
  * Returns true if the tag name is allowed by specified schemas.
  * @param schemas Array of schemas
@@ -302,4 +310,41 @@ export function matchingSchemas(schemas: SchemaMetadata[]|null, tagName: string|
   }
 
   return false;
+}
+
+/**
+ * The set of security-sensitive attributes of an `<iframe>` that *must* be
+ * applied before setting the `src` or `srcdoc` attribute value.
+ * This ensures that all security-sensitive attributes are taken into account
+ * while creating an instance of an `<iframe>` at runtime.
+ */
+export const IFRAME_SECURITY_SENSITIVE_ATTRS =
+    new Set(['sandbox', 'allow', 'allowfullscreen', 'referrerpolicy', 'loading']);
+
+/**
+ * Ensures that security-sensitive `<iframe>` attributes are *always* applied
+ * before `src` or `srcdoc` value is set. This check is needed to make sure that
+ * all security-sensitive attributes are taken into account while creating
+ * an `<iframe>` at runtime (setting them after `src` or `srcdoc` would be
+ * too late and may potentially cause XSS).
+ */
+export function ensureSafeIframeAttrs(
+    tNode: TNode, lView: LView, nativeElement: RElement, name: string, value: string) {
+  if (tNode.type === TNodeType.Element && tNode.value === 'iframe' &&
+      IFRAME_SECURITY_SENSITIVE_ATTRS.has(name.toLowerCase()) &&
+      // Note: check for all false'y values including an empty string as a value,
+      // since this is a default value for an `<iframe>`'s `src` attribute.
+      ((nativeElement as HTMLIFrameElement).src || (nativeElement as HTMLIFrameElement).srcdoc)) {
+    const securitySensitiveAttrs =
+        Array.from(IFRAME_SECURITY_SENSITIVE_ATTRS).map(attr => '`' + attr + '`').join(', ');
+    const errorMessage =  //
+        `For security reasons, setting the following attributes on an <iframe> ` +
+        `after the \`src\` or \`srcdoc\` is not allowed: ${securitySensitiveAttrs}. ` +
+        `Angular has detected that the \`${name}\` attribute's value ` +
+        `update was requested (with the following value: \`${value}\`) after ` +
+        `the \`src\` or \`srcdoc\` was set for an <iframe>${getTemplateLocationDetails(lView)}. ` +
+        `To fix this, reorder the list of attributes (applied to the \`<iframe>\` in a template ` +
+        `or via host bindings) to make sure the \`sandbox\` is set after the \`src\` or \`srcdoc\``;
+    throw new RuntimeError(RuntimeErrorCode.UNSAFE_IFRAME_ATTRS, ngDevMode && errorMessage);
+  }
 }

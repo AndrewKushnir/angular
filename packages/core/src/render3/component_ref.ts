@@ -349,7 +349,7 @@ function createRootComponentView(
     rootDirectives: DirectiveDef<any>[], rootView: LView, rendererFactory: RendererFactory,
     hostRenderer: Renderer, sanitizer?: Sanitizer|null): LView {
   const tView = rootView[TVIEW];
-  applyRootComponentStyling(rootDirectives, tNode, rNode, hostRenderer);
+  applyRootComponentStyling(rootDirectives, tNode, rNode, hostRenderer, rootView);
 
   const viewRenderer = rendererFactory.createRenderer(rNode, rootComponentDef);
   const componentView = createLView(
@@ -370,7 +370,7 @@ function createRootComponentView(
 /** Sets up the styling information on a root component. */
 function applyRootComponentStyling(
     rootDirectives: DirectiveDef<any>[], tNode: TElementNode, rNode: RElement|null,
-    hostRenderer: Renderer): void {
+    hostRenderer: Renderer, lView: LView): void {
   for (const def of rootDirectives) {
     tNode.mergedAttrs = mergeHostAttrs(tNode.mergedAttrs, def.hostAttrs);
   }
@@ -379,7 +379,7 @@ function applyRootComponentStyling(
     computeStaticStyling(tNode, tNode.mergedAttrs, true);
 
     if (rNode !== null) {
-      setupStaticAttributes(hostRenderer, rNode, tNode);
+      setupStaticAttributes(hostRenderer, rNode, tNode, lView);
     }
   }
 }
@@ -437,14 +437,14 @@ function setRootNodeAttributes(
     hostRenderer: Renderer2, componentDef: ComponentDef<unknown>, hostRNode: RElement,
     rootSelectorOrNode: any) {
   if (rootSelectorOrNode) {
-    setUpAttributes(hostRenderer, hostRNode, ['ng-version', VERSION.full]);
+    setUpAttributes(hostRenderer, hostRNode, ['ng-version', VERSION.full], null, null);
   } else {
     // If host element is created as a part of this function call (i.e. `rootSelectorOrNode`
     // is not defined), also apply attributes and classes extracted from component selector.
     // Extract attributes and classes from the first selector only to match VE behavior.
     const {attrs, classes} = extractAttrsAndClassesFromSelector(componentDef.selectors[0]);
     if (attrs) {
-      setUpAttributes(hostRenderer, hostRNode, attrs);
+      setUpAttributes(hostRenderer, hostRNode, attrs, null, null);
     }
     if (classes && classes.length > 0) {
       writeDirectClass(hostRenderer, hostRNode, classes.join(' '));

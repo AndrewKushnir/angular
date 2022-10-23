@@ -5,12 +5,12 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {CharCode} from '../../util/char_code';
-import {AttributeMarker, TAttributes} from '../interfaces/node';
+import {ensureSafeIframeAttrs, isAnimationProp} from '../instructions/element_validation';
+import {AttributeMarker, TAttributes, TNode} from '../interfaces/node';
 import {CssSelector} from '../interfaces/projection';
 import {Renderer} from '../interfaces/renderer';
 import {RElement} from '../interfaces/renderer_dom';
-
+import {LView} from '../interfaces/view';
 
 
 /**
@@ -35,12 +35,17 @@ import {RElement} from '../interfaces/renderer_dom';
  * Note that this instruction does not support assigning style and class values to
  * an element. See `elementStart` and `elementHostAttrs` to learn how styling values
  * are applied to an element.
+ *
  * @param renderer The renderer to be used
  * @param native The element that the attributes will be assigned to
  * @param attrs The attribute array of values that will be assigned to the element
+ * @param tNode TNode that represents a given native element
+ * @param lView Current LView instance
  * @returns the index value that was last accessed in the attributes array
  */
-export function setUpAttributes(renderer: Renderer, native: RElement, attrs: TAttributes): number {
+export function setUpAttributes(
+    renderer: Renderer, native: RElement, attrs: TAttributes, tNode: TNode|null,
+    lView: LView|null): number {
   let i = 0;
   while (i < attrs.length) {
     const value = attrs[i];
@@ -69,6 +74,9 @@ export function setUpAttributes(renderer: Renderer, native: RElement, attrs: TAt
       if (isAnimationProp(attrName)) {
         renderer.setProperty(native, attrName, attrVal);
       } else {
+        if (tNode !== null) {
+          ensureSafeIframeAttrs(tNode, lView!, native, attrName, attrVal as string);
+        }
         renderer.setAttribute(native, attrName, attrVal as string);
       }
       i++;
@@ -92,13 +100,6 @@ export function setUpAttributes(renderer: Renderer, native: RElement, attrs: TAt
 export function isNameOnlyAttributeMarker(marker: string|AttributeMarker|CssSelector) {
   return marker === AttributeMarker.Bindings || marker === AttributeMarker.Template ||
       marker === AttributeMarker.I18n;
-}
-
-export function isAnimationProp(name: string): boolean {
-  // Perf note: accessing charCodeAt to check for the first character of a string is faster as
-  // compared to accessing a character at index 0 (ex. name[0]). The main reason for this is that
-  // charCodeAt doesn't allocate memory to return a substring.
-  return name.charCodeAt(0) === CharCode.AT_SIGN;
 }
 
 /**

@@ -48,7 +48,7 @@ import {getComponentLViewByIndex, getNativeByIndex, getNativeByTNode, isCreation
 
 import {selectIndexInternal} from './advance';
 import {ɵɵdirectiveInject} from './di';
-import {handleUnknownPropertyError, isPropertyValid, matchingSchemas} from './element_validation';
+import {ensureSafeIframeAttrs, handleUnknownPropertyError, isPropertyValid, matchingSchemas} from './element_validation';
 import {attachLContainerDebug, attachLViewDebug, cloneToLViewFromTViewBlueprint, cloneToTViewData, LCleanup, LViewBlueprint, MatchesArray, TCleanup, TNodeDebug, TNodeInitialInputs, TNodeLocalNames, TViewComponents, TViewConstructor} from './lview_debug';
 
 /**
@@ -990,6 +990,7 @@ export function elementPropertyInternal<T>(
     }
   } else if (tNode.type & TNodeType.AnyRNode) {
     propName = mapPropName(propName);
+    ensureSafeIframeAttrs(tNode, lView, element as RElement, propName, value as unknown as string);
 
     if (ngDevMode) {
       validateAgainstEventProperties(propName);
@@ -1480,6 +1481,7 @@ export function elementAttributeInternal(
             `Host bindings are not valid on ng-container or ng-template.`);
   }
   const element = getNativeByTNode(tNode, lView) as RElement;
+  ensureSafeIframeAttrs(tNode, lView, element as RElement, name, value);
   setElementAttribute(lView[RENDERER], element, namespace, tNode.value, name, value, sanitizer);
 }
 

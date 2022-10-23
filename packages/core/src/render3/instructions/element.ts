@@ -91,7 +91,7 @@ export function ɵɵelementStart(
           adjustedIndex, tView, lView, native, name, attrsIndex, localRefsIndex) :
       tView.data[adjustedIndex] as TElementNode;
   setCurrentTNode(tNode, true);
-  setupStaticAttributes(renderer, native, tNode);
+  setupStaticAttributes(renderer, native, tNode, lView);
 
   if ((tNode.flags & TNodeFlags.isDetached) !== TNodeFlags.isDetached) {
     // In the i18n case, the translation may have removed this element, so only add it if it is not
