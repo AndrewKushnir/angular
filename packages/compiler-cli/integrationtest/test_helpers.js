@@ -45,6 +45,7 @@ const requiredNodeModules = {
   // This means that transitive dependencies need to be manually declared as required.
   'tslib': resolveNpmTreeArtifact('npm/node_modules/tslib'),
   'domino': resolveNpmTreeArtifact('npm/node_modules/domino'),
+  '@builder.io/qwik-dom': resolveNpmTreeArtifact('npm/node_modules/@builder.io/qwik-dom'),
   'xhr2': resolveNpmTreeArtifact('npm/node_modules/xhr2'),
 
   // Fine grained dependencies which are used by the integration test Angular modules, and

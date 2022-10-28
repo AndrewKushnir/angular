@@ -152,7 +152,6 @@
 
 "@angular/build-tooling@https://github.com/angular/dev-infra-private-build-tooling-builds.git#64bf4ec27deae3c017b08577672f20e0d824bf6b":
   version "0.0.0-dcf4672ce6b29284a464804f1d12fd0c507a4e8c"
-  uid "64bf4ec27deae3c017b08577672f20e0d824bf6b"
   resolved "https://github.com/angular/dev-infra-private-build-tooling-builds.git#64bf4ec27deae3c017b08577672f20e0d824bf6b"
   dependencies:
     "@angular-devkit/build-angular" "15.0.0-rc.0"
@@ -258,7 +257,6 @@
 
 "@angular/ng-dev@https://github.com/angular/dev-infra-private-ng-dev-builds.git#007bfb0112c6d13b04d56acc8ada165b7ec1b652":
   version "0.0.0-dcf4672ce6b29284a464804f1d12fd0c507a4e8c"
-  uid "007bfb0112c6d13b04d56acc8ada165b7ec1b652"
   resolved "https://github.com/angular/dev-infra-private-ng-dev-builds.git#007bfb0112c6d13b04d56acc8ada165b7ec1b652"
   dependencies:
     "@yarnpkg/lockfile" "^1.1.0"
@@ -1731,6 +1729,11 @@
   version "0.2.3"
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
+
+"@builder.io/qwik-dom@2.1.19":
+  version "2.1.19"
+  resolved "https://registry.yarnpkg.com/@builder.io/qwik-dom/-/qwik-dom-2.1.19.tgz#7af54baaf1e5177af65bff75dce593b711a74b82"
+  integrity sha512-DJ+jhNDYXZcvCQpAhk1nLvY9WQP2409t7GeFjvBzUAE6nxowoDi4eI8/MDruVJ8YcYQg2LUEJJpNEr0gIVBjlw==
 
 "@colors/colors@1.5.0":
   version "1.5.0"
@@ -6307,7 +6310,7 @@ domhandler@^4.2.0, domhandler@^4.3.1:
   dependencies:
     domelementtype "^2.2.0"
 
-domino@^2.1.2, domino@~2.1.6:
+domino@^2.1.2:
   version "2.1.6"
   resolved "https://registry.yarnpkg.com/domino/-/domino-2.1.6.tgz#fe4ace4310526e5e7b9d12c7de01b7f485a57ffe"
   integrity sha512-3VdM/SXBZX2omc9JF9nOPCtDaYQ67BGp5CoLpIQlO2KCAPETs8TcDHacF26jXadGbvUteZzRTeos2fhID5+ucQ==

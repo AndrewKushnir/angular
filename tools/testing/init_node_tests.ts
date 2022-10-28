@@ -28,7 +28,7 @@ import '@angular/compiler'; // For JIT mode. Must be in front of any other @angu
 import {TestBed} from '@angular/core/testing';
 import {ServerTestingModule, platformServerTesting} from '@angular/platform-server/testing/src/server';
 import {DominoAdapter} from '@angular/platform-server/src/domino_adapter';
-import {createDocument} from 'domino';
+import {createDocument} from '@builder.io/qwik-dom';
 
 TestBed.initTestEnvironment(ServerTestingModule, platformServerTesting());
 DominoAdapter.makeCurrent();

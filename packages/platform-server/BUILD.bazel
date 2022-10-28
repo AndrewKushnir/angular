@@ -20,8 +20,8 @@ ng_module(
         "//packages/platform-browser-dynamic",
         "//packages/platform-browser/animations",
         "//packages/zone.js/lib:zone_d_ts",
+        "@npm//@builder.io/qwik-dom",
         "@npm//@types/node",
-        "@npm//domino",
         "@npm//rxjs",
     ],
 )
@@ -39,6 +39,7 @@ ng_package(
     ],
     externals = [
         "domino",
+        "@builder.io/qwik-dom",
         "xhr2",
     ],
     tags = [

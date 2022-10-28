@@ -8,7 +8,7 @@
 
 import {ɵsetRootDomAdapter as setRootDomAdapter} from '@angular/common';
 import {ɵBrowserDomAdapter as BrowserDomAdapter} from '@angular/platform-browser';
-import * as domino from 'domino';
+import * as domino from '@builder.io/qwik-dom';
 
 export function setDomTypes() {
   // Make all Domino types available in the global env.
@@ -20,9 +20,16 @@ export function setDomTypes() {
  * Parses a document string to a Document object.
  */
 export function parseDocument(html: string, url = '/') {
-  let window = domino.createWindow(html, url);
-  let doc = window.document;
+  let doc = domino.createDocument(html);
+  // TODO: add "why".
+  // See https://github.com/BuilderIO/qwik/blob/main/packages/qwik-dom/lib/Window.js#L13
+  (doc as any)._address = url;
+  (doc as any).defaultView = getWindow(doc);
   return doc;
+}
+
+export function getWindow(doc: any) {
+  return new domino.impl.Window(doc);
 }
 
 /**

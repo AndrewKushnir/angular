@@ -10,7 +10,7 @@ import {applyShims} from '../src/shims';
 describe('applyShims()', () => {
   if (isBrowser) return;  // NODE only
 
-  const domino = require('domino');
+  const domino = require('@builder.io/qwik-dom');
   const globalClone = {...global};
 
   afterEach(() => {

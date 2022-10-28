@@ -446,7 +446,7 @@ def jasmine_node_test(bootstrap = [], **kwargs):
     # Very common dependencies for tests
     deps = kwargs.pop("deps", []) + [
         "@npm//chokidar",
-        "@npm//domino",
+        "@npm//@builder.io/qwik-dom",
         "@npm//jasmine-core",
         "@npm//reflect-metadata",
         "@npm//source-map-support",

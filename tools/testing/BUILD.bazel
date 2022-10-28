@@ -24,7 +24,7 @@ ts_library(
         "//packages/platform-server",
         "//packages/platform-server/testing",
         "//packages/zone.js/lib",
-        "@npm//domino",
+        "@npm//@builder.io/qwik-dom",
     ],
 )
 

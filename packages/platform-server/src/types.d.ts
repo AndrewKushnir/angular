@@ -17,6 +17,12 @@ declare module 'domino' {
   export const impl: any;
 }
 
+declare module '@builder.io/qwik-dom' {
+  export const createWindow: any;
+  export const createDocument: any;
+  export const impl: any;
+}
+
 declare module 'xhr2' {
   export const XMLHttpRequest: any;
 }
