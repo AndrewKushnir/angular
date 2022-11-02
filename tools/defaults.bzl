@@ -9,10 +9,10 @@ load("@npm//@bazel/terser:index.bzl", "terser_minified")
 load("@npm//@bazel/protractor:index.bzl", _protractor_web_test_suite = "protractor_web_test_suite")
 load("@npm//typescript:index.bzl", "tsc")
 load("//packages/bazel:index.bzl", _ng_module = "ng_module", _ng_package = "ng_package")
-load("@npm//@angular/dev-infra-private/bazel/benchmark/app_bundling:index.bzl", _app_bundle = "app_bundle")
+load("@npm//@angular/build-tooling/bazel/app-bundling:index.bzl", _app_bundle = "app_bundle")
 load("//tools:ng_benchmark.bzl", _ng_benchmark = "ng_benchmark")
-load("@npm//@angular/dev-infra-private/bazel/api-golden:index.bzl", _api_golden_test = "api_golden_test", _api_golden_test_npm_package = "api_golden_test_npm_package")
-load("@npm//@angular/dev-infra-private/bazel:extract_js_module_output.bzl", "extract_js_module_output")
+load("@npm//@angular/build-tooling/bazel/api-golden:index.bzl", _api_golden_test = "api_golden_test", _api_golden_test_npm_package = "api_golden_test_npm_package")
+load("@npm//@angular/build-tooling/bazel:extract_js_module_output.bzl", "extract_js_module_output")
 
 _DEFAULT_TSCONFIG_TEST = "//packages:tsconfig-test"
 _INTERNAL_NG_MODULE_API_EXTRACTOR = "//packages/bazel/src/api-extractor:api_extractor"
