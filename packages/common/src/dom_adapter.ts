@@ -61,4 +61,8 @@ export abstract class DomAdapter {
 
   // Used in the legacy @angular/http package which has some usage in g3.
   abstract getCookie(name: string): string|null;
+
+  // Used by the platform-server for SSR logic.
+  abstract parseDocument(html: string, url?: string): Document;
+  abstract serializeDocument(doc: Document): string;
 }

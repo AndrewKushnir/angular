@@ -6,10 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {DOCUMENT} from '@angular/common';
+import {DOCUMENT, ɵgetDOM as getDOM} from '@angular/common';
 import {Inject, Injectable} from '@angular/core';
-
-import {serializeDocument} from './domino_adapter';
 
 /**
  * Representation of the current platform state.
@@ -24,7 +22,7 @@ export class PlatformState {
    * Renders the current state of the platform to string.
    */
   renderToString(): string {
-    return serializeDocument(this._doc);
+    return getDOM().serializeDocument(this._doc);
   }
 
   /**

@@ -83,6 +83,12 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   getCookie(name: string): string|null {
     return parseCookieValue(document.cookie, name);
   }
+  parseDocument(html: string, url?: string): Document {
+    throw new Error('Unexpected invocation in this context.');
+  }
+  serializeDocument(doc: Document): string {
+    throw new Error('Unexpected invocation in this context.');
+  }
 }
 
 let baseElement: HTMLElement|null = null;

@@ -17,22 +17,6 @@ export function setDomTypes() {
 }
 
 /**
- * Parses a document string to a Document object.
- */
-export function parseDocument(html: string, url = '/') {
-  let window = domino.createWindow(html, url);
-  let doc = window.document;
-  return doc;
-}
-
-/**
- * Serializes a document to string.
- */
-export function serializeDocument(doc: Document): string {
-  return (doc as any).serialize();
-}
-
-/**
  * DOM Adapter for the server platform based on https://github.com/fgnass/domino.
  */
 export class DominoAdapter extends BrowserDomAdapter {
@@ -45,7 +29,23 @@ export class DominoAdapter extends BrowserDomAdapter {
   private static defaultDoc: Document;
 
   override createHtmlDocument(): Document {
-    return parseDocument('<html><head><title>fakeTitle</title></head><body></body></html>');
+    return this.parseDocument('<html><head><title>fakeTitle</title></head><body></body></html>');
+  }
+
+  /**
+   * Parses a document string to a Document object.
+   */
+  override parseDocument(html: string, url = '/') {
+    let window = domino.createWindow(html, url);
+    let doc = window.document;
+    return doc;
+  }
+
+  /**
+   * Serializes a document to string.
+   */
+  override serializeDocument(doc: Document): string {
+    return (doc as any).serialize();
   }
 
   override getDefaultDocument(): Document {
