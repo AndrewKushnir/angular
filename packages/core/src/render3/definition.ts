@@ -22,10 +22,6 @@ import {TAttributes, TConstantsOrFactory} from './interfaces/node';
 import {CssSelectorList} from './interfaces/projection';
 
 
-/** Counter used to generate unique IDs for component definitions. */
-let componentDefCount = 0;
-
-
 /**
  * Create a component definition object.
  *
@@ -304,7 +300,7 @@ export function ɵɵdefineComponent<T>(componentDefinition: {
       hostVars: componentDefinition.hostVars || 0,
       hostAttrs: componentDefinition.hostAttrs || null,
       contentQueries: componentDefinition.contentQueries || null,
-      declaredInputs: declaredInputs,
+      declaredInputs,
       inputs: null!,   // assigned in noSideEffects
       outputs: null!,  // assigned in noSideEffects
       exportAs: componentDefinition.exportAs || null,
@@ -319,7 +315,6 @@ export function ɵɵdefineComponent<T>(componentDefinition: {
       features: componentDefinition.features as DirectiveDefFeature[] || null,
       data: componentDefinition.data || {},
       encapsulation: componentDefinition.encapsulation || ViewEncapsulation.Emulated,
-      id: `c${componentDefCount++}`,
       styles: componentDefinition.styles || EMPTY_ARRAY,
       _: null,
       setInput: null,
@@ -327,7 +322,9 @@ export function ɵɵdefineComponent<T>(componentDefinition: {
       tView: null,
       findHostDirectiveDefs: null,
       hostDirectives: null,
+      id: '',  // assigned below before the return
     };
+
     const dependencies = componentDefinition.dependencies;
     const feature = componentDefinition.features;
     def.inputs = invertObject(componentDefinition.inputs, declaredInputs),
@@ -343,6 +340,8 @@ export function ɵɵdefineComponent<T>(componentDefinition: {
                    .map(getPipeDef)
                    .filter(nonNull)) :
         null;
+
+    def.id = getComponentId(def);
 
     return def;
   });
@@ -761,4 +760,40 @@ export function getNgModuleDef<T>(type: any, throwNotFound?: boolean): NgModuleD
     throw new Error(`Type ${stringify(type)} does not have 'ɵmod' property.`);
   }
   return ngModuleDef;
+}
+
+/**
+ * A method can returns a component ID from the component definition using a variant of DJB2 hash
+ * algorithm.
+ *
+ */
+function getComponentId(componentDef: Partial<ComponentDef<unknown>>): string {
+  let hash = 0;
+
+  const hashSelectors = [
+    ...(componentDef.selectors || []),
+
+    // We cannot rely soley on the component selector as the same selector can be used in diffent
+    // modules.
+    // Example:
+    // https://github.com/angular/components/blob/d9f82c8f95309e77a6d82fd574c65871e91354c2/src/material/core/option/option.ts#L248
+    // https://github.com/angular/components/blob/285f46dc2b4c5b127d356cb7c4714b221f03ce50/src/material/legacy-core/option/option.ts#L32
+    componentDef.hostVars,
+    componentDef.styles?.reduce<number>((prev, current) => current.length + prev, 0),
+    componentDef.consts,
+    componentDef.vars,
+    componentDef.decls,
+    componentDef.directiveDefs?.length,
+    componentDef.pipeDefs?.length,
+  ].join('|');
+
+  for (const char of hashSelectors) {
+    hash = Math.imul(31, hash) + char.charCodeAt(0) << 0;
+  }
+
+  // Force positive number hash.
+  // 2147483647 = equivalent of Integer.MAX_VALUE.
+  hash += 2147483647 + 1;
+
+  return `c${hash}`;
 }

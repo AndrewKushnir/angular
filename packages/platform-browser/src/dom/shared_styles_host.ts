@@ -7,7 +7,7 @@
  */
 
 import {DOCUMENT, ɵgetDOM as getDOM} from '@angular/common';
-import {Inject, Injectable, OnDestroy} from '@angular/core';
+import {APP_ID, Inject, Injectable, OnDestroy} from '@angular/core';
 
 @Injectable()
 export class SharedStylesHost {
@@ -36,18 +36,58 @@ export class SharedStylesHost {
 export class DomSharedStylesHost extends SharedStylesHost implements OnDestroy {
   // Maps all registered host nodes to a list of style nodes that have been added to the host node.
   private _hostNodes = new Map<Node, Node[]>();
+  private _styleNodesInDOM: Map<string, HTMLStyleElement>|undefined;
 
-  constructor(@Inject(DOCUMENT) private _doc: any) {
+  constructor(@Inject(DOCUMENT) private doc: Document, @Inject(APP_ID) private appId: string) {
     super();
-    this._hostNodes.set(_doc.head, []);
+
+    this.collectServerRenderedStyles();
+    this._hostNodes.set(this.doc.head, []);
   }
 
   private _addStylesToHost(styles: Set<string>, host: Node, styleNodes: Node[]): void {
-    styles.forEach((style: string) => {
-      const styleEl = this._doc.createElement('style');
-      styleEl.textContent = style;
+    for (const style of styles) {
+      const styleEl = this._createStyleElement(host, style);
       styleNodes.push(host.appendChild(styleEl));
-    });
+    }
+  }
+
+  private collectServerRenderedStyles(): void {
+    const styles: NodeListOf<HTMLStyleElement>|undefined =
+        this.doc.head?.querySelectorAll(`style[ng-transition="${this.appId}"]`);
+
+    if (styles?.length) {
+      const styleMap = new Map<string, HTMLStyleElement>();
+
+      styles.forEach(style => {
+        if (style.textContent != null) {
+          styleMap.set(style.textContent, style);
+        }
+      });
+
+      this._styleNodesInDOM = styleMap;
+    }
+  }
+
+  private _createStyleElement(host: Node, style: string): HTMLStyleElement {
+    const styleEl = this._styleNodesInDOM?.get(style);
+    if (styleEl?.parentNode === host) {
+      // `this._styleNodesInDOM` cannot be undefined due to the above `this._styleNodesInDOM?.get`.
+      this._styleNodesInDOM!.delete(style);
+      styleEl.removeAttribute('ng-transition');
+
+      if (typeof ngDevMode === 'undefined' || ngDevMode) {
+        // This attribute is soley used for debugging purposes.
+        styleEl.setAttribute('ng-style-reused', '');
+      }
+
+      return styleEl;
+    } else {
+      const styleEl = this.doc.createElement('style');
+      styleEl.textContent = style;
+
+      return host.appendChild(styleEl);
+    }
   }
 
   addHost(hostNode: Node): void {
@@ -58,9 +98,7 @@ export class DomSharedStylesHost extends SharedStylesHost implements OnDestroy {
 
   removeHost(hostNode: Node): void {
     const styleNodes = this._hostNodes.get(hostNode);
-    if (styleNodes) {
-      styleNodes.forEach(removeStyle);
-    }
+    styleNodes?.forEach(removeStyle);
     this._hostNodes.delete(hostNode);
   }
 
@@ -72,6 +110,10 @@ export class DomSharedStylesHost extends SharedStylesHost implements OnDestroy {
 
   ngOnDestroy(): void {
     this._hostNodes.forEach(styleNodes => styleNodes.forEach(removeStyle));
+    if (this._styleNodesInDOM) {
+      this._styleNodesInDOM.forEach(e => e.remove());
+      this._styleNodesInDOM.clear();
+    }
   }
 }
 
