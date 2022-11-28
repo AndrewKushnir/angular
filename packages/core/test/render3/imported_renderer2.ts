@@ -39,8 +39,9 @@ export class SimpleDomEventsPlugin extends EventManagerPlugin {
 export function getRendererFactory2(document: any): RendererFactory2 {
   const fakeNgZone: NgZone = new NoopNgZone();
   const eventManager = new EventManager([new SimpleDomEventsPlugin(document)], fakeNgZone);
+  const appId = 'appid';
   const rendererFactory =
-      new ɵDomRendererFactory2(eventManager, new ɵDomSharedStylesHost(document), 'dummyappid');
+      new ɵDomRendererFactory2(eventManager, new ɵDomSharedStylesHost(document, appId), appId);
   const origCreateRenderer = rendererFactory.createRenderer;
   rendererFactory.createRenderer = function(element: any, type: RendererType2|null) {
     const renderer = origCreateRenderer.call(this, element, type);

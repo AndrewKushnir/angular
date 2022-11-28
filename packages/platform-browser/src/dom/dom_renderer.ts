@@ -89,6 +89,7 @@ export class DomRendererFactory2 implements RendererFactory2 {
               this.eventManager, this.sharedStylesHost, type, this.appId);
           this.rendererByCompId.set(type.id, renderer);
         }
+
         (<EmulatedEncapsulationDomRenderer2>renderer).applyToHost(element);
         return renderer;
       }
@@ -277,11 +278,13 @@ class EmulatedEncapsulationDomRenderer2 extends DefaultDomRenderer2 {
       eventManager: EventManager, sharedStylesHost: DomSharedStylesHost,
       private component: RendererType2, appId: string) {
     super(eventManager);
-    const styles = flattenStyles(appId + '-' + component.id, component.styles);
+
+    const componentShortId = appId + '-' + this.component.id;
+    const styles = flattenStyles(componentShortId, this.component.styles);
     sharedStylesHost.addStyles(styles);
 
-    this.contentAttr = shimContentAttribute(appId + '-' + component.id);
-    this.hostAttr = shimHostAttribute(appId + '-' + component.id);
+    this.contentAttr = shimContentAttribute(componentShortId);
+    this.hostAttr = shimHostAttribute(componentShortId);
   }
 
   applyToHost(element: any) {

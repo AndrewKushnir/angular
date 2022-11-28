@@ -10,7 +10,6 @@ import {CommonModule, DOCUMENT, XhrFactory, ɵPLATFORM_BROWSER_ID as PLATFORM_BR
 import {APP_ID, ApplicationModule, ApplicationRef, createPlatformFactory, EnvironmentProviders, ErrorHandler, Inject, InjectionToken, ModuleWithProviders, NgModule, NgZone, Optional, PLATFORM_ID, PLATFORM_INITIALIZER, platformCore, PlatformRef, Provider, RendererFactory2, SkipSelf, StaticProvider, Testability, TestabilityRegistry, Type, ɵINJECTOR_SCOPE as INJECTOR_SCOPE, ɵinternalCreateApplication as internalCreateApplication, ɵsetDocument, ɵTESTABILITY as TESTABILITY, ɵTESTABILITY_GETTER as TESTABILITY_GETTER} from '@angular/core';
 
 import {BrowserDomAdapter} from './browser/browser_adapter';
-import {SERVER_TRANSITION_PROVIDERS, TRANSITION_ID} from './browser/server-transition';
 import {BrowserGetTestability} from './browser/testability';
 import {BrowserXhr} from './browser/xhr';
 import {DomRendererFactory2} from './dom/dom_renderer';
@@ -210,9 +209,7 @@ const BROWSER_MODULE_PROVIDERS: Provider[] = [
     deps: [EventManager, DomSharedStylesHost, APP_ID]
   },
   {provide: RendererFactory2, useExisting: DomRendererFactory2},
-  {provide: SharedStylesHost, useExisting: DomSharedStylesHost},
-  {provide: DomSharedStylesHost, useClass: DomSharedStylesHost, deps: [DOCUMENT]},
-  {provide: EventManager, useClass: EventManager, deps: [EVENT_MANAGER_PLUGINS, NgZone]},
+  {provide: SharedStylesHost, useExisting: DomSharedStylesHost}, DomSharedStylesHost, EventManager,
   {provide: XhrFactory, useClass: BrowserXhr, deps: []},
   NG_DEV_MODE ? {provide: BROWSER_MODULE_PROVIDERS_MARKER, useValue: true} : []
 ];
@@ -227,10 +224,7 @@ const BROWSER_MODULE_PROVIDERS: Provider[] = [
  * @publicApi
  */
 @NgModule({
-  providers: [
-    ...BROWSER_MODULE_PROVIDERS,  //
-    ...TESTABILITY_PROVIDERS
-  ],
+  providers: [...BROWSER_MODULE_PROVIDERS, ...TESTABILITY_PROVIDERS],
   exports: [CommonModule, ApplicationModule],
 })
 export class BrowserModule {
@@ -256,8 +250,6 @@ export class BrowserModule {
       ngModule: BrowserModule,
       providers: [
         {provide: APP_ID, useValue: params.appId},
-        {provide: TRANSITION_ID, useExisting: APP_ID},
-        SERVER_TRANSITION_PROVIDERS,
       ],
     };
   }
