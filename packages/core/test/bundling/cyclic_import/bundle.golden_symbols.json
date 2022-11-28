@@ -348,15 +348,6 @@
     "name": "RuntimeError"
   },
   {
-    "name": "SERVER_TRANSITION_PROVIDERS"
-  },
-  {
-    "name": "SIMPLE_CHANGES_STORE"
-  },
-  {
-    "name": "SOURCE"
-  },
-  {
     "name": "SafeSubscriber"
   },
   {
@@ -406,12 +397,6 @@
   },
   {
     "name": "TRACKED_LVIEWS"
-  },
-  {
-    "name": "TRANSITION_ID"
-  },
-  {
-    "name": "TYPE"
   },
   {
     "name": "Testability"
@@ -535,9 +520,6 @@
   },
   {
     "name": "collectNativeNodes"
-  },
-  {
-    "name": "componentDefCount"
   },
   {
     "name": "computeStaticStyling"

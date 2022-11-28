@@ -477,9 +477,6 @@
     "name": "SELF_TOKEN_REGEX"
   },
   {
-    "name": "SERVER_TRANSITION_PROVIDERS"
-  },
-  {
     "name": "SHARED_ANIMATION_PROVIDERS"
   },
   {
@@ -547,9 +544,6 @@
   },
   {
     "name": "TRACKED_LVIEWS"
-  },
-  {
-    "name": "TRANSITION_ID"
   },
   {
     "name": "TRUE_BOOLEAN_VALUES"
@@ -736,9 +730,6 @@
   },
   {
     "name": "collectNativeNodes"
-  },
-  {
-    "name": "componentDefCount"
   },
   {
     "name": "computeStaticStyling"
