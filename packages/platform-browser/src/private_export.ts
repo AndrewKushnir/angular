@@ -9,7 +9,6 @@
 export {ɵgetDOM} from '@angular/common';
 export {initDomAdapter as ɵinitDomAdapter, INTERNAL_BROWSER_PLATFORM_PROVIDERS as ɵINTERNAL_BROWSER_PLATFORM_PROVIDERS} from './browser';
 export {BrowserDomAdapter as ɵBrowserDomAdapter} from './browser/browser_adapter';
-export {TRANSITION_ID as ɵTRANSITION_ID} from './browser/server-transition';
 export {BrowserGetTestability as ɵBrowserGetTestability} from './browser/testability';
 export {escapeHtml as ɵescapeHtml} from './browser/transfer_state';
 export {DomRendererFactory2 as ɵDomRendererFactory2, NAMESPACE_URIS as ɵNAMESPACE_URIS, shimContentAttribute as ɵshimContentAttribute, shimHostAttribute as ɵshimHostAttribute, shimStylesContent as ɵshimStyles} from './dom/dom_renderer';
