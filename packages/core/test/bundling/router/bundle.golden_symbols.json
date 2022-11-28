@@ -801,9 +801,6 @@
     "name": "compare"
   },
   {
-    "name": "componentDefCount"
-  },
-  {
     "name": "computeStaticStyling"
   },
   {
