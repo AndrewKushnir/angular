@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ViewRef, ɵcollectNativeNodes as collectNativeNodes, ɵCONTAINER_HEADER_OFFSET as CONTAINER_HEADER_OFFSET, ɵCONTEXT as CONTEXT, ɵgetLViewById as getLViewById, ɵHEADER_OFFSET as HEADER_OFFSET, ɵHOST as HOST, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise, ɵisRootView as isRootView, ɵLContainer as LContainer, ɵLView as LView, ɵnavigateParentTNodes as navigateParentTNodes, ɵretrieveViewsFromApplicationRef as retrieveViewsFromApplicationRef, ɵRNode as RNode, ɵTContainerNode as TContainerNode, ɵTNode as TNode, ɵTNodeType as TNodeType, ɵTVIEW as TVIEW, ɵTView as TView, ɵTViewType as TViewType, ɵTYPE as TYPE, ɵunwrapRNode as unwrapRNode} from '@angular/core';
-import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
+import {APP_ID, ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ViewRef, ɵcollectNativeNodes as collectNativeNodes, ɵCONTAINER_HEADER_OFFSET as CONTAINER_HEADER_OFFSET, ɵCONTEXT as CONTEXT, ɵgetLViewById as getLViewById, ɵHEADER_OFFSET as HEADER_OFFSET, ɵHOST as HOST, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise, ɵisRootView as isRootView, ɵLContainer as LContainer, ɵLView as LView, ɵnavigateParentTNodes as navigateParentTNodes, ɵretrieveViewsFromApplicationRef as retrieveViewsFromApplicationRef, ɵRNode as RNode, ɵTContainerNode as TContainerNode, ɵTNode as TNode, ɵTNodeType as TNodeType, ɵTVIEW as TVIEW, ɵTView as TView, ɵTViewType as TViewType, ɵTYPE as TYPE, ɵunwrapRNode as unwrapRNode} from '@angular/core';
+import {BrowserModule} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
 import {navigateBetween, NodeNavigationStep, NoPathFoundError} from './node_nav';
@@ -466,7 +466,7 @@ function _render<T>(
     bootstrapPromise: Promise<NgModuleRef<T>|ApplicationRef>): Promise<string> {
   return bootstrapPromise.then((moduleOrApplicationRef) => {
     const environmentInjector = moduleOrApplicationRef.injector;
-    const transitionId = environmentInjector.get(ɵTRANSITION_ID, null);
+    const transitionId = environmentInjector.get(APP_ID, null);
     if (!transitionId) {
       throw new Error(
           `renderModule[Factory]() requires the use of BrowserModule.withServerTransition() to ensure
