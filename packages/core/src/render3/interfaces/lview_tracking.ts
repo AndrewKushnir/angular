@@ -38,18 +38,3 @@ export function unregisterLView(lView: LView): void {
   ngDevMode && assertNumber(lView[ID], 'Cannot stop tracking an LView that does not have an ID');
   TRACKED_LVIEWS.delete(lView[ID]);
 }
-
-/**
- * Clears all tracked LViews and resets an lView id counter.
- *
- * TODO: we would probably need to namespace this with an appId,
- * otherwise 2 apps on a page might collide.
- *
- * TODO: `appId` might be long, so we may want to have another
- * map: appId -> unique number and use a number in serialization,
- * i.e. `ngh="0|8|2"` vs `ngh="my-app-id|8|2"`.
- */
-export function clearTrackedLViews() {
-  uniqueIdCounter = 0;
-  TRACKED_LVIEWS.clear();
-}

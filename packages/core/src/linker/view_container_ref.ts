@@ -19,7 +19,7 @@ import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNodeType} from '../render3/interfaces/node';
 import {RComment, RElement} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
-import {HEADER_OFFSET, ID, LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
+import {HEADER_OFFSET, HYDRATION_KEY, ID, LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
 import {addViewToContainer, createCommentNode, destroyLView, detachView, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
@@ -304,8 +304,8 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       injector = indexOrOptions.injector;
     }
 
-    const ngh = '' + this._adjustIndex(index);
-    const viewRef = templateRef.createEmbeddedView(context || <any>{}, injector, ngh);
+    const hydrationKey = '' + this._adjustIndex(index);
+    const viewRef = templateRef.createEmbeddedView(context || <any>{}, injector, hydrationKey);
     this.insert(viewRef, index);
     return viewRef;
   }
@@ -418,9 +418,13 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       }
     }
 
-    const ngh = '' + this._adjustIndex(index);
+    const parentHydrationKey = this._hostLView[HYDRATION_KEY];
+    const idx = this._hostTNode.index - HEADER_OFFSET;
+    const hydrationKey = parentHydrationKey + ':' +
+        '(' + idx + ':' + this._adjustIndex(index) + ')';
+
     const componentRef = componentFactory.create(
-        contextInjector, projectableNodes, undefined, environmentInjector, ngh);
+        contextInjector, projectableNodes, undefined, environmentInjector, hydrationKey);
     this.insert(componentRef.hostView, index);
     return componentRef;
   }
@@ -571,7 +575,9 @@ export function createContainerRef(
       // manipulation to insert it.
       const renderer = hostLView[RENDERER];
       ngDevMode && ngDevMode.rendererCreateComment++;
-      const hydrationKey = getHydrationKey(hostLView, hostTNode.index - HEADER_OFFSET);
+      // TODO: add a note on why we need to annotate this node specifically
+      // (to avoid collision with the main element).
+      const hydrationKey = getHydrationKey(hostLView, `vcr${hostTNode.index - HEADER_OFFSET}`);
       commentNode = createCommentNode(renderer, ngDevMode ? 'container' : '', hydrationKey);
 
       const hostNative = getNativeByTNode(hostTNode, hostLView)!;

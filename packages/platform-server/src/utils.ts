@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵclearTrackedLViews, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
+import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
 import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
@@ -252,7 +252,6 @@ export function renderModule<T>(moduleType: Type<T>, options: {
 }): Promise<string> {
   ENABLE_PROFILING && console.log('--------------');
   ENABLE_PROFILING && console.time('renderModule (total time)');
-  ɵclearTrackedLViews();
   const {document, url, extraProviders: platformProviders} = options;
   ENABLE_PROFILING && console.time('createPlatform');
   const platform = _getPlatform(platformDynamicServer, {document, url, platformProviders});
@@ -305,7 +304,6 @@ export function renderApplication<T>(rootComponent: Type<T>, options: {
 }): Promise<string> {
   ENABLE_PROFILING && console.log('--------------');
   ENABLE_PROFILING && console.time('renderApplication (total time)');
-  ɵclearTrackedLViews();
   const {document, url, platformProviders, appId} = options;
   ENABLE_PROFILING && console.time('createPlatform');
   const platform = _getPlatform(platformDynamicServer, {document, url, platformProviders});

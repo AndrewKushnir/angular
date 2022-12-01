@@ -8,7 +8,7 @@
 import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, PlatformLocation, ɵgetDOM as getDOM} from '@angular/common';
-import {APP_ID, ApplicationRef, CompilerFactory, Component, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Type, ViewEncapsulation, ɵclearTrackedLViews} from '@angular/core';
+import {APP_ID, ApplicationRef, CompilerFactory, Component, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Type, ViewEncapsulation} from '@angular/core';
 import {TestBed, waitForAsync} from '@angular/core/testing';
 import {bootstrapApplication, makeStateKey, TransferState} from '@angular/platform-browser';
 import {hydrateApplication} from '@angular/platform-browser/src/browser';
@@ -61,7 +61,6 @@ describe('platform-server integration', () => {
     });
 
     async function hydrateAfterSSR(component: Type<unknown>): Promise<ApplicationRef> {
-      ɵclearTrackedLViews();
       const appId = 'simple-cmp';
       const document = '<html><head></head><body><app></app></body></html>';
       const ssrOutput = await renderApplication(component, {document, appId});
@@ -83,7 +82,6 @@ describe('platform-server integration', () => {
       }
 
       // Reset all tracked LViews, since we transition from the server -> client.
-      ɵclearTrackedLViews();
       const providers = [
         {provide: APP_ID, useValue: appId},
         {provide: DOCUMENT, useValue: doc},

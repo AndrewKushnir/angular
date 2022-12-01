@@ -14,8 +14,26 @@ import {getCurrentHydrationKey} from './render3/state';
 
 const NG_DEV_MODE = typeof ngDevMode === 'undefined' || !!ngDevMode;
 
-// TODO: this should be an app-wide flag, not local here.
-let isDeoptMode = false;
+export interface HydrationState {
+  inDeoptMode: boolean;
+  isRegistryPopulated: boolean;
+  registry: Map<string, Element>;  // registry of all annotated elements found on a page
+  debug: {[key: string]: any};     // debug info collected during the invocation
+}
+
+export interface HydrationConfig {
+  isStrictMode: boolean;
+}
+
+interface HydrationDebugInfo {
+  lastSeenRenderer?: Renderer2|null;
+  registry?: Map<any, any>;
+  visitedNodes?: number;
+  hydratedNodes?: number;
+  annotatedNodes?: number;
+  root?: any;
+  initializedRenderersCount?: number;
+}
 
 function assertNodeType(node: any, nodeType: number, key: string) {
   // TODO: improve error messages to make them more developer-friendly.
@@ -36,12 +54,15 @@ function assertNodeType(node: any, nodeType: number, key: string) {
   }
 }
 
-function assertNodeTag(node: any, tagName: string, key: string) {
-  if (node.tagName.toLowerCase() !== tagName.toLowerCase()) {
-    throw new Error(
-        `Unexpected node tag name key ${key}! ` +
-        `Expected ${tagName}, but got ${node.tagName}.`);
-  }
+function initDebugInfo(registry: Map<string, Element>) {
+  return {
+    lastSeenRenderer: null,
+    registry,
+    visitedNodes: 0,
+    hydratedNodes: 0,
+    annotatedNodes: 0,
+    initializedRenderersCount: 0,
+  };
 }
 
 /**
@@ -60,75 +81,39 @@ export class HydrationRenderer {
    * Debugging information collected during the renderer execution.
    * Use a single debug object instance for all initialized renderers.
    */
-  private debug: {
-    lastSeenRenderer?: Renderer2,
-    registry?: Map<any, any>,
-    visitedNodes?: number,
-    hydratedNodes?: number,
-    annotatedNodes?: number,
-    root?: any,
-    initializedRenderersCount?: number,
-  } = (global as any).__ngHydrationRendererDebug__;
+  private debug: HydrationDebugInfo = (global as any).__ngHydrationRendererDebug__;
 
-  // TODO: `nodeRegistry` should be a part of an app-wide (but internal) "HYDRATION_STATE" token.
   constructor(
-      private document: any, private nodeRegistry: Map<any, any>, private delegate: Renderer2) {
+      private document: any, private state: HydrationState, private config: HydrationConfig,
+      private delegate: Renderer2) {
     if (NG_DEV_MODE) {
       if (!(global as any).__ngHydrationRendererDebug__) {
         // Expose globally for testing purposes.
-        (global as any).__ngHydrationRendererDebug__ = this.debug = {
-          lastSeenRenderer: this as unknown as Renderer2,
-          registry: this.nodeRegistry,
-          visitedNodes: 0,
-          hydratedNodes: 0,
-          annotatedNodes: 0,
-          initializedRenderersCount: 0,
-        };
+        (global as any).__ngHydrationRendererDebug__ = this.debug = initDebugInfo(this.registry);
       }
+      this.debug.lastSeenRenderer = this;
       this.debug.initializedRenderersCount!++;
     }
   }
 
   destroy(): void {}
 
-  private removeAnnotatedNodes(key: string) {
-    // TODO: we should make this configurable and either log a warning
-    // (soft error) or throw an error (hard error).
-    debugger;
-    console.warn(`!!! Entering deopt hydration mode starting from node with key: ${key}.`);
-    isDeoptMode = true;
-    this.nodeRegistry.forEach((node, key) => {
-      if (key.indexOf('?') > -1) {  // this is a marker node
-        const textNode = node.previousSibling;
-        textNode.remove();
-      }
-      node.remove();
-    });
-    this.nodeRegistry.clear();
-  }
-
   createElement(name: string, namespace?: string): any {
     let element;
     const key = getCurrentHydrationKey();
 
-    if (!key || !(element = this.extractFromRegistry(key)) || isDeoptMode) {
+    if (!key || this.state.inDeoptMode || !(element = this.extractFromRegistry(key))) {
       return this.delegate.createElement(name, namespace);
     }
 
-    if (!element || element.nodeType !== Node.ELEMENT_NODE ||
+    if (element.nodeType !== Node.ELEMENT_NODE ||
         element.tagName.toLowerCase() !== name.toLowerCase()) {
       // We found an element based on the annotation, but the
-      // element is wrong :( We can not proceed further with
-      // hydration. Instead, we wipe out all annotated nodes and
-      // let runtime logic re-create them.
-      if (element) {
-        this.removeAnnotatedNodes(key);
-      }
+      // element is wrong, thus entering the deopt mode.
+      this.enterDeoptMode(key);
+
       return this.delegate.createElement(name, namespace);
     } else {
-      NG_DEV_MODE && assertNodeType(element, Node.ELEMENT_NODE, key);
-      NG_DEV_MODE && assertNodeTag(element, name, key);
-
       this.markAsHydrated(element);
 
       // The `ngh` attribute was only needed to transfer hydration data
@@ -143,21 +128,17 @@ export class HydrationRenderer {
     let comment;
     const key = getCurrentHydrationKey();
 
-    if (!key || !(comment = this.extractFromRegistry(key)) || isDeoptMode) {
+    if (!key || this.state.inDeoptMode || !(comment = this.extractFromRegistry(key))) {
       return this.delegate.createComment(value);
     }
 
-    if (!comment || comment.nodeType !== Node.COMMENT_NODE) {
+    if (comment.nodeType !== Node.COMMENT_NODE) {
       // We found an element based on the annotation, but the
-      // element is wrong :( We can not proceed further with
-      // hydration. Instead, we wipe out all annotated nodes and
-      // let runtime logic re-create them.
-      if (comment) {
-        this.removeAnnotatedNodes(key);
-      }
+      // element is wrong, thus entering the deopt mode.
+      this.enterDeoptMode(key);
+
       return this.delegate.createComment(value);
     } else {
-      NG_DEV_MODE && assertNodeType(comment, Node.COMMENT_NODE, key);
       this.markAsHydrated(comment);
 
       return comment;
@@ -168,24 +149,19 @@ export class HydrationRenderer {
     let marker;
     const key = (getCurrentHydrationKey() ?? '').replace('|', '?');
 
-    if (!key || !(marker = this.extractFromRegistry(key)) || isDeoptMode) {
+    if (!key || this.state.inDeoptMode || !(marker = this.extractFromRegistry(key))) {
       return this.delegate.createText(value);
     }
 
     // TODO: handle i18n case!
 
-    if (!marker || marker.nodeType !== Node.COMMENT_NODE) {
+    if (marker.nodeType !== Node.COMMENT_NODE) {
       // We found an element based on the annotation, but the
-      // element is wrong :( We can not proceed further with
-      // hydration. Instead, we wipe out all annotated nodes and
-      // let runtime logic re-create them.
-      if (marker) {
-        this.removeAnnotatedNodes(key);
-      }
+      // element is wrong, thus entering the deopt mode.
+      this.enterDeoptMode(key);
+
       return this.delegate.createText(value);
     } else {
-      NG_DEV_MODE && assertNodeType(marker, Node.COMMENT_NODE, key);
-
       let textNode = marker.previousSibling;
       if (!textNode && value === '') {
         // We found a marker, but there is no text node in front of it.
@@ -250,6 +226,33 @@ export class HydrationRenderer {
     return element;
   }
 
+
+  private get registry() {
+    return this.state.registry;
+  }
+
+  /**
+   * Switches the renderer to the deopt mode:
+   *  - stores the flag in a global state
+   *  - removes all annotated DOM nodes, so they are re-created
+   *    by the runtime logic from scratch (thus "deopt")
+   */
+  private enterDeoptMode(key: string) {
+    this.state.inDeoptMode = true;
+    if (this.config.isStrictMode) {
+      throw new Error(`Hydration renderer was unable to find proper node for key ${key}.`);
+    }
+    console.warn(`Entering deoptimized hydration mode starting from node with key: ${key}.`);
+    this.registry.forEach((node, key) => {
+      if (key.indexOf('?') > -1) {  // this is a marker node
+        const textNode = node.previousSibling;
+        textNode?.remove();
+      }
+      node.remove();
+    });
+    this.registry.clear();
+  }
+
   /**
    * Marks a node as "hydrated" or visited during
    * the hydration process.
@@ -270,11 +273,11 @@ export class HydrationRenderer {
    * it from the registry ensures no memory leaks.
    */
   private extractFromRegistry(key: string) {
-    const node = this.nodeRegistry.get(key);
+    const node = this.registry.get(key);
     if (NG_DEV_MODE && node) {
       this.debug.hydratedNodes!++;
     }
-    this.nodeRegistry.delete(key);
+    this.registry.delete(key);
     return node;
   }
 
@@ -283,13 +286,12 @@ export class HydrationRenderer {
    * nodes that were annotated during the SSR process.
    */
   private populateNodeRegistry() {
-    if (this.nodeRegistry.size > 0) {
+    if (this.state.isRegistryPopulated) {
       // The registry is already populated, exit.
-      // TODO: we may need an extra flag here to indicate
-      // that this process was completed already. Currently,
-      // this map becomes empty once we visit all hydratable nodes.
       return;
     }
+
+    this.state.isRegistryPopulated = true;
 
     NG_DEV_MODE && console.time('HydrationRenderer.populateNodeRegistry');
 
@@ -303,7 +305,7 @@ export class HydrationRenderer {
         key = node.getAttribute('ngh');
       }
       if (key) {
-        this.nodeRegistry.set(key, node);
+        this.registry.set(key, node);
       }
 
       let current = node.firstChild;
@@ -317,7 +319,7 @@ export class HydrationRenderer {
     if (NG_DEV_MODE) {
       console.timeEnd('HydrationRenderer.populateNodeRegistry');
       this.debug.visitedNodes = visitedNodes;
-      this.debug.annotatedNodes = this.nodeRegistry.size;
+      this.debug.annotatedNodes = this.registry.size;
     }
   }
 

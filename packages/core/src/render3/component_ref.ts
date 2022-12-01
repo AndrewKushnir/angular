@@ -137,7 +137,7 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
   override create(
       injector: Injector, projectableNodes?: any[][]|undefined, rootSelectorOrNode?: any,
       environmentInjector?: NgModuleRef<any>|EnvironmentInjector|undefined,
-      ngh?: string): AbstractComponentRef<T> {
+      hydrationKey?: string): AbstractComponentRef<T> {
     environmentInjector = environmentInjector || this.ngModule;
 
     let realEnvironmentInjector = environmentInjector instanceof EnvironmentInjector ?
@@ -172,7 +172,7 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
     const rootTView = createTView(TViewType.Root, null, null, 1, 0, null, null, null, null, null);
     const rootLView = createLView(
         null, rootTView, null, rootFlags, null, null, rendererFactory, hostRenderer, sanitizer,
-        rootViewInjector, null, ngh ?? null);
+        rootViewInjector, null, hydrationKey ?? null);
 
     // rootView is the parent when bootstrapping
     // TODO(misko): it looks like we are entering view here but we don't really need to as
@@ -189,8 +189,10 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
       hostRNode =
           locateHostElement(hostRenderer, rootSelectorOrNode, this.componentDef.encapsulation);
     } else {
-      // NOTE: extra annotation for hydration key is just for debugging purposes.
-      const hydrationKey = getHydrationKey(rootLView, `0-ComponentFactory.create`);
+      // NOTE: this should probably be rootLView[HYDRATION_KEY],
+      // we don't need to annotate it with extra 0?
+      // This root view in fact represents this element.
+      const hydrationKey = getHydrationKey(rootLView, 0);
       hostRNode =
           createElementNode(hostRenderer, elementName, getNamespace(elementName), hydrationKey);
     }
@@ -347,9 +349,11 @@ function createRootComponentView(
   applyRootComponentStyling(rootDirectives, tNode, rNode, hostRenderer);
 
   const viewRenderer = rendererFactory.createRenderer(rNode, rootComponentDef);
+  // TODO: update the comment below.
+  // Note: we use a different separator to separate 2 views.
   // Reuse hydration key, since the root LView would not be actually present
   // on its own in a DOM, only component's LView contents would be present.
-  const hydrationKey = rootView[HYDRATION_KEY];
+  const hydrationKey = getHydrationKey(rootView, 0, ':');
   const componentView = createLView(
       rootView, getOrCreateComponentTView(rootComponentDef), null,
       rootComponentDef.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways, rootView[tNode.index],

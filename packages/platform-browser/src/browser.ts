@@ -7,7 +7,7 @@
  */
 
 import {CommonModule, DOCUMENT, XhrFactory, ɵPLATFORM_BROWSER_ID as PLATFORM_BROWSER_ID} from '@angular/common';
-import {APP_ID, ApplicationModule, ApplicationRef, createPlatformFactory, DELEGATE_RENDERER_FACTORY_FN, EnvironmentProviders, ErrorHandler, HydrationRenderer, inject, Inject, Injectable, InjectionToken, ModuleWithProviders, NgModule, NgZone, Optional, PLATFORM_ID, PLATFORM_INITIALIZER, platformCore, PlatformRef, Provider, Renderer2, RendererFactory2, RendererType2, SkipSelf, StaticProvider, Testability, TestabilityRegistry, Type, ɵINJECTOR_SCOPE as INJECTOR_SCOPE, ɵinternalCreateApplication as internalCreateApplication, ɵsetDocument, ɵTESTABILITY as TESTABILITY, ɵTESTABILITY_GETTER as TESTABILITY_GETTER} from '@angular/core';
+import {APP_ID, ApplicationModule, ApplicationRef, createPlatformFactory, DELEGATE_RENDERER_FACTORY_FN, EnvironmentProviders, ErrorHandler, HydrationRenderer, inject, Inject, Injectable, InjectionToken, ModuleWithProviders, NgModule, NgZone, Optional, PLATFORM_ID, PLATFORM_INITIALIZER, platformCore, PlatformRef, Provider, Renderer2, RendererFactory2, RendererType2, SkipSelf, StaticProvider, Testability, TestabilityRegistry, Type, ɵHydrationConfig as HydrationConfig, ɵHydrationState as HydrationState, ɵINJECTOR_SCOPE as INJECTOR_SCOPE, ɵinternalCreateApplication as internalCreateApplication, ɵsetDocument, ɵTESTABILITY as TESTABILITY, ɵTESTABILITY_GETTER as TESTABILITY_GETTER} from '@angular/core';
 
 import {BrowserDomAdapter} from './browser/browser_adapter';
 import {SERVER_TRANSITION_PROVIDERS, TRANSITION_ID} from './browser/server-transition';
@@ -97,22 +97,46 @@ export function bootstrapApplication(
   return internalCreateApplication({rootComponent, ...createProvidersConfig(options)});
 }
 
-export function provideHydrationSupport() {
-  return [{provide: RendererFactory2, useClass: HydrationRendererFactory2}];
+export function provideHydrationSupport(options?: {isStrictMode: boolean}) {
+  const providers: Provider[] = [{
+    provide: RendererFactory2,
+    useClass: HydrationRendererFactory2,
+  }];
+  if (options) {
+    providers.push({provide: HYDRATION_CONFIG, useValue: options});
+  }
+  return providers;
 }
 
 /**
- * Internal registry of DOM nodes participating in hydration.
+ * Represents hydration state within this application.
  */
-const HYDRATION_NODE_REGISTRY = new InjectionToken(NG_DEV_MODE ? 'HYDRATION_NODE_REGISTRY' : '', {
+const HYDRATION_STATE = new InjectionToken<HydrationState>(NG_DEV_MODE ? 'HYDRATION_STATE' : '', {
   providedIn: 'root',
-  factory: () => new Map(),
+  factory: () => ({
+    registry: new Map(),  // registry of all annotated elements found on a page
+    debug: {},            // debug info collected during the invocation
+    isRegistryPopulated: false,
+    inDeoptMode: false,
+  }),
 });
+
+/**
+ * Represents hydration config setup at application creation time.
+ */
+const HYDRATION_CONFIG =
+    new InjectionToken<HydrationConfig>(NG_DEV_MODE ? 'HYDRATION_CONFIG' : '', {
+      providedIn: 'root',
+      factory: () => ({
+        isStrictMode: false,
+      }),
+    });
 
 @Injectable()
 export class HydrationRendererFactory2 implements RendererFactory2 {
   private document = inject(DOCUMENT);
-  private nodeRegistry = inject(HYDRATION_NODE_REGISTRY);
+  private state = inject(HYDRATION_STATE);
+  private config = inject(HYDRATION_CONFIG);
   private delegateRendererFactory2: RendererFactory2;
 
   constructor() {
@@ -126,7 +150,7 @@ export class HydrationRendererFactory2 implements RendererFactory2 {
 
   createRenderer(element: any, type: RendererType2|null): Renderer2 {
     const delegateRenderer = this.delegateRendererFactory2.createRenderer(element, type);
-    return new HydrationRenderer(this.document, this.nodeRegistry, delegateRenderer);
+    return new HydrationRenderer(this.document, this.state, this.config, delegateRenderer);
   }
 
   begin() {}
