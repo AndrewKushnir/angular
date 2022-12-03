@@ -6,12 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {assertEqual, assertIndexInRange} from '../../util/assert';
+import {getElementHydrationKey} from '../hydration';
 import {TElementNode, TNodeType} from '../interfaces/node';
 import {HEADER_OFFSET, RENDERER} from '../interfaces/view';
 import {appendChild, createTextNode} from '../node_manipulation';
 import {getBindingIndex, getLView, getTView, setCurrentTNode} from '../state';
 
-import {getHydrationKey, getOrCreateTNode} from './shared';
+import {getOrCreateTNode} from './shared';
 
 
 
@@ -38,7 +39,7 @@ export function ɵɵtext(index: number, value: string = ''): void {
       getOrCreateTNode(tView, adjustedIndex, TNodeType.Text, value, null) :
       tView.data[adjustedIndex] as TElementNode;
 
-  const hydrationKey = getHydrationKey(lView, index);
+  const hydrationKey = getElementHydrationKey(lView, index);
   const textNative = lView[adjustedIndex] = createTextNode(lView[RENDERER], value, hydrationKey);
   appendChild(tView, lView, textNative, tNode);
 

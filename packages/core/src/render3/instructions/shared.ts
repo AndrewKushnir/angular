@@ -1909,19 +1909,3 @@ export function textBindingInternal(lView: LView, index: number, value: string):
   ngDevMode && assertDefined(element, 'native element should exist');
   updateTextNode(lView[RENDERER], element, value);
 }
-
-/**
- * Generates a string that represents a key that is used during the hydration
- * to find a reference to a particular DOM element.
- */
-export function getHydrationKey(
-    lView: LView<unknown>, instructionIndex: number|string, separator: string = '|'): string {
-  return `${lView[HYDRATION_KEY]}${separator}${instructionIndex}`;
-}
-
-/**
- * Monkey-patches extra info needed for hydration onto a native element.
- */
-export function patchHydrationKey(native: any, hydrationKey: string) {
-  (native as any).__ngh__ = hydrationKey;
-}

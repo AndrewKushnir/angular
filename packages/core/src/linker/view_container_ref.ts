@@ -13,13 +13,14 @@ import {assertNodeInjector} from '../render3/assert';
 import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
 import {getComponentDef} from '../render3/definition';
 import {getParentInjectorLocation, NodeInjector} from '../render3/di';
-import {addToViewTree, createLContainer, getHydrationKey} from '../render3/instructions/shared';
+import {getViewContainerHydrationKey, getViewContainerMarkerHydrationKey} from '../render3/hydration';
+import {addToViewTree, createLContainer} from '../render3/instructions/shared';
 import {CONTAINER_HEADER_OFFSET, LContainer, NATIVE, VIEW_REFS} from '../render3/interfaces/container';
 import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNodeType} from '../render3/interfaces/node';
 import {RComment, RElement} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
-import {HEADER_OFFSET, HYDRATION_KEY, ID, LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
+import {LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
 import {addViewToContainer, createCommentNode, destroyLView, detachView, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
@@ -304,7 +305,8 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       injector = indexOrOptions.injector;
     }
 
-    const hydrationKey = '' + this._adjustIndex(index);
+    const hydrationKey =
+        getViewContainerHydrationKey(this._hostLView, this._hostTNode, this._adjustIndex(index));
     const viewRef = templateRef.createEmbeddedView(context || <any>{}, injector, hydrationKey);
     this.insert(viewRef, index);
     return viewRef;
@@ -418,11 +420,8 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       }
     }
 
-    const parentHydrationKey = this._hostLView[HYDRATION_KEY];
-    const idx = this._hostTNode.index - HEADER_OFFSET;
-    const hydrationKey = parentHydrationKey + ':' +
-        '(' + idx + ':' + this._adjustIndex(index) + ')';
-
+    const hydrationKey =
+        getViewContainerHydrationKey(this._hostLView, this._hostTNode, this._adjustIndex(index));
     const componentRef = componentFactory.create(
         contextInjector, projectableNodes, undefined, environmentInjector, hydrationKey);
     this.insert(componentRef.hostView, index);
@@ -575,9 +574,7 @@ export function createContainerRef(
       // manipulation to insert it.
       const renderer = hostLView[RENDERER];
       ngDevMode && ngDevMode.rendererCreateComment++;
-      // TODO: add a note on why we need to annotate this node specifically
-      // (to avoid collision with the main element).
-      const hydrationKey = getHydrationKey(hostLView, `vcr${hostTNode.index - HEADER_OFFSET}`);
+      const hydrationKey = getViewContainerMarkerHydrationKey(hostLView, hostTNode);
       commentNode = createCommentNode(renderer, ngDevMode ? 'container' : '', hydrationKey);
 
       const hostNative = getNativeByTNode(hostTNode, hostLView)!;

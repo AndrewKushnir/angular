@@ -971,8 +971,9 @@ export class ApplicationRef {
     // TODO: we should consider passing the `ngh` via state to prevent extra args on
     // the public API fns? Also, the first bootstrapped component can just be `r` vs `r0`,
     // this should avoid extra chars (and would likely be the most common case).
-    const ngh = `r${this.components.length}`;
-    const compRef = componentFactory.create(Injector.NULL, [], selectorOrNode, ngModule, ngh);
+    const hydrationKey = `r${this.components.length}`;
+    const compRef =
+        componentFactory.create(Injector.NULL, [], selectorOrNode, ngModule, hydrationKey);
     const nativeElement = compRef.location.nativeElement;
     const testability = compRef.injector.get(TESTABILITY, null);
     testability?.registerApplication(nativeElement);

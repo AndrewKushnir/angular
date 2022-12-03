@@ -9,6 +9,7 @@ import {assertEqual, assertIndexInRange} from '../../util/assert';
 import {assertHasParent} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
+import {getElementHydrationKey} from '../hydration';
 import {TAttributes, TElementContainerNode, TNodeType} from '../interfaces/node';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, LView, RENDERER, TView} from '../interfaces/view';
@@ -18,7 +19,7 @@ import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodePare
 import {computeStaticStyling} from '../styling/static_styling';
 import {getConstant} from '../util/view_utils';
 
-import {createDirectivesInstances, executeContentQueries, getHydrationKey, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
+import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
 function elementContainerStartFirstCreatePass(
     index: number, tView: TView, lView: LView, attrsIndex?: number|null,
@@ -80,7 +81,7 @@ export function ɵɵelementContainerStart(
   setCurrentTNode(tNode, true);
 
   ngDevMode && ngDevMode.rendererCreateComment++;
-  const hydrationKey = getHydrationKey(lView, index);
+  const hydrationKey = getElementHydrationKey(lView, index);
   const native = lView[adjustedIndex] =
       createCommentNode(lView[RENDERER], ngDevMode ? 'ng-container' : '', hydrationKey);
   appendChild(tView, lView, native, tNode);

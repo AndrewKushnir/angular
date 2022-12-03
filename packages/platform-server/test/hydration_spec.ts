@@ -147,8 +147,8 @@ describe('platform-server integration', () => {
       const COMMENTS_KEY = makeStateKey<any>('comments');
 
       /*
-
-                <h1>This is a chat app</h1>
+      DEBUG:
+          <h1>This is a chat app</h1>
           <h2 *ngIf="loading"><span *ngIf="loading"><span
          *ngIf="loading">Loading!</span></span></h2> <h3 *ngIf="!loading"><span
          *ngIf="!loading"><span *ngIf="!loading">Not Loading!</span></span></h3> <ng-container
@@ -157,6 +157,12 @@ describe('platform-server integration', () => {
             </div>
           </ng-container>
 
+          <ng-template [ngIf]="isServer">
+            <div>This is SERVER</div>
+          </ng-template>
+          <ng-template [ngIf]="!isServer">
+            <div>This is BROWSER</div>
+          </ng-template>
 
             <ng-template [ngIf]="loading">
               <b>The content is loading...</b>
@@ -176,13 +182,13 @@ describe('platform-server integration', () => {
         imports: [CommonModule, ProjectorCmp],
         selector: 'app',
         template: `
-          <h1>Hi</h1>
-          <ng-template [ngIf]="isServer">
-            <div>This is SERVER</div>
-          </ng-template>
-          <ng-template [ngIf]="!isServer">
-            <div>This is BROWSER</div>
-          </ng-template>
+          <h1>Hi, this is a chat app!</h1>
+          <h2 *ngIf="loading">Loading...</h2>
+          <h2 *ngIf="!loading">Loaded!</h2>
+          <div *ngFor="let comment of comments">
+            [Comment #{{comment.id}}]
+            {{comment.author}} said: {{comment.content}}
+          </div>
         `,
       })
       class SimpleStandaloneComp {

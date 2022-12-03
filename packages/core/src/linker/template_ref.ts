@@ -81,15 +81,9 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
   override createEmbeddedView(context: T, injector?: Injector, hydrationKey?: string):
       EmbeddedViewRef<T> {
     const embeddedTView = this._declarationTContainer.tViews as TView;
-    // debugger;
-    const idx = this._declarationTContainer.index - HEADER_OFFSET;
-    const parentHydrationKey = this._declarationLView[HYDRATION_KEY];
-    // `hydrationKey` is an index in a ViewContainerRef at creation time.
-    const _hydrationKey = parentHydrationKey + ':' +
-        '(' + idx + ':' + (hydrationKey || '') + ')';
     const embeddedLView = createLView(
         this._declarationLView, embeddedTView, context, LViewFlags.CheckAlways, null,
-        embeddedTView.declTNode, null, null, null, null, injector || null, _hydrationKey);
+        embeddedTView.declTNode, null, null, null, null, injector || null, hydrationKey ?? null);
 
     const declarationLContainer = this._declarationLView[this._declarationTContainer.index];
     ngDevMode && assertLContainer(declarationLContainer);

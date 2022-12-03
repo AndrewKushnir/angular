@@ -8,6 +8,7 @@
 import {assertFirstCreatePass} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
+import {getElementHydrationKey} from '../hydration';
 import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNodeType} from '../interfaces/node';
 import {isDirectiveHost} from '../interfaces/type_checks';
@@ -16,7 +17,7 @@ import {appendChild, createCommentNode} from '../node_manipulation';
 import {getLView, getTView, setCurrentTNode} from '../state';
 import {getConstant} from '../util/view_utils';
 
-import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getHydrationKey, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
+import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
 
 
@@ -80,7 +81,7 @@ export function ɵɵtemplate(
                                         tView.data[adjustedIndex] as TContainerNode;
   setCurrentTNode(tNode, false);
 
-  const hydrationKey = getHydrationKey(lView, index);
+  const hydrationKey = getElementHydrationKey(lView, index);
   const comment = createCommentNode(lView[RENDERER], ngDevMode ? 'container' : '', hydrationKey);
   appendChild(tView, lView, comment, tNode);
   attachPatchData(comment, lView);

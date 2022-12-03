@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
+import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise, ɵreadHydrationKey as readHydrationKey} from '@angular/core';
 import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
@@ -20,6 +20,11 @@ import {TRANSFER_STATE_SERIALIZATION_PROVIDERS} from './transfer_state';
  * an execution time of a particular function/subsystem).
  */
 const ENABLE_PROFILING = true;
+
+/**
+ * Enables compression for hydration keys.
+ */
+const ENABLE_HYDRATION_KEY_COMPRESSION = false;
 
 interface PlatformOptions {
   document?: string|Document;
@@ -49,33 +54,6 @@ function appendServerContextInfo(serverContext: string, applicationRef: Applicat
       renderer.setAttribute(element, 'ng-server-context', serverContext);
     }
   });
-}
-
-/**
- * Helper function to replace serialized comment nodes with
- * a more compact representation, i.e. `<!--1|5-->` -> `<!1|5>`.
- * Ideally, it should be a part of Domino and there should be
- * no need to go over the HTML string once again, but Domino
- * doesn't support this at the moment.
- */
-function compactCommentNodes(content: string): string {
-  const shorten = () => content.replace(/<!--(.*?)-->/g, '<!$1>');
-
-  if (ENABLE_PROFILING) {
-    const lengthBefore = content.length;
-    console.time('compactCommentNodes');
-
-    content = shorten();
-
-    const lengthAfter = content.length;
-    console.timeEnd('compactCommentNodes');
-    console.log(
-        'compactCommentNodes: original size: ', lengthBefore, ', new size: ', lengthAfter,
-        ', saved: ', lengthBefore - lengthAfter);
-  } else {
-    content = shorten();  // same as above, but without extra logging
-  }
-  return content;
 }
 
 function _render<T>(
@@ -130,14 +108,23 @@ the server-rendered app can be properly bootstrapped into a client app.`);
               console.log('Pre-annotated output size: ', preAnnotatedOutput.length);
             }
 
-            annotateForHydration(platformState.getDocument());
+            const doc = platformState.getDocument();
+            applicationRef.components.forEach(componentRef => {
+              const element = componentRef.location.nativeElement;
+              if (element) {
+                annotateForHydration(doc, element);
+                if (ENABLE_HYDRATION_KEY_COMPRESSION) {
+                  compressHydrationKeys(element);
+                }
+              }
+            });
 
             ENABLE_PROFILING && console.time('renderToString');
             let output = platformState.renderToString();
             ENABLE_PROFILING && console.timeEnd('renderToString');
 
             // Shortens `<!--1|5-->` to `<!1|5>`.
-            output = compactCommentNodes(output);
+            output = compressCommentNodes(output);
 
             if (ENABLE_PROFILING) {
               const overheadInBytes = output.length - preAnnotatedOutput!.length;
@@ -167,12 +154,119 @@ the server-rendered app can be properly bootstrapped into a client app.`);
 }
 
 /**
- * Created a hydration key value based on an lView index and and element id.
- * This value is used during the hydration process on a client to find
- * corresponding nodes in the DOM.
+ * Helper function to replace serialized comment nodes with
+ * a more compact representation, i.e. `<!--1|5-->` -> `<!1|5>`.
+ * Ideally, it should be a part of Domino and there should be
+ * no need to go over the HTML string once again, but Domino
+ * doesn't support this at the moment.
  */
-function hydrationKey(lViewId: string, elementId: string, delimiter = '|'): string {
-  return `${lViewId}${delimiter}${elementId}`;
+function compressCommentNodes(content: string): string {
+  // Match patterns like: `*|<number>`, `*?<number>` and `*?vcr<number>`.
+  const shorten = () => content.replace(/<!--(.*?([|?]\d+|vcr\d+))-->/g, '<!$1>');
+
+  if (ENABLE_PROFILING) {
+    const lengthBefore = content.length;
+    console.time('compactCommentNodes');
+
+    content = shorten();
+
+    const lengthAfter = content.length;
+    console.timeEnd('compactCommentNodes');
+    console.log(
+        'compactCommentNodes: original size: ', lengthBefore, ', new size: ', lengthAfter,
+        ', saved: ', lengthBefore - lengthAfter);
+  } else {
+    content = shorten();  // same as above, but without extra logging
+  }
+  return content;
+}
+
+/**
+ * Compresses hydration keys to avoid repeating long strings,
+ * and only append the delta at each level.
+ * NOTE: this logic should eventually be folded into
+ * the `annotateForHydration` function, so that there is no
+ * extra DOM walk, but keep it separate for now for profiling
+ * and debugging purposes.
+ */
+function compressHydrationKeys(root: Element) {
+  /* Returns: [viewSegments, elementId, isTextMarker] */
+  const parseKey = (key: string): [string[], string, boolean] => {
+    const isTextMarker = key.indexOf('?') > -1;
+    const delim = isTextMarker ? '?' : '|';
+    const parts = key.split(delim);
+    const elementId = parts.pop()!;
+    const viewSegments = parts.pop()!.split(':');
+    return [viewSegments, elementId, isTextMarker];
+  };
+  const computeTransformCommand = (parent: string[], child: string[]) => {
+    let diffStartsAt = parent.length === child.length ?  //
+        -1 :
+        Math.min(parent.length, child.length);
+    let i = 0;
+    let rmCommand = '';
+    while (i < parent.length && i < child.length) {
+      if (parent[i] !== child[i]) {
+        diffStartsAt = i;
+        break;
+      }
+      i++;
+    }
+    if (diffStartsAt === -1) {
+      // No difference in keys, return an empty array.
+      return [];
+    } else {
+      // Starting from the diff point, until the end of the parent
+      // segments, add `d` as an indicator that one segment should
+      // be dropped (thus "d"). The following number indicated the number
+      // of segments to be dropped. If there is just one segment (most
+      // common case), just `d` is printed. Otherwise, the value would
+      // look like `d5` (drop 5 segments).
+      const segmentsToDrop = parent.length - diffStartsAt;
+      if (segmentsToDrop > 0) {
+        rmCommand = 'd' + (segmentsToDrop > 1 ? segmentsToDrop : '');
+      }
+      const command = rmCommand || 'a';  // 'a' stands for "append"
+      return [command, ...child.slice(diffStartsAt)];
+    }
+  };
+  const makeHydrationKey = (viewSegments: string[], elementId: string, isTextMarker: boolean) => {
+    return viewSegments.join(':') + (isTextMarker ? '?' : '|') + elementId;
+  };
+
+  let currentKey: any;
+  const visitNode = (node: any) => {
+    let nodeKey;
+    if (node.nodeType === Node.COMMENT_NODE) {
+      nodeKey = node.textContent;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      nodeKey = node.getAttribute('ngh');
+    }
+
+    if (nodeKey) {
+      const parsedNodeKey = parseKey(nodeKey);
+      const [viewSegments, elementId, isTextMarker] = parsedNodeKey;
+      if (currentKey) {
+        // We have both node and current keys, compute transform command
+        // (between view segments only).
+        const newViewSegments = computeTransformCommand(currentKey[0], viewSegments);
+        const newKey = makeHydrationKey(newViewSegments, elementId, isTextMarker);
+        if (node.nodeType === Node.COMMENT_NODE) {
+          node.textContent = newKey;
+        } else {  // Node.ELEMENT_NODE
+          node.setAttribute('ngh', newKey);
+        }
+      }
+      currentKey = parsedNodeKey;
+    }
+
+    let current = node.firstChild;
+    while (current) {
+      visitNode(current);
+      current = current.nextSibling;
+    }
+  };
+  visitNode(root);
 }
 
 /**
@@ -182,11 +276,11 @@ function hydrationKey(lViewId: string, elementId: string, delimiter = '|'): stri
  * - for text nodes: create a new comment node with a key
  *                   and append this comment node after the text node
  */
-function annotateForHydration(doc: Document) {
+function annotateForHydration(doc: Document, element: Element) {
   ENABLE_PROFILING && console.time('* Hydration annotation exec time overhead');
 
   const visitNode = (node: any) => {
-    const hydrationKey = node.__ngh__;
+    const hydrationKey = readHydrationKey(node);
     if (hydrationKey) {
       if (node.nodeType === Node.COMMENT_NODE) {
         node.textContent = hydrationKey;
@@ -206,7 +300,7 @@ function annotateForHydration(doc: Document) {
       current = current.nextSibling;
     }
   };
-  visitNode(doc.body);
+  visitNode(element);
 
   ENABLE_PROFILING && console.timeEnd('* Hydration annotation exec time overhead');
 }

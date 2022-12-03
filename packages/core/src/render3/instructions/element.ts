@@ -10,6 +10,7 @@ import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert'
 import {assertFirstCreatePass, assertHasParent} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
+import {getElementHydrationKey} from '../hydration';
 import {hasClassInput, hasStyleInput, TAttributes, TElementNode, TNodeFlags, TNodeType} from '../interfaces/node';
 import {RElement} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
@@ -22,7 +23,7 @@ import {getConstant} from '../util/view_utils';
 
 import {validateElementIsKnown} from './element_validation';
 import {setDirectiveInputsWhichShadowsStyling} from './property';
-import {createDirectivesInstances, executeContentQueries, getHydrationKey, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
+import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
 
 function elementStartFirstCreatePass(
@@ -85,7 +86,7 @@ export function ɵɵelementStart(
   ngDevMode && assertIndexInRange(lView, adjustedIndex);
 
   const renderer = lView[RENDERER];
-  const hydrationKey = getHydrationKey(lView, index);
+  const hydrationKey = getElementHydrationKey(lView, index);
   const native = lView[adjustedIndex] =
       createElementNode(renderer, name, getNamespace(), hydrationKey);
   const tNode = tView.firstCreatePass ?

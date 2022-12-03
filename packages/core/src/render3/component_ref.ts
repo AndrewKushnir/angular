@@ -30,13 +30,14 @@ import {getComponentDef} from './definition';
 import {getNodeInjectable, NodeInjector} from './di';
 import {throwProviderNotFoundError} from './errors_di';
 import {registerPostOrderHooks} from './hooks';
+import {getElementHydrationKey, getViewHydrationKey} from './hydration';
 import {reportUnknownPropertyError} from './instructions/element_validation';
-import {addToViewTree, createLView, createTView, executeContentQueries, getHydrationKey, getOrCreateComponentTView, getOrCreateTNode, initializeDirectives, invokeDirectivesHostBindings, locateHostElement, markAsComponentHost, markDirtyIfOnPush, renderView, setInputsForProperty} from './instructions/shared';
+import {addToViewTree, createLView, createTView, executeContentQueries, getOrCreateComponentTView, getOrCreateTNode, initializeDirectives, invokeDirectivesHostBindings, locateHostElement, markAsComponentHost, markDirtyIfOnPush, renderView, setInputsForProperty} from './instructions/shared';
 import {ComponentDef, DirectiveDef, HostDirectiveDefs} from './interfaces/definition';
 import {PropertyAliasValue, TContainerNode, TElementContainerNode, TElementNode, TNode, TNodeType} from './interfaces/node';
 import {Renderer, RendererFactory} from './interfaces/renderer';
 import {RElement, RNode} from './interfaces/renderer_dom';
-import {CONTEXT, HEADER_OFFSET, HYDRATION_KEY, LView, LViewFlags, TVIEW, TViewType} from './interfaces/view';
+import {CONTEXT, HEADER_OFFSET, LView, LViewFlags, TVIEW, TViewType} from './interfaces/view';
 import {MATH_ML_NAMESPACE, SVG_NAMESPACE} from './namespaces';
 import {createElementNode, setupStaticAttributes, writeDirectClass} from './node_manipulation';
 import {extractAttrsAndClassesFromSelector, stringifyCSSSelectorList} from './node_selector_matcher';
@@ -189,10 +190,7 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
       hostRNode =
           locateHostElement(hostRenderer, rootSelectorOrNode, this.componentDef.encapsulation);
     } else {
-      // NOTE: this should probably be rootLView[HYDRATION_KEY],
-      // we don't need to annotate it with extra 0?
-      // This root view in fact represents this element.
-      const hydrationKey = getHydrationKey(rootLView, 0);
+      const hydrationKey = getElementHydrationKey(rootLView, 0);
       hostRNode =
           createElementNode(hostRenderer, elementName, getNamespace(elementName), hydrationKey);
     }
@@ -349,11 +347,8 @@ function createRootComponentView(
   applyRootComponentStyling(rootDirectives, tNode, rNode, hostRenderer);
 
   const viewRenderer = rendererFactory.createRenderer(rNode, rootComponentDef);
-  // TODO: update the comment below.
-  // Note: we use a different separator to separate 2 views.
-  // Reuse hydration key, since the root LView would not be actually present
-  // on its own in a DOM, only component's LView contents would be present.
-  const hydrationKey = getHydrationKey(rootView, 0, ':');
+  // This component view is located at 0th position in parent LView.
+  const hydrationKey = getViewHydrationKey(rootView, 0);
   const componentView = createLView(
       rootView, getOrCreateComponentTView(rootComponentDef), null,
       rootComponentDef.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways, rootView[tNode.index],

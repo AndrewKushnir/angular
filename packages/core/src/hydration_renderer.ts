@@ -206,7 +206,7 @@ export class HydrationRenderer {
     return this.delegate.removeChild(parent, oldChild);
   }
 
-  // TODO: do we need to delegate here?
+  // TODO: we should delegate here at some point.
   selectRootElement(selectorOrNode: string|any): any {
     let element: any;
     if (typeof selectorOrNode === 'string') {
