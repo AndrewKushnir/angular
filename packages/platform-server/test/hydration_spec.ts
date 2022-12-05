@@ -184,7 +184,7 @@ describe('platform-server integration', () => {
         template: `
           <h1>Hi, this is a chat app!</h1>
           <h2 *ngIf="loading">Loading...</h2>
-          <h2 *ngIf="!loading">Loaded!</h2>
+          <h2 *ngIf="!loading">Loaded! <span *ngIf="!loading">(not loading)</span></h2>
           <div *ngFor="let comment of comments">
             [Comment #{{comment.id}}]
             {{comment.author}} said: {{comment.content}}

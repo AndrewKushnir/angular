@@ -30,7 +30,7 @@ import {getComponentDef} from './definition';
 import {getNodeInjectable, NodeInjector} from './di';
 import {throwProviderNotFoundError} from './errors_di';
 import {registerPostOrderHooks} from './hooks';
-import {getElementHydrationKey, getViewHydrationKey} from './hydration';
+import {getElementHydrationKey, getViewHydrationKey, patchHydrationKey} from './hydration';
 import {reportUnknownPropertyError} from './instructions/element_validation';
 import {addToViewTree, createLView, createTView, executeContentQueries, getOrCreateComponentTView, getOrCreateTNode, initializeDirectives, invokeDirectivesHostBindings, locateHostElement, markAsComponentHost, markDirtyIfOnPush, renderView, setInputsForProperty} from './instructions/shared';
 import {ComponentDef, DirectiveDef, HostDirectiveDefs} from './interfaces/definition';
@@ -182,17 +182,19 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
     // issues would allow us to drop this.
     enterView(rootLView);
 
-    // Determine a tag name used for creating host elements when this component is created
-    // dynamically. Default to 'div' if this component did not specify any tag name in its selector.
-    const elementName = this.componentDef.selectors[0][0] as string || 'div';
+    const _hydrationKey = getElementHydrationKey(rootLView, 0);
     let hostRNode: RElement;
     if (rootSelectorOrNode) {
       hostRNode =
           locateHostElement(hostRenderer, rootSelectorOrNode, this.componentDef.encapsulation);
+      patchHydrationKey(hostRNode, _hydrationKey);
     } else {
-      const hydrationKey = getElementHydrationKey(rootLView, 0);
+      // Determine a tag name used for creating host elements when this component is created
+      // dynamically. Default to 'div' if this component did not specify any tag name in its
+      // selector.
+      const elementName = this.componentDef.selectors[0][0] as string || 'div';
       hostRNode =
-          createElementNode(hostRenderer, elementName, getNamespace(elementName), hydrationKey);
+          createElementNode(hostRenderer, elementName, getNamespace(elementName), _hydrationKey);
     }
 
     let component: T;

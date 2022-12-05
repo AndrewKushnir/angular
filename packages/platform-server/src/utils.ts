@@ -184,14 +184,21 @@ function compressCommentNodes(content: string): string {
 /**
  * Compresses hydration keys to avoid repeating long strings,
  * and only append the delta at each level.
+ *
  * NOTE: this logic should eventually be folded into
  * the `annotateForHydration` function, so that there is no
  * extra DOM walk, but keep it separate for now for profiling
  * and debugging purposes.
+ *
+ * TODO:
+ * - move compression/decompression logic to a separate file,
+ * - move all inner functions outside of the `compressHydrationKeys` fn.
  */
 function compressHydrationKeys(root: Element) {
   /* Returns: [viewSegments, elementId, isTextMarker] */
-  const parseKey = (key: string): [string[], string, boolean] => {
+  type ParsedHydrationKey =
+      [string[] /* viewSegments */, string /* elementId */, boolean /* isTextMarker */];
+  const parseKey = (key: string): ParsedHydrationKey => {
     const isTextMarker = key.indexOf('?') > -1;
     const delim = isTextMarker ? '?' : '|';
     const parts = key.split(delim);
@@ -230,43 +237,54 @@ function compressHydrationKeys(root: Element) {
       return [command, ...child.slice(diffStartsAt)];
     }
   };
-  const makeHydrationKey = (viewSegments: string[], elementId: string, isTextMarker: boolean) => {
-    return viewSegments.join(':') + (isTextMarker ? '?' : '|') + elementId;
-  };
+  const makeHydrationKey =
+      (viewSegments: string[], elementId: string, isTextMarker: boolean): string => {
+        return viewSegments.join(':') + (isTextMarker ? '?' : '|') + elementId;
+      };
 
-  let currentKey: any;
-  const visitNode = (node: any) => {
-    let nodeKey;
-    if (node.nodeType === Node.COMMENT_NODE) {
-      nodeKey = node.textContent;
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      nodeKey = node.getAttribute('ngh');
-    }
-
+  const visitNode = (parentKey: ParsedHydrationKey, node: any) => {
+    let parsedNodeKey: ParsedHydrationKey|null = null;
+    const nodeKey = extractHydrationKey(node);
     if (nodeKey) {
-      const parsedNodeKey = parseKey(nodeKey);
+      parsedNodeKey = parseKey(nodeKey);
       const [viewSegments, elementId, isTextMarker] = parsedNodeKey;
-      if (currentKey) {
-        // We have both node and current keys, compute transform command
-        // (between view segments only).
-        const newViewSegments = computeTransformCommand(currentKey[0], viewSegments);
-        const newKey = makeHydrationKey(newViewSegments, elementId, isTextMarker);
-        if (node.nodeType === Node.COMMENT_NODE) {
-          node.textContent = newKey;
-        } else {  // Node.ELEMENT_NODE
-          node.setAttribute('ngh', newKey);
-        }
+      // We have both node and current keys, compute transform command
+      // (between view segments only).
+      const newViewSegments = computeTransformCommand(parentKey[0], viewSegments);
+      const newKey = makeHydrationKey(newViewSegments, elementId, isTextMarker);
+      if (node.nodeType === Node.COMMENT_NODE) {
+        node.textContent = newKey;
+      } else {  // Node.ELEMENT_NODE
+        node.setAttribute('ngh', newKey);
       }
-      currentKey = parsedNodeKey;
     }
 
-    let current = node.firstChild;
-    while (current) {
-      visitNode(current);
-      current = current.nextSibling;
+    let childNode = node.firstChild;
+    while (childNode) {
+      // If the current node doesn't have its own key,
+      // use parent node key instead, so that child key
+      // is computed based on it.
+      visitNode(parsedNodeKey ?? parentKey, childNode);
+      childNode = childNode.nextSibling;
     }
   };
-  visitNode(root);
+
+  // Start the process for all child nodes of the root node.
+  if (root.childNodes.length > 0) {
+    const rootKey = parseKey(extractHydrationKey(root)!);
+    root.childNodes.forEach((child: any) => {
+      visitNode(rootKey, child);
+    });
+  }
+}
+
+function extractHydrationKey(node: any): string|null {
+  if (node.nodeType === Node.COMMENT_NODE) {
+    return node.textContent;
+  } else if (node.nodeType === Node.ELEMENT_NODE) {
+    return node.getAttribute('ngh');
+  }
+  return null;
 }
 
 /**
@@ -417,8 +435,8 @@ export function renderApplication<T>(rootComponent: Type<T>, options: {
 }
 
 /**
- * Bootstraps an application using provided {@link NgModuleFactory} and serializes the page content
- * to string.
+ * Bootstraps an application using provided {@link NgModuleFactory} and serializes the page
+ * content to string.
  *
  * @param moduleFactory An instance of the {@link NgModuleFactory} that should be used for
  *     bootstrap.
