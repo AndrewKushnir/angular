@@ -14,6 +14,10 @@ import {getCurrentHydrationKey} from './render3/state';
 
 const NG_DEV_MODE = typeof ngDevMode === 'undefined' || !!ngDevMode;
 
+// Make sure this flag is in sync with a similar one in `platform-server`.
+// TODO: remove this flag eventually, we should always produce optimized keys.
+const ENABLE_HYDRATION_KEY_COMPRESSION = false;
+
 export interface HydrationState {
   inDeoptMode: boolean;
   isRegistryPopulated: boolean;
@@ -63,6 +67,65 @@ function initDebugInfo(registry: Map<string, Element>) {
     annotatedNodes: 0,
     initializedRenderersCount: 0,
   };
+}
+
+function extractHydrationKey(node: any): string|null {
+  if (node.nodeType === Node.COMMENT_NODE) {
+    return node.textContent;
+  } else if (node.nodeType === Node.ELEMENT_NODE) {
+    return node.getAttribute('ngh');
+  }
+  return null;
+}
+
+/**
+ * Visits all child nodes of a given node and restores
+ * full hydration keys for each node based on parent node
+ * hydration keys.
+ *
+ * TODO: co-locate this function with `compressHydrationNode` one.
+ * TODO: merge this logic into `populateNodeRegistry` eventually
+ *       (keep it separate for now for testing purposes).
+ */
+function decompressHydrationKeys(node: any) {
+  const visitNode = (node: any, parentViewKey: string) => {
+    const nodeKey = extractHydrationKey(node);
+    let nodeViewKey: string|null = null;
+    if (nodeKey) {
+      const parts = nodeKey.split(/[|?]/g);
+      nodeViewKey = parts[0];
+      // TODO: handle `dN` ("delete N segments") commands.
+      if (nodeViewKey.startsWith('a')) {
+        // Command to add a segment, drop leading 'a'.
+        nodeViewKey = nodeViewKey.slice(1);
+      }
+      nodeViewKey = parentViewKey + nodeViewKey;
+
+      const separator = nodeKey.indexOf('|') > -1 ? '|' : '?';
+      const newKey = nodeViewKey + separator + parts[1];
+      if (node.nodeType === Node.COMMENT_NODE) {
+        node.textContent = newKey;
+      } else {  // Node.ELEMENT_NODE
+        node.setAttribute('ngh', newKey);
+      }
+    }
+
+    let childNode = node.firstChild;
+    while (childNode) {
+      visitNode(childNode, nodeViewKey ?? parentViewKey);
+      childNode = childNode.nextSibling;
+    }
+  };
+  const parentKey = extractHydrationKey(node);
+  if (parentKey) {
+    // Take everything before '|' or '?' symbols.
+    const parentViewKey = parentKey.split(/[|?]/g)[0];
+    if (node.childNodes.length > 0) {
+      node.childNodes.forEach((child: any) => {
+        visitNode(child, parentViewKey);
+      });
+    }
+  }
 }
 
 /**
@@ -286,6 +349,10 @@ export class HydrationRenderer {
    * nodes that were annotated during the SSR process.
    */
   private populateNodeRegistry() {
+    // TODO: an app may have multiple root components
+    // and the `selectRootElement` function (thus this one as well)
+    // would be called multiple times. Make sure we have registries
+    // for each root component (and registries initialized lazily).
     if (this.state.isRegistryPopulated) {
       // The registry is already populated, exit.
       return;
@@ -298,14 +365,9 @@ export class HydrationRenderer {
     let visitedNodes = 0;
     const visitNode = (node: any) => {
       visitedNodes++;
-      let key;
-      if (node.nodeType === Node.COMMENT_NODE) {
-        key = node.textContent;
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        key = node.getAttribute('ngh');
-      }
-      if (key) {
-        this.registry.set(key, node);
+      const nodeKey = extractHydrationKey(node);
+      if (nodeKey) {
+        this.registry.set(nodeKey, node);
       }
 
       let current = node.firstChild;
@@ -314,6 +376,9 @@ export class HydrationRenderer {
         current = current.nextSibling;
       }
     };
+    if (ENABLE_HYDRATION_KEY_COMPRESSION) {
+      decompressHydrationKeys(this.root);
+    }
     visitNode(this.root);
 
     if (NG_DEV_MODE) {

@@ -21,9 +21,8 @@ import {TRANSFER_STATE_SERIALIZATION_PROVIDERS} from './transfer_state';
  */
 const ENABLE_PROFILING = true;
 
-/**
- * Enables compression for hydration keys.
- */
+// Make sure this flag is in sync with a similar one in `core`.
+// TODO: remove this flag eventually, we should always produce optimized keys.
 const ENABLE_HYDRATION_KEY_COMPRESSION = false;
 
 interface PlatformOptions {
