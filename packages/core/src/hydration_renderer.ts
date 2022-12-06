@@ -18,6 +18,12 @@ const NG_DEV_MODE = typeof ngDevMode === 'undefined' || !!ngDevMode;
 // TODO: remove this flag eventually, we should always produce optimized keys.
 const ENABLE_HYDRATION_KEY_COMPRESSION = false;
 
+/**
+ * Represents hydration state for an application.
+ *
+ * TODO: this state should be refactored to function correctly with
+ * more than one root component.
+ */
 export interface HydrationState {
   inDeoptMode: boolean;
   isRegistryPopulated: boolean;
@@ -47,9 +53,9 @@ function assertNodeType(node: any, nodeType: number, key: string) {
 
   if (node.nodeType !== nodeType) {
     const map: any = {
-      1: 'ELEMENT_NODE',
-      3: 'TEXT_NODE',
-      8: 'COMMENT_NODE',
+      [Node.ELEMENT_NODE]: 'ELEMENT_NODE',
+      [Node.TEXT_NODE]: 'TEXT_NODE',
+      [Node.COMMENT_NODE]: 'COMMENT_NODE',
     };
     throw new Error(
         `Unexpected node type for key ${key}! ` +
@@ -133,7 +139,10 @@ function decompressHydrationKeys(node: any) {
  * being rendered on the server side. Once the hydration is completed,
  * this renderer just proxies calls to the regular DOM renderer.
  *
- * TODO: use `RuntimeError` for errors.
+ * TODO:
+ *  - Use `RuntimeError` for errors.
+ *  - Better detect a situation when we can delegate to underlying renderer
+ *    (we can probably do that sooner).
  */
 export class HydrationRenderer {
   data: any = {};

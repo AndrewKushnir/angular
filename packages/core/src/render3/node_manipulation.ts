@@ -101,6 +101,9 @@ export function createTextNode(renderer: Renderer, value: string, hydrationKey?:
   ngDevMode && ngDevMode.rendererCreateTextNode++;
   ngDevMode && ngDevMode.rendererSetText++;
   if (hydrationKey) {
+    // TODO: the `setCurrentHydrationKey` is only needed to pass the hydration
+    // key to the `createText` function of a renderer without changing its
+    // API. Ideally, we should just pass this data as an argument.
     setCurrentHydrationKey(hydrationKey);
     const text = renderer.createText(value);
     setCurrentHydrationKey(null);
@@ -119,6 +122,9 @@ export function createCommentNode(
     renderer: Renderer, value: string, hydrationKey?: string): RComment {
   ngDevMode && ngDevMode.rendererCreateComment++;
   if (hydrationKey) {
+    // TODO: the `setCurrentHydrationKey` is only needed to pass the hydration
+    // key to the `createComment` function of a renderer without changing its
+    // API. Ideally, we should just pass this data as an argument.
     setCurrentHydrationKey(hydrationKey);
     const comment = renderer.createComment(escapeCommentText(value));
     setCurrentHydrationKey(null);
@@ -139,6 +145,9 @@ export function createElementNode(
     renderer: Renderer, name: string, namespace: string|null, hydrationKey?: string): RElement {
   ngDevMode && ngDevMode.rendererCreateElement++;
   if (hydrationKey) {
+    // TODO: the `setCurrentHydrationKey` is only needed to pass the hydration
+    // key to the `createElement` function of a renderer without changing its
+    // API. Ideally, we should just pass this data as an argument.
     setCurrentHydrationKey(hydrationKey);
     const element = renderer.createElement(name, namespace);
     setCurrentHydrationKey(null);

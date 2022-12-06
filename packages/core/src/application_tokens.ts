@@ -93,10 +93,11 @@ export const ANIMATION_MODULE_TYPE =
     new InjectionToken<'NoopAnimations'|'BrowserAnimations'>('AnimationModuleType');
 
 /**
- * Experimental!
- *
  * DI token that allows providing a renderer factory that can produce
  * a renderer that can be used as a delegated one.
+ *
+ * TODO: investigate whether we can pick up a previous renderer automatically,
+ * without needing this token.
  */
 export const DELEGATE_RENDERER_FACTORY_FN =
     new InjectionToken<(delegate: RendererFactory2) => RendererFactory2>(

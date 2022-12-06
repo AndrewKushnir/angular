@@ -97,6 +97,18 @@ export function bootstrapApplication(
   return internalCreateApplication({rootComponent, ...createProvidersConfig(options)});
 }
 
+/**
+ * *** WARNING: EXTREMELY EXPERIMENTAL API! ***
+ *
+ * Enables a renderer that would recognize server-side rendered content
+ * and try to reuse existing DOM nodes while creating an application.
+ *
+ * @returns A set of Providers that can be added into an application
+ *          within the bootstrap call.
+ *
+ * @developerPreview
+ * @publicApi
+ */
 export function provideHydrationSupport(options?: {isStrictMode: boolean}) {
   const providers: Provider[] = [{
     provide: RendererFactory2,
@@ -106,6 +118,27 @@ export function provideHydrationSupport(options?: {isStrictMode: boolean}) {
     providers.push({provide: HYDRATION_CONFIG, useValue: options});
   }
   return providers;
+}
+
+
+/**
+ * *** WARNING: EXTREMELY EXPERIMENTAL API! ***
+ *
+ * Hydrates an application, trying to pick up existing nodes from the DOM
+ * instead of creating new ones like `bootstrapApplication` does. The DOM
+ * structure *must* be produced by the serialization functions like
+ * `renderModule` (for NgModule cases) and `renderApplication` (for standalone
+ * components cases).
+ *
+ * @developerPreview
+ * @publicApi
+ */
+export function hydrateApplication<T>(
+    rootComponent: Type<T>, options?: {providers: Provider[]}): Promise<ApplicationRef> {
+  // TODO: pass through hydration config options.
+  const hydrationProviders = provideHydrationSupport();
+  const providers = [...(options?.providers || []), ...hydrationProviders];
+  return bootstrapApplication(rootComponent, {providers});
 }
 
 /**
@@ -155,27 +188,6 @@ export class HydrationRendererFactory2 implements RendererFactory2 {
 
   begin() {}
   end() {}
-}
-
-/**
- * *** WARNING: EXTREMELY EXPERIMENTAL API! ***
- *
- * Hydrates an application, trying to pick up existing nodes from the DOM
- * instead of creating new ones like `bootstrapApplication` does. The DOM
- * structure *must* be produced by the serialization functions like
- * `renderModule` (for NgModule cases) and `renderApplication` (for standalone
- * components cases).
- *
- * @developerPreview
- * @publicApi
- */
-export function hydrateApplication<T>(
-    rootComponent: Type<T>, options?: {providers: Provider[]}): Promise<ApplicationRef> {
-  const renderer: Provider[] = [
-    {provide: RendererFactory2, useClass: HydrationRendererFactory2},
-  ];
-  const providers = [...(options?.providers || []), ...renderer];
-  return bootstrapApplication(rootComponent, {providers});
 }
 
 /**
