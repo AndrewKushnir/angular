@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise, ɵreadHydrationKey as readHydrationKey} from '@angular/core';
+import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵannotateForHydration as annotateForHydration, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
 import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
@@ -111,10 +111,10 @@ the server-rendered app can be properly bootstrapped into a client app.`);
             applicationRef.components.forEach(componentRef => {
               const element = componentRef.location.nativeElement;
               if (element) {
-                annotateForHydration(doc, element);
-                if (ENABLE_HYDRATION_KEY_COMPRESSION) {
-                  compressHydrationKeys(element);
-                }
+                const debugKey = '* Hydration annotation time';
+                ENABLE_PROFILING && console.time(debugKey);
+                annotateForHydration(doc, element, ENABLE_HYDRATION_KEY_COMPRESSION);
+                ENABLE_PROFILING && console.timeEnd(debugKey);
               }
             });
 
@@ -178,148 +178,6 @@ function compressCommentNodes(content: string): string {
     content = shorten();  // same as above, but without extra logging
   }
   return content;
-}
-
-/**
- * Compresses hydration keys to avoid repeating long strings,
- * and only append the delta at each level.
- *
- * NOTE: this logic should eventually be folded into
- * the `annotateForHydration` function, so that there is no
- * extra DOM walk, but keep it separate for now for profiling
- * and debugging purposes.
- *
- * TODO:
- * - move compression/decompression logic to a separate file,
- * - move all inner functions outside of the `compressHydrationKeys` fn.
- */
-function compressHydrationKeys(root: Element) {
-  /* Returns: [viewSegments, elementId, isTextMarker] */
-  type ParsedHydrationKey =
-      [string[] /* viewSegments */, string /* elementId */, boolean /* isTextMarker */];
-  const parseKey = (key: string): ParsedHydrationKey => {
-    const isTextMarker = key.indexOf('?') > -1;
-    const delim = isTextMarker ? '?' : '|';
-    const parts = key.split(delim);
-    const elementId = parts.pop()!;
-    const viewSegments = parts.pop()!.split(':');
-    return [viewSegments, elementId, isTextMarker];
-  };
-  const computeTransformCommand = (parent: string[], child: string[]) => {
-    let diffStartsAt = parent.length === child.length ?  //
-        -1 :
-        Math.min(parent.length, child.length);
-    let i = 0;
-    let rmCommand = '';
-    while (i < parent.length && i < child.length) {
-      if (parent[i] !== child[i]) {
-        diffStartsAt = i;
-        break;
-      }
-      i++;
-    }
-    if (diffStartsAt === -1) {
-      // No difference in keys, return an empty array.
-      return [];
-    } else {
-      // Starting from the diff point, until the end of the parent
-      // segments, add `d` as an indicator that one segment should
-      // be dropped (thus "d"). The following number indicated the number
-      // of segments to be dropped. If there is just one segment (most
-      // common case), just `d` is printed. Otherwise, the value would
-      // look like `d5` (drop 5 segments).
-      const segmentsToDrop = parent.length - diffStartsAt;
-      if (segmentsToDrop > 0) {
-        rmCommand = 'd' + (segmentsToDrop > 1 ? segmentsToDrop : '');
-      }
-      const command = rmCommand || 'a';  // 'a' stands for "append"
-      return [command, ...child.slice(diffStartsAt)];
-    }
-  };
-  const makeHydrationKey =
-      (viewSegments: string[], elementId: string, isTextMarker: boolean): string => {
-        return viewSegments.join(':') + (isTextMarker ? '?' : '|') + elementId;
-      };
-
-  const visitNode = (parentKey: ParsedHydrationKey, node: any) => {
-    let parsedNodeKey: ParsedHydrationKey|null = null;
-    const nodeKey = extractHydrationKey(node);
-    if (nodeKey) {
-      parsedNodeKey = parseKey(nodeKey);
-      const [viewSegments, elementId, isTextMarker] = parsedNodeKey;
-      // We have both node and current keys, compute transform command
-      // (between view segments only).
-      const newViewSegments = computeTransformCommand(parentKey[0], viewSegments);
-      const newKey = makeHydrationKey(newViewSegments, elementId, isTextMarker);
-      if (node.nodeType === Node.COMMENT_NODE) {
-        node.textContent = newKey;
-      } else {  // Node.ELEMENT_NODE
-        node.setAttribute('ngh', newKey);
-      }
-    }
-
-    let childNode = node.firstChild;
-    while (childNode) {
-      // If the current node doesn't have its own key,
-      // use parent node key instead, so that child key
-      // is computed based on it.
-      visitNode(parsedNodeKey ?? parentKey, childNode);
-      childNode = childNode.nextSibling;
-    }
-  };
-
-  // Start the process for all child nodes of the root node.
-  if (root.childNodes.length > 0) {
-    const rootKey = parseKey(extractHydrationKey(root)!);
-    root.childNodes.forEach((child: any) => {
-      visitNode(rootKey, child);
-    });
-  }
-}
-
-function extractHydrationKey(node: any): string|null {
-  if (node.nodeType === Node.COMMENT_NODE) {
-    return node.textContent;
-  } else if (node.nodeType === Node.ELEMENT_NODE) {
-    return node.getAttribute('ngh');
-  }
-  return null;
-}
-
-/**
- * Annotates document nodes with extra info needed for hydration on a client later:
- * - for comment nodes: insert hydration key as a content
- * - for element nodes: add a new `ngh` attribute
- * - for text nodes: create a new comment node with a key
- *                   and append this comment node after the text node
- */
-function annotateForHydration(doc: Document, element: Element) {
-  ENABLE_PROFILING && console.time('* Hydration annotation exec time overhead');
-
-  const visitNode = (node: any) => {
-    const hydrationKey = readHydrationKey(node);
-    if (hydrationKey) {
-      if (node.nodeType === Node.COMMENT_NODE) {
-        node.textContent = hydrationKey;
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        node.setAttribute('ngh', hydrationKey);
-      } else if (node.nodeType === Node.TEXT_NODE) {
-        // Note: `?` is a special marker that represents a marker for a text node.
-        const key = hydrationKey.replace('|', '?');
-        const marker = doc.createComment(key);
-        node.after(marker);
-      }
-    }
-
-    let current = node.firstChild;
-    while (current) {
-      visitNode(current);
-      current = current.nextSibling;
-    }
-  };
-  visitNode(element);
-
-  ENABLE_PROFILING && console.timeEnd('* Hydration annotation exec time overhead');
 }
 
 /**

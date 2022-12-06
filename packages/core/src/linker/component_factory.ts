@@ -116,5 +116,6 @@ export abstract class ComponentFactory<C> {
    */
   abstract create(
       injector: Injector, projectableNodes?: any[][], rootSelectorOrNode?: string|any,
-      environmentInjector?: EnvironmentInjector|NgModuleRef<any>, ngh?: string): ComponentRef<C>;
+      environmentInjector?: EnvironmentInjector|NgModuleRef<any>,
+      hydrationKey?: string): ComponentRef<C>;
 }

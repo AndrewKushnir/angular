@@ -5,8 +5,8 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+import {getElementHydrationKey} from '../../hydration/keys';
 import {assertEqual, assertIndexInRange} from '../../util/assert';
-import {getElementHydrationKey} from '../hydration';
 import {TElementNode, TNodeType} from '../interfaces/node';
 import {HEADER_OFFSET, RENDERER} from '../interfaces/view';
 import {appendChild, createTextNode} from '../node_manipulation';

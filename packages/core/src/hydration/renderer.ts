@@ -8,9 +8,10 @@
 
 import {Renderer2, RendererStyleFlags2} from '@angular/core';
 
-import {global} from '../src/util/global';
+import {getCurrentHydrationKey} from '../render3/state';
+import {global} from '../util/global';
 
-import {getCurrentHydrationKey} from './render3/state';
+import {collectHydratableNodes} from './annotate';
 
 const NG_DEV_MODE = typeof ngDevMode === 'undefined' || !!ngDevMode;
 
@@ -38,8 +39,8 @@ export interface HydrationConfig {
 interface HydrationDebugInfo {
   lastSeenRenderer?: Renderer2|null;
   registry?: Map<any, any>;
-  visitedNodes?: number;
   hydratedNodes?: number;
+  visitedNodes?: number;
   annotatedNodes?: number;
   root?: any;
   initializedRenderersCount?: number;
@@ -68,70 +69,11 @@ function initDebugInfo(registry: Map<string, Element>) {
   return {
     lastSeenRenderer: null,
     registry,
-    visitedNodes: 0,
     hydratedNodes: 0,
+    visitedNodes: 0,
     annotatedNodes: 0,
     initializedRenderersCount: 0,
   };
-}
-
-function extractHydrationKey(node: any): string|null {
-  if (node.nodeType === Node.COMMENT_NODE) {
-    return node.textContent;
-  } else if (node.nodeType === Node.ELEMENT_NODE) {
-    return node.getAttribute('ngh');
-  }
-  return null;
-}
-
-/**
- * Visits all child nodes of a given node and restores
- * full hydration keys for each node based on parent node
- * hydration keys.
- *
- * TODO: co-locate this function with `compressHydrationNode` one.
- * TODO: merge this logic into `populateNodeRegistry` eventually
- *       (keep it separate for now for testing purposes).
- */
-function decompressHydrationKeys(node: any) {
-  const visitNode = (node: any, parentViewKey: string) => {
-    const nodeKey = extractHydrationKey(node);
-    let nodeViewKey: string|null = null;
-    if (nodeKey) {
-      const parts = nodeKey.split(/[|?]/g);
-      nodeViewKey = parts[0];
-      // TODO: handle `dN` ("delete N segments") commands.
-      if (nodeViewKey.startsWith('a')) {
-        // Command to add a segment, drop leading 'a'.
-        nodeViewKey = nodeViewKey.slice(1);
-      }
-      nodeViewKey = parentViewKey + nodeViewKey;
-
-      const separator = nodeKey.indexOf('|') > -1 ? '|' : '?';
-      const newKey = nodeViewKey + separator + parts[1];
-      if (node.nodeType === Node.COMMENT_NODE) {
-        node.textContent = newKey;
-      } else {  // Node.ELEMENT_NODE
-        node.setAttribute('ngh', newKey);
-      }
-    }
-
-    let childNode = node.firstChild;
-    while (childNode) {
-      visitNode(childNode, nodeViewKey ?? parentViewKey);
-      childNode = childNode.nextSibling;
-    }
-  };
-  const parentKey = extractHydrationKey(node);
-  if (parentKey) {
-    // Take everything before '|' or '?' symbols.
-    const parentViewKey = parentKey.split(/[|?]/g)[0];
-    if (node.childNodes.length > 0) {
-      node.childNodes.forEach((child: any) => {
-        visitNode(child, parentViewKey);
-      });
-    }
-  }
 }
 
 /**
@@ -298,7 +240,6 @@ export class HydrationRenderer {
     return element;
   }
 
-
   private get registry() {
     return this.state.registry;
   }
@@ -371,29 +312,14 @@ export class HydrationRenderer {
 
     NG_DEV_MODE && console.time('HydrationRenderer.populateNodeRegistry');
 
-    let visitedNodes = 0;
-    const visitNode = (node: any) => {
-      visitedNodes++;
-      const nodeKey = extractHydrationKey(node);
-      if (nodeKey) {
-        this.registry.set(nodeKey, node);
-      }
-
-      let current = node.firstChild;
-      while (current) {
-        visitNode(current);
-        current = current.nextSibling;
-      }
-    };
-    if (ENABLE_HYDRATION_KEY_COMPRESSION) {
-      decompressHydrationKeys(this.root);
-    }
-    visitNode(this.root);
+    const visitedNodes =
+        collectHydratableNodes(this.root, this.registry, ENABLE_HYDRATION_KEY_COMPRESSION);
 
     if (NG_DEV_MODE) {
       console.timeEnd('HydrationRenderer.populateNodeRegistry');
       this.debug.visitedNodes = visitedNodes;
       this.debug.annotatedNodes = this.registry.size;
+      console.log(this.debug);
     }
   }
 

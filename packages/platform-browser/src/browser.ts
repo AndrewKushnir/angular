@@ -120,7 +120,6 @@ export function provideHydrationSupport(options?: {isStrictMode: boolean}) {
   return providers;
 }
 
-
 /**
  * *** WARNING: EXTREMELY EXPERIMENTAL API! ***
  *
@@ -183,6 +182,8 @@ export class HydrationRendererFactory2 implements RendererFactory2 {
 
   createRenderer(element: any, type: RendererType2|null): Renderer2 {
     const delegateRenderer = this.delegateRendererFactory2.createRenderer(element, type);
+    // TODO: consider caching this renderer instance and reuse it later
+    // (vs creating a new one from scratch all the time).
     return new HydrationRenderer(this.document, this.state, this.config, delegateRenderer);
   }
 

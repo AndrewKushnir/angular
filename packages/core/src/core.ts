@@ -15,7 +15,7 @@ export * from './metadata';
 export * from './version';
 export {TypeDecorator} from './util/decorators';
 export * from './di';
-export {HydrationRenderer} from './hydration_renderer';
+export {HydrationRenderer} from './hydration/renderer';
 export {createPlatform, assertPlatform, destroyPlatform, getPlatform, BootstrapOptions, PlatformRef, ApplicationRef, createPlatformFactory, NgProbeToken} from './application_ref';
 export {enableProdMode, isDevMode} from './util/is_dev_mode';
 export {APP_ID, PACKAGE_ROOT_URL, PLATFORM_INITIALIZER, PLATFORM_ID, APP_BOOTSTRAP_LISTENER, ANIMATION_MODULE_TYPE, DELEGATE_RENDERER_FACTORY_FN} from './application_tokens';

@@ -58,7 +58,8 @@ export abstract class TemplateRef<C> {
    * @param injector Injector to be used within the embedded view.
    * @returns The new embedded view object.
    */
-  abstract createEmbeddedView(context: C, injector?: Injector, ngh?: string): EmbeddedViewRef<C>;
+  abstract createEmbeddedView(context: C, injector?: Injector, hydrationKey?: string):
+      EmbeddedViewRef<C>;
 
   /**
    * @internal

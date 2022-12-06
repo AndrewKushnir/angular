@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {patchHydrationKey} from '../hydration/keys';
 import {ViewEncapsulation} from '../metadata/view';
 import {RendererStyleFlags2} from '../render/api_flags';
 import {addToArray, removeFromArray} from '../util/array_utils';
@@ -14,7 +15,6 @@ import {escapeCommentText} from '../util/dom';
 
 import {assertLContainer, assertLView, assertParentView, assertProjectionSlots, assertTNodeForLView} from './assert';
 import {attachPatchData} from './context_discovery';
-import {patchHydrationKey} from './hydration';
 import {icuContainerIterate} from './i18n/i18n_tree_shaking';
 import {CONTAINER_HEADER_OFFSET, HAS_TRANSPLANTED_VIEWS, LContainer, MOVED_VIEWS, NATIVE} from './interfaces/container';
 import {ComponentDef} from './interfaces/definition';

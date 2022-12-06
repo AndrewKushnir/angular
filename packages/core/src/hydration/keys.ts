@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {TNode} from './interfaces/node';
-import {HEADER_OFFSET, HYDRATION_KEY, LView} from './interfaces/view';
+import {TNode} from '../render3/interfaces/node';
+import {HEADER_OFFSET, HYDRATION_KEY, LView} from '../render3/interfaces/view';
 
 const VIEW_SEPARATOR = ':';
 const ELEMENT_SEPARATOR = '|';
@@ -43,7 +43,6 @@ export function getViewContainerHydrationKey(
   return getViewHydrationKey(hostLView, key);
 }
 
-
 /**
  * Special case for a comment node that is inserted as a marker for a view container:
  * this node needs to have an id that is different from the host node itself,
@@ -63,6 +62,6 @@ export function patchHydrationKey(native: any, hydrationKey: string) {
 /**
  * Reads monkey-patched hydration key from a native element.
  */
-export function readHydrationKey(native: any): string|null {
+export function readPatchedHydrationKey(native: any): string|null {
   return (native as any)[PATCHED_HYDRATION_KEY] ?? null;
 }

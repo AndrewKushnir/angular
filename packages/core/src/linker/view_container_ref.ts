@@ -8,12 +8,12 @@
 
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
+import {getViewContainerHydrationKey, getViewContainerMarkerHydrationKey} from '../hydration/keys';
 import {isType, Type} from '../interface/type';
 import {assertNodeInjector} from '../render3/assert';
 import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
 import {getComponentDef} from '../render3/definition';
 import {getParentInjectorLocation, NodeInjector} from '../render3/di';
-import {getViewContainerHydrationKey, getViewContainerMarkerHydrationKey} from '../render3/hydration';
 import {addToViewTree, createLContainer} from '../render3/instructions/shared';
 import {CONTAINER_HEADER_OFFSET, LContainer, NATIVE, VIEW_REFS} from '../render3/interfaces/container';
 import {NodeInjectorOffset} from '../render3/interfaces/injector';
