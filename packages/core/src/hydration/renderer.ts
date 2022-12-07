@@ -237,6 +237,11 @@ export class HydrationRenderer {
     }
     this.markAsHydrated(element);
     this.populateNodeRegistry();
+
+    // The `ngh` attribute was only needed to transfer hydration data
+    // over the wire. It has no utility once an app hydrates.
+    element.removeAttribute('ngh');
+
     return element;
   }
 
@@ -319,7 +324,6 @@ export class HydrationRenderer {
       console.timeEnd('HydrationRenderer.populateNodeRegistry');
       this.debug.visitedNodes = visitedNodes;
       this.debug.annotatedNodes = this.registry.size;
-      console.log(this.debug);
     }
   }
 

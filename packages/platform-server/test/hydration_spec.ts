@@ -7,27 +7,39 @@
  */
 import '@angular/localize/init';
 
-import {CommonModule, DOCUMENT, isPlatformServer, PlatformLocation, ɵgetDOM as getDOM} from '@angular/common';
-import {APP_ID, ApplicationRef, CompilerFactory, Component, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Type, ViewEncapsulation} from '@angular/core';
+import {CommonModule, DOCUMENT, isPlatformServer, NgIf, PlatformLocation, ɵgetDOM as getDOM} from '@angular/common';
+import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Type, ViewEncapsulation} from '@angular/core';
 import {TestBed, waitForAsync} from '@angular/core/testing';
 import {bootstrapApplication, makeStateKey, TransferState} from '@angular/platform-browser';
 import {hydrateApplication} from '@angular/platform-browser/src/browser';
 
 import {renderApplication} from '../src/utils';
 
-function getAppContents(output: string): string {
-  const result = output.match(/<body>(.*?)<\/body>/sg);
+function getAppContents(html: string): string {
+  // Drop `ng-version` and `ng-server-context` attrs,
+  // so that it's easier to make assertions in tests.
+  html = html.replace(/ ng-version=".*?"/, '')  //
+             .replace(/ ng-server-context=".*?"/, '');
+  const result = html.match(/<body>(.*?)<\/body>/s);
   if (!result) {
     throw new Error('App not found!');
   }
-  return result[0];
+  return result[1];
 }
 
-function getAppDOM(output: string, doc: Document): HTMLElement {
-  const contents = getAppContents(output);
+function getAppDOM(html: string, doc: Document): HTMLElement {
+  const contents = getAppContents(html);
   const container = doc.createElement('div');
   container.innerHTML = contents;
   return container;
+}
+
+function getComponentRef<T>(appRef: ApplicationRef): ComponentRef<T> {
+  return appRef.components[0];
+}
+
+function getAppRootNode(appRef: ApplicationRef): Element {
+  return getComponentRef(appRef).location.nativeElement;
 }
 
 function verifyAllNodesHydrated(el: any) {
@@ -50,27 +62,33 @@ describe('platform-server integration', () => {
   });
 
   describe('hydration', () => {
+    const appId = 'simple-cmp';
+
     let doc: Document;
 
     beforeEach(() => {
       doc = TestBed.inject(DOCUMENT);
     });
     afterEach(() => {
-      // First child is the `<app>` element.
-      doc.body.firstChild!.remove();
+      let current = doc.body.firstChild;
+      while (current) {
+        const nextSibling = current.nextSibling;
+        current.remove();
+        current = nextSibling;
+      }
     });
 
-    async function hydrateAfterSSR(component: Type<unknown>): Promise<ApplicationRef> {
-      const appId = 'simple-cmp';
+    async function ssr(component: Type<unknown>): Promise<string> {
       const document = '<html><head></head><body><app></app></body></html>';
-      const ssrOutput = await renderApplication(component, {document, appId});
+      return renderApplication(component, {document, appId});
+    }
 
-      debugger;
-
+    async function hydrate(html: string, component: Type<unknown>): Promise<ApplicationRef> {
+      // Destroy existing platform, a new one will be created later in `hydrateApplication`.
       destroyPlatform();
 
       // Get HTML contents of the `<app>`, create a DOM element and append it into the body.
-      const container = getAppDOM(ssrOutput, doc);
+      const container = getAppDOM(html, doc);
       const app = container.querySelector('app')!;
       doc.body.appendChild(app);
 
@@ -81,7 +99,6 @@ describe('platform-server integration', () => {
         doc.body.appendChild(serializedStateScript);
       }
 
-      // Reset all tracked LViews, since we transition from the server -> client.
       const providers = [
         {provide: APP_ID, useValue: appId},
         {provide: DOCUMENT, useValue: doc},
@@ -89,51 +106,170 @@ describe('platform-server integration', () => {
       return hydrateApplication(component, {providers});
     }
 
-    // Run the set of tests with regular and standalone components.
-    it(`using hydrateApplication should work`, async () => {
-      @Component({
-        standalone: true,
-        imports: [CommonModule],
-        selector: 'content-cmp',
-        template: '<span>This is a content projected from another component!</span>',
-      })
-      class ContentCmp {
-      }
+    /**
+     * Helper function that server-side renders a standalone component
+     * and after that tries to hydrate it.
+     */
+    async function ssrAndHydrate(component: Type<unknown>): Promise<ApplicationRef> {
+      const html = await ssr(component);
+      return hydrate(html, component);
+    }
 
+    it('should work with simple components', async () => {
       @Component({
         standalone: true,
-        imports: [CommonModule],
-        selector: 'projector-cmp',
-        template: '<p>Projected content: <ng-content></ng-content></p>',
-      })
-      class ProjectorCmp {
-      }
-
-      @Component({
-        standalone: true,
-        imports: [CommonModule, ContentCmp, ProjectorCmp],
         selector: 'app',
+        template: 'Hi!',
+      })
+      class SimpleComponent {
+      }
+
+      const html = await ssr(SimpleComponent);
+      const appContents = getAppContents(html);
+      expect(appContents).toBe('<app ngh="r0|0">Hi!<!r0:0?0></app>');
+
+      const appRef = await hydrate(html, SimpleComponent);
+      const root = getAppRootNode(appRef);
+      verifyAllNodesHydrated(root);
+    });
+
+    it('should work with simple components and `*ngIf`s', async () => {
+      @Component({
+        standalone: true,
+        selector: 'app',
+        imports: [NgIf],
         template: `
-          <div (click)="increment()">Increment</div>
-          <span>{{placeholder}}</span>
+          <div>
+            <i *ngIf="!visible">Not visible</i>
+            <b *ngIf="visible">Visible</b>
+          </div>
         `,
       })
-      class SimpleStandaloneComp {
-        placeholder = '';
-        items = [1, 2, 3];
+      class SimpleComponent {
+        visible = true;
+      }
+
+      const html = await ssr(SimpleComponent);
+      const appContents = getAppContents(html);
+      const expected =  //
+          '<app ngh="r0|0">' +
+          '<div ngh="r0:0|0">' +
+          '<!r0:0|1>' +  // This is an anchor node for the `<i *ngIf="!visible">` view.
+          '<b ngh="r0:0:2+0|0">Visible<!r0:0:2+0?1></b><!r0:0|2>' +
+          '</div>' +
+          '</app>';
+      expect(appContents).toBe(expected);
+
+      const appRef = await hydrate(html, SimpleComponent);
+      const compRef = getComponentRef<SimpleComponent>(appRef);
+      const rootNode = compRef.location.nativeElement;
+
+      verifyAllNodesHydrated(rootNode);
+
+      expect(rootNode.querySelector('b').outerHTML).toBe('<b>Visible</b>');
+      expect(rootNode.querySelector('i')).toBe(undefined);
+
+      // Toggle visibility.
+      compRef.instance.visible = false;
+      compRef.changeDetectorRef.detectChanges();
+
+      expect(rootNode.querySelector('i').outerHTML).toBe('<i>Not visible</i>');
+      expect(rootNode.querySelector('b')).toBe(undefined);
+    });
+
+    it('should work with elements that have listeners', async () => {
+      @Component({
+        standalone: true,
+        selector: 'app',
+        template: '<div (click)="increment()">{{ count }}</div>',
+      })
+      class ComponentWithListeners {
         count = 0;
         increment() {
           this.count++;
         }
       }
 
-      const appRef = await hydrateAfterSSR(SimpleStandaloneComp);
-      const el = appRef.components[0].location.nativeElement;
-      verifyAllNodesHydrated(el);
-      const target = el.querySelector('div');
-      target.click();
+      const html = await ssr(ComponentWithListeners);
+      const appContents = getAppContents(html);
       debugger;
-      // TODO: run more tests and checks here...
+      expect(appContents)  //
+          .toBe('<app ngh="r0|0"><div ngh="r0:0|0">0<!r0:0?1></div></app>');
+
+      const appRef = await hydrate(html, ComponentWithListeners);
+      const compRef = getComponentRef<ComponentWithListeners>(appRef);
+      const rootNode = compRef.location.nativeElement;
+
+      verifyAllNodesHydrated(rootNode);
+
+      expect(compRef.instance.count).toBe(0);
+
+      // Simulate a click event.
+      const div = rootNode.querySelector('div');
+      div.click();
+      compRef.changeDetectorRef.detectChanges();
+
+      expect(compRef.instance.count).toBe(1);
+      expect(div.textContent).toBe('1');
+    });
+
+    it('should work with simple content projection', async () => {
+      @Component({
+        standalone: true,
+        imports: [CommonModule],
+        selector: 'projector-cmp',
+        template: 'Projected content: <ng-content></ng-content>',
+      })
+      class ProjectorCmp {
+      }
+
+      @Component({
+        standalone: true,
+        imports: [ProjectorCmp],
+        selector: 'app',
+        template: `
+          <p>Counter: {{ count }}</p>
+          <projector-cmp>
+            <div (click)="increment()">{{ count }}</div>
+          </projector-cmp>
+        `,
+      })
+      class RootComp {
+        count = 0;
+        increment() {
+          this.count++;
+        }
+      }
+
+      const html = await ssr(RootComp);
+      const appContents = getAppContents(html);
+      const expected =  //
+          '<app ngh="r0|0">' +
+          '<p ngh="r0:0|0">Counter: 0<!r0:0?1></p>' +
+          '<projector-cmp ngh="r0:0|2">Projected content: <!r0:0:2?0>' +
+          '<div ngh="r0:0|3">0<!r0:0?4></div>' +
+          '</projector-cmp>' +
+          '</app>';
+      expect(appContents).toBe(expected);
+
+      const appRef = await hydrate(html, RootComp);
+      const compRef = getComponentRef<RootComp>(appRef);
+      const rootNode = compRef.location.nativeElement;
+
+      verifyAllNodesHydrated(rootNode);
+
+      expect(compRef.instance.count).toBe(0);
+
+      // Simulate a click event.
+      const div = rootNode.querySelector('div');
+      div.click();
+      compRef.changeDetectorRef.detectChanges();
+
+      expect(compRef.instance.count).toBe(1);
+      expect(div.textContent).toBe('1');
+
+      const p = rootNode.querySelector('p');
+      expect(p.textContent).toBe('Counter: 1');
     });
 
     fit(`using hydrateApplication should work`, async () => {
@@ -145,29 +281,6 @@ describe('platform-server integration', () => {
         ]
       };
       const COMMENTS_KEY = makeStateKey<any>('comments');
-
-      /*
-      DEBUG:
-          <h1>This is a chat app</h1>
-          <h2 *ngIf="loading"><span *ngIf="loading"><span
-         *ngIf="loading">Loading!</span></span></h2> <h3 *ngIf="!loading"><span
-         *ngIf="!loading"><span *ngIf="!loading">Not Loading!</span></span></h3> <ng-container
-         *ngIf="!loading"> <div *ngFor="let comment of comments"> [Comment #{{comment.id}}]
-              {{comment.author}} said: {{comment.content}}
-            </div>
-          </ng-container>
-
-          <ng-template [ngIf]="isServer">
-            <div>This is SERVER</div>
-          </ng-template>
-          <ng-template [ngIf]="!isServer">
-            <div>This is BROWSER</div>
-          </ng-template>
-
-            <ng-template [ngIf]="loading">
-              <b>The content is loading...</b>
-            </ng-template>
-      */
       @Component({
         standalone: true,
         imports: [CommonModule],
@@ -216,7 +329,7 @@ describe('platform-server integration', () => {
         }
       }
 
-      const appRef = await hydrateAfterSSR(SimpleStandaloneComp);
+      const appRef = await ssrAndHydrate(SimpleStandaloneComp);
       const el = appRef.components[0].location.nativeElement;
 
       debugger;
