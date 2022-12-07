@@ -184,6 +184,10 @@ export class HydrationRendererFactory2 implements RendererFactory2 {
     const delegateRenderer = this.delegateRendererFactory2.createRenderer(element, type);
     // TODO: consider caching this renderer instance and reuse it later
     // (vs creating a new one from scratch all the time).
+    // TODO: for components with emulated view encapsulation we need to mimic what
+    // `EmulatedEncapsulationDomRenderer2` does. Otherwise, styles would not be applied
+    // to hydrated elements (due to the lack of proper `_ngcontent-<APP-ID>` attribute),
+    // see `EmulatedEncapsulationDomRenderer2` for additional details.
     return new HydrationRenderer(this.document, this.state, this.config, delegateRenderer);
   }
 
