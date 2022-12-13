@@ -220,6 +220,9 @@ export {
   setDocument as ɵsetDocument
 } from './render3/interfaces/document';
 export {
+  getLViewById as ɵgetLViewById
+} from './render3/interfaces/lview_tracking';
+export {
   compileComponent as ɵcompileComponent,
   compileDirective as ɵcompileDirective,
 } from './render3/jit/directive';
