@@ -1,0 +1,166 @@
+/**
+ * @license
+ * Copyright Google LLC All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+// import '@angular/localize/init';
+
+import {CommonModule, DOCUMENT, isPlatformServer, NgIf, PlatformLocation, ɵgetDOM as getDOM,} from '@angular/common';
+import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, Type, ViewEncapsulation,} from '@angular/core';
+import {TestBed, waitForAsync} from '@angular/core/testing';
+import {bootstrapApplication, makeStateKey, TransferState} from '@angular/platform-browser';
+
+import {renderApplication} from '../src/utils';
+
+function getAppContents(html: string): string {
+  // Drop `ng-version` and `ng-server-context` attrs,
+  // so that it's easier to make assertions in tests.
+  html = html.replace(/ ng-version=".*?"/, '')  //
+             .replace(/ ng-server-context=".*?"/, '');
+  const result = html.match(/<body>(.*?)<\/body>/s);
+  if (!result) {
+    throw new Error('App not found!');
+  }
+  return result[1];
+}
+
+function hydrateApplication(type: Type<unknown>, options: {providers: Provider[]}) {
+  // ...
+  const applicationRef = null! as ApplicationRef;
+  return Promise.resolve(applicationRef);
+}
+
+function getAppDOM(html: string, doc: Document): HTMLElement {
+  const contents = getAppContents(html);
+  const container = doc.createElement('div');
+  container.innerHTML = contents;
+  return container;
+}
+
+function getComponentRef<T>(appRef: ApplicationRef): ComponentRef<T> {
+  return appRef.components[0];
+}
+
+function getAppRootNode(appRef: ApplicationRef): Element {
+  return getComponentRef(appRef).location.nativeElement;
+}
+
+function verifyAllNodesHydrated(el: any) {
+  if (!el.__hydrated) {
+    fail('Hydration error: the node is *not* hydrated: ' + el.outerHTML);
+  }
+  let current = el.firstChild;
+  while (current) {
+    verifyAllNodesHydrated(current);
+    current = current.nextSibling;
+  }
+}
+
+// if (getDOM().supportsDOMEvents) return;  // NODE only
+
+describe('platform-server integration', () => {
+  beforeEach(() => {
+    if (getPlatform()) destroyPlatform();
+  });
+
+  describe('hydration', () => {
+    const appId = 'simple-cmp';
+
+    let doc: Document;
+
+    beforeEach(() => {
+      doc = TestBed.inject(DOCUMENT);
+    });
+
+    afterEach(() => {
+      let current = doc.body.firstChild;
+      while (current) {
+        const nextSibling = current.nextSibling;
+        current.remove();
+        current = nextSibling;
+      }
+    });
+
+    async function ssr(component: Type<unknown>): Promise<string> {
+      const document = '<html><head></head><body><app></app></body></html>';
+      return renderApplication(component, {document, appId});
+    }
+
+    async function hydrate(html: string, component: Type<unknown>): Promise<ApplicationRef> {
+      // Destroy existing platform, a new one will be created later in `hydrateApplication`.
+      destroyPlatform();
+
+      // Get HTML contents of the `<app>`, create a DOM element and append it into the body.
+      const container = getAppDOM(html, doc);
+      const app = container.querySelector('app')!;
+      doc.body.appendChild(app);
+
+      // Also bring the serialized state.
+      // Domino doesn't support complex selectors like `[id="simple-cmp-state"]` :(
+      const serializedStateScript = container.querySelector('script');
+      if (serializedStateScript) {
+        doc.body.appendChild(serializedStateScript);
+      }
+
+      const providers = [
+        {provide: APP_ID, useValue: appId},
+        {provide: DOCUMENT, useValue: doc},
+      ];
+      return hydrateApplication(component, {providers});
+    }
+
+    /**
+     * Helper function that server-side renders a standalone component
+     * and after that tries to hydrate it.
+     */
+    async function ssrAndHydrate(component: Type<unknown>): Promise<ApplicationRef> {
+      const html = await ssr(component);
+      return hydrate(html, component);
+    }
+
+    fit('should work with simple components', async () => {
+      @Component({
+        standalone: true,
+        selector: 'nested',
+        template: `<span>Nested content</span>`,
+      })
+      class NestedComponent {
+      }
+
+      @Component({
+        standalone: true,
+        selector: 'app',
+        imports: [NgIf, NestedComponent],
+        template: `
+          <div>
+            <i *ngIf="!visible">Not visible</i>
+            <b *ngIf="visible">Visible</b>
+            <nested></nested>
+          </div>
+        `,
+      })
+      class SimpleComponent {
+        visible = true;
+      }
+
+      const html = await ssr(SimpleComponent);
+      const appContents = getAppContents(html);
+
+      // <div> [0 - right]
+      //   <!-- container --> [1]
+      //   <b>
+      //     text
+      //   </b>
+      //   <!-- container --> [2]
+      // </div>
+      //
+      // 0: host.firstChild
+      // 1: host.firstChild.firstChild
+      // 2: host.firstChild.firstChild.nextSibling.nextSibling
+      expect(appContents).toBe('...');
+      debugger;
+    });
+  });
+});
