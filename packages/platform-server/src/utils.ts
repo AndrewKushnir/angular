@@ -6,10 +6,17 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
+import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵgetLViewById as getLViewById, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise,} from '@angular/core';
+import {CONTAINER_HEADER_OFFSET, LContainer, TYPE} from '@angular/core/src/render3/interfaces/container';
+import {TContainerNode, TNode} from '@angular/core/src/render3/interfaces/node';
+import {RElement, RNode} from '@angular/core/src/render3/interfaces/renderer_dom';
+import {isRootView} from '@angular/core/src/render3/interfaces/type_checks';
+import {FLAGS, HEADER_OFFSET, HOST, LView, TVIEW, TView, TViewType} from '@angular/core/src/render3/interfaces/view';
+import {unwrapRNode} from '@angular/core/src/render3/util/view_utils';
 import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
+import {navigateBetween, NodeNavigationStep} from './node_nav';
 import {PlatformState} from './platform_state';
 import {platformDynamicServer, platformServer, ServerModule} from './server';
 import {BEFORE_APP_SERIALIZED, INITIAL_CONFIG} from './tokens';
@@ -27,7 +34,7 @@ function _getPlatform(
   const extraProviders = options.platformProviders ?? [];
   return platformFactory([
     {provide: INITIAL_CONFIG, useValue: {document: options.document, url: options.url}},
-    extraProviders
+    extraProviders,
   ]);
 }
 
@@ -36,13 +43,129 @@ function _getPlatform(
  * within a given application.
  */
 function appendServerContextInfo(serverContext: string, applicationRef: ApplicationRef) {
-  applicationRef.components.forEach(componentRef => {
+  applicationRef.components.forEach((componentRef) => {
     const renderer = componentRef.injector.get(Renderer2);
     const element = componentRef.location.nativeElement;
     if (element) {
       renderer.setAttribute(element, 'ng-server-context', serverContext);
     }
   });
+}
+
+export interface LiveDom {
+  nodes: Array<string[]>;
+  containers: Container[];
+  templates: Record<number, string>;
+}
+
+export interface Container {
+  anchor: number; /* index from 'nodes' */
+  views: View[];
+}
+
+export interface View extends LiveDom {
+  template: string;
+}
+
+export function isLContainer(value: RNode|LView|LContainer|{}|null): value is LContainer {
+  return Array.isArray(value) && value[TYPE] === true;
+}
+
+export function isComponentHost(tNode: TNode): boolean {
+  return tNode.componentOffset > -1;
+}
+
+function serializeLView(lView: LView, hostNode: Element): LiveDom {
+  const ngh: LiveDom = {
+    nodes: [],
+    containers: [],
+    templates: {},
+  };
+  const tView = lView[TVIEW];
+  for (let i = HEADER_OFFSET; i < tView.bindingStartIndex; i++) {
+    let targetNode: Node|null = null;
+    if (isLContainer(lView[i])) {
+      // this is a container
+      const tNode = tView.data[i] as TContainerNode;
+      const embeddedTView = tNode.tViews;
+      if (embeddedTView !== null) {
+        if (Array.isArray(embeddedTView)) {
+          throw new Error(`Expecting tNode.tViews to be an object, but it's an array.`);
+        }
+        ngh.templates[i - HEADER_OFFSET] = getTViewSsrId(embeddedTView);
+      }
+
+      targetNode = unwrapRNode(lView[i][HOST]!) as Node;
+      const container = serializeLContainer(lView[i], hostNode, i - HEADER_OFFSET);
+      ngh.containers.push(container);
+    } else if (Array.isArray(lView[i])) {
+      // this is a component
+      targetNode = unwrapRNode(lView[i][HOST]!) as Element;
+      annotateForHydration(targetNode as Element, lView[i]);
+    } else {
+      // this is a DOM element
+      targetNode = lView[i] as Node;
+    }
+
+    if (targetNode !== null) {
+      ngh.nodes[i - HEADER_OFFSET] = navigateBetween(hostNode, targetNode).map(op => {
+        switch (op) {
+          case NodeNavigationStep.FirstChild:
+            return 'firstChild';
+          case NodeNavigationStep.NextSibling:
+            return 'nextSibling';
+        }
+      });
+    }
+  }
+  return ngh;
+}
+
+let ssrId: number = 0;
+const ssrIdMap = new Map<TView, string>();
+
+function getTViewSsrId(tView: TView): string {
+  if (!ssrIdMap.has(tView)) {
+    ssrIdMap.set(tView, `t${ssrId++}`);
+  }
+  return ssrIdMap.get(tView)!;
+}
+
+function serializeLContainer(lContainer: LContainer, hostNode: Element, anchor: number): Container {
+  const container: Container = {
+    anchor,
+    views: [],
+  };
+
+  for (let i = CONTAINER_HEADER_OFFSET; i < lContainer.length; i++) {
+    const childView = lContainer[i] as LView;
+
+    const ssrId = getTViewSsrId(childView[TVIEW]);
+
+    // from which template did this lView originate?
+    container.views.push({
+      template: ssrId,
+      ...serializeLView(lContainer[i] as LView, hostNode),
+    });
+  }
+
+  return container;
+}
+
+export function getLViewFromRootElement(element: Element): LView {
+  const MONKEY_PATCH_KEY_NAME = '__ngContext__';
+  const data = (element as any)[MONKEY_PATCH_KEY_NAME];
+  let lView = typeof data === 'number' ? getLViewById(data) : data || null;
+  if (!lView) throw new Error('not found');  // TODO: is it possible?
+
+  if (isRootView(lView)) {
+    lView = lView[HEADER_OFFSET];
+  }
+  return lView;
+}
+
+export function annotateForHydration(element: Element, lView: LView): void {
+  element.setAttributeNS('ng', 'h', JSON.stringify(serializeLView(lView, element)));
 }
 
 function _render<T>(
@@ -61,7 +184,7 @@ the server-rendered app can be properly bootstrapped into a client app.`);
         environmentInjector.get(ApplicationRef);
     const serverContext =
         sanitizeServerContext(environmentInjector.get(SERVER_CONTEXT, DEFAULT_SERVER_CONTEXT));
-    return applicationRef.isStable.pipe((first((isStable: boolean) => isStable)))
+    return applicationRef.isStable.pipe(first((isStable: boolean) => isStable))
         .toPromise()
         .then(() => {
           appendServerContextInfo(serverContext, applicationRef);
@@ -81,7 +204,6 @@ the server-rendered app can be properly bootstrapped into a client app.`);
                   // TODO: in TS3.7, callbackResult is void.
                   asyncPromises.push(callbackResult as any);
                 }
-
               } catch (e) {
                 // Ignore exceptions.
                 console.warn('Ignoring BEFORE_APP_SERIALIZED Exception: ', e);
@@ -90,6 +212,14 @@ the server-rendered app can be properly bootstrapped into a client app.`);
           }
 
           const complete = () => {
+            const doc = platformState.getDocument();
+            applicationRef.components.forEach((componentRef) => {
+              const element = componentRef.location.nativeElement;
+              if (element) {
+                annotateForHydration(element, getLViewFromRootElement(element));
+              }
+            });
+
             const output = platformState.renderToString();
             platform.destroy();
             return output;
@@ -100,8 +230,8 @@ the server-rendered app can be properly bootstrapped into a client app.`);
           }
 
           return Promise
-              .all(asyncPromises.map(asyncPromise => {
-                return asyncPromise.catch(e => {
+              .all(asyncPromises.map((asyncPromise) => {
+                return asyncPromise.catch((e) => {
                   console.warn('Ignoring BEFORE_APP_SERIALIZED Exception: ', e);
                 });
               }))
@@ -144,11 +274,10 @@ function sanitizeServerContext(serverContext: string): string {
  *
  * @publicApi
  */
-export function renderModule<T>(moduleType: Type<T>, options: {
-  document?: string|Document,
-  url?: string,
-  extraProviders?: StaticProvider[],
-}): Promise<string> {
+export function renderModule<T>(
+    moduleType: Type<T>,
+    options: {document?: string|Document; url?: string; extraProviders?: StaticProvider[]}):
+    Promise<string> {
   const {document, url, extraProviders: platformProviders} = options;
   const platform = _getPlatform(platformDynamicServer, {document, url, platformProviders});
   return _render(platform, platform.bootstrapModule(moduleType));
@@ -187,11 +316,11 @@ export function renderModule<T>(moduleType: Type<T>, options: {
  * @developerPreview
  */
 export function renderApplication<T>(rootComponent: Type<T>, options: {
-  appId: string,
-  document?: string|Document,
-  url?: string,
-  providers?: Array<Provider|EnvironmentProviders>,
-  platformProviders?: Provider[],
+  appId: string;
+  document?: string | Document;
+  url?: string;
+  providers?: Array<Provider|EnvironmentProviders>;
+  platformProviders?: Provider[];
 }): Promise<string> {
   const {document, url, platformProviders, appId} = options;
   const platform = _getPlatform(platformDynamicServer, {document, url, platformProviders});
@@ -222,11 +351,10 @@ export function renderApplication<T>(rootComponent: Type<T>, options: {
  * This symbol is no longer necessary as of Angular v13.
  * Use {@link renderModule} API instead.
  */
-export function renderModuleFactory<T>(moduleFactory: NgModuleFactory<T>, options: {
-  document?: string,
-  url?: string,
-  extraProviders?: StaticProvider[],
-}): Promise<string> {
+export function renderModuleFactory<T>(
+    moduleFactory: NgModuleFactory<T>,
+    options: {document?: string; url?: string; extraProviders?: StaticProvider[]}):
+    Promise<string> {
   const {document, url, extraProviders: platformProviders} = options;
   const platform = _getPlatform(platformServer, {document, url, platformProviders});
   return _render(platform, platform.bootstrapModuleFactory(moduleFactory));
