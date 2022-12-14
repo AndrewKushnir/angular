@@ -10,11 +10,13 @@ import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNodeType} from '../interfaces/node';
+import {RComment} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
-import {HEADER_OFFSET, LView, RENDERER, TView, TViewType} from '../interfaces/view';
-import {appendChild} from '../node_manipulation';
+import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, RENDERER, TView, TViewType} from '../interfaces/view';
+import {appendChild, findExistingNode} from '../node_manipulation';
 import {getLView, getTView, setCurrentTNode} from '../state';
 import {getConstant} from '../util/view_utils';
+
 import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
 
@@ -30,6 +32,12 @@ function templateFirstCreatePass(
   const tNode = getOrCreateTNode(
       tView, index, TNodeType.Container, tagName || null,
       getConstant<TAttributes>(tViewConsts, attrsIndex));
+
+
+  const ngh = lView[HYDRATION_INFO];
+  if (ngh && ngh.templates[index]) {
+    tNode.ssrId = ngh.templates[index];
+  }
 
   resolveDirectives(tView, lView, tNode, getConstant<string[]>(tViewConsts, localRefsIndex));
   registerPostOrderHooks(tView, tNode);
@@ -79,7 +87,17 @@ export function ɵɵtemplate(
                                         tView.data[adjustedIndex] as TContainerNode;
   setCurrentTNode(tNode, false);
 
-  const comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
+  let comment: RComment;
+
+
+  const ngh = lView[HYDRATION_INFO];
+  if (ngh) {
+    comment = findExistingNode(
+                  lView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Element,
+                  ngh.nodes[index]) as RComment;
+  } else {
+    comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
+  }
   appendChild(tView, lView, comment, tNode);
   attachPatchData(comment, lView);
 

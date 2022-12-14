@@ -71,10 +71,6 @@ export function isLContainer(value: RNode|LView|LContainer|{}|null): value is LC
   return Array.isArray(value) && value[TYPE] === true;
 }
 
-export function isComponentHost(tNode: TNode): boolean {
-  return tNode.componentOffset > -1;
-}
-
 function serializeLView(lView: LView, hostNode: Element): LiveDom {
   const ngh: LiveDom = {
     nodes: [],
@@ -108,6 +104,8 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
     }
 
     if (targetNode !== null) {
+      // TODO: support cases when a DOM element is moved outside of the app host node,
+      // for ex. material modal dialog root element that is moved to the `<body>`.
       ngh.nodes[i - HEADER_OFFSET] = navigateBetween(hostNode, targetNode).map(op => {
         switch (op) {
           case NodeNavigationStep.FirstChild:
@@ -165,7 +163,7 @@ export function getLViewFromRootElement(element: Element): LView {
 }
 
 export function annotateForHydration(element: Element, lView: LView): void {
-  element.setAttributeNS('ng', 'h', JSON.stringify(serializeLView(lView, element)));
+  element.setAttribute('ngh', JSON.stringify(serializeLView(lView, element)));
 }
 
 function _render<T>(
