@@ -33,7 +33,7 @@ import {Renderer, RendererFactory} from '../interfaces/renderer';
 import {RComment, RElement, RNode, RText} from '../interfaces/renderer_dom';
 import {SanitizerFn} from '../interfaces/sanitization';
 import {isComponentDef, isComponentHost, isContentQueryHost, isRootView} from '../interfaces/type_checks';
-import {CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_COMPONENT_VIEW, DECLARATION_VIEW, EMBEDDED_VIEW_INJECTOR, FLAGS, HEADER_OFFSET, HOST, HostBindingOpCodes, ID, InitPhaseState, INJECTOR, LView, LViewFlags, NEXT, PARENT, RENDERER, RENDERER_FACTORY, SANITIZER, T_HOST, TData, TRANSPLANTED_VIEWS_TO_REFRESH, TVIEW, TView, TViewType} from '../interfaces/view';
+import {CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_COMPONENT_VIEW, DECLARATION_VIEW, EMBEDDED_VIEW_INJECTOR, FLAGS, HEADER_OFFSET, HOST, HostBindingOpCodes, HYDRATION_INFO, ID, InitPhaseState, INJECTOR, LView, LViewFlags, NEXT, NghDom, PARENT, RENDERER, RENDERER_FACTORY, SANITIZER, T_HOST, TData, TRANSPLANTED_VIEWS_TO_REFRESH, TVIEW, TView, TViewType} from '../interfaces/view';
 import {assertPureTNodeType, assertTNodeType} from '../node_assert';
 import {updateTextNode} from '../node_manipulation';
 import {isInlineTemplate, isNodeMatchingSelectorList} from '../node_selector_matcher';
@@ -120,8 +120,8 @@ function renderChildComponents(hostLView: LView, components: number[]): void {
 export function createLView<T>(
     parentLView: LView|null, tView: TView, context: T|null, flags: LViewFlags, host: RElement|null,
     tHostNode: TNode|null, rendererFactory: RendererFactory|null, renderer: Renderer|null,
-    sanitizer: Sanitizer|null, injector: Injector|null,
-    embeddedViewInjector: Injector|null): LView {
+    sanitizer: Sanitizer|null, injector: Injector|null, embeddedViewInjector: Injector|null,
+    hydrationInfo?: any): LView {
   const lView = tView.blueprint.slice() as LView;
   lView[HOST] = host;
   lView[FLAGS] = flags | LViewFlags.CreationMode | LViewFlags.Attached | LViewFlags.FirstLViewPass;
@@ -142,6 +142,9 @@ export function createLView<T>(
   lView[T_HOST] = tHostNode;
   lView[ID] = getUniqueLViewId();
   lView[EMBEDDED_VIEW_INJECTOR as any] = embeddedViewInjector;
+  if (hydrationInfo) {
+    lView[HYDRATION_INFO] = hydrationInfo;
+  }
   ngDevMode &&
       assertEqual(
           tView.type == TViewType.Embedded ? parentLView !== null : true, true,
@@ -666,7 +669,8 @@ export function locateHostElement(
     encapsulation: ViewEncapsulation): RElement {
   // When using native Shadow DOM, do not clear host element to allow native slot projection
   const preserveContent = encapsulation === ViewEncapsulation.ShadowDom;
-  return renderer.selectRootElement(elementOrSelector, preserveContent);
+  // TODO: make sure the `preserveContent` is `true` when we are in "hydration" mode.
+  return renderer.selectRootElement(elementOrSelector, true);
 }
 
 /**
@@ -1665,6 +1669,18 @@ function renderComponent(hostLView: LView, componentHostIdx: number) {
   const componentView = getComponentLViewByIndex(componentHostIdx, hostLView);
   const componentTView = componentView[TVIEW];
   syncViewWithBlueprint(componentTView, componentView);
+
+  // TODO: populate componentView with ngh data from component element.
+  const element = componentView[HOST];
+  if (element !== null) {
+    const rawNgh = (element as unknown as Element).getAttribute('ngh');
+    if (rawNgh !== null) {
+      const ngh = JSON.parse(rawNgh) as NghDom;
+      (element as unknown as Element).removeAttribute('ngh');
+      componentView[HYDRATION_INFO] = ngh;
+    }
+  }
+
   renderView(componentTView, componentView, componentView[CONTEXT]);
 }
 

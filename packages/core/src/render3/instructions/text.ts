@@ -7,8 +7,9 @@
  */
 import {assertEqual, assertIndexInRange} from '../../util/assert';
 import {TElementNode, TNodeType} from '../interfaces/node';
-import {HEADER_OFFSET, RENDERER, T_HOST} from '../interfaces/view';
-import {appendChild, createTextNode} from '../node_manipulation';
+import {RText} from '../interfaces/renderer_dom';
+import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, RENDERER, T_HOST} from '../interfaces/view';
+import {appendChild, createTextNode, findExistingNode} from '../node_manipulation';
 import {getBindingIndex, getLView, getTView, setCurrentTNode} from '../state';
 
 import {getOrCreateTNode} from './shared';
@@ -28,6 +29,9 @@ export function ɵɵtext(index: number, value: string = ''): void {
   const tView = getTView();
   const adjustedIndex = index + HEADER_OFFSET;
 
+  const ngh = lView[HYDRATION_INFO];
+
+
   ngDevMode &&
       assertEqual(
           getBindingIndex(), tView.bindingStartIndex,
@@ -38,8 +42,17 @@ export function ɵɵtext(index: number, value: string = ''): void {
       getOrCreateTNode(tView, adjustedIndex, TNodeType.Text, value, null) :
       tView.data[adjustedIndex] as TElementNode;
 
-  const textNative = lView[adjustedIndex] = createTextNode(lView[RENDERER], value);
-  appendChild(tView, lView, textNative, tNode);
+  let textNative: RText;
+  if (ngh) {
+    textNative =
+        findExistingNode(
+            lView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, ngh.nodes[index]) as RText;
+  } else {
+    textNative = createTextNode(lView[RENDERER], value);
+  }
+
+  lView[adjustedIndex] = textNative;
+  !ngh && appendChild(tView, lView, textNative, tNode);
 
   // Text nodes are self closing.
   setCurrentTNode(tNode, false);

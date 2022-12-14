@@ -32,8 +32,9 @@ import {assertDefined, assertEqual, assertGreaterThan, assertLessThan, throwErro
 import {ComponentFactory, ComponentRef} from './component_factory';
 import {createElementRef, ElementRef} from './element_ref';
 import {NgModuleRef} from './ng_module_factory';
-import {TemplateRef} from './template_ref';
+import {setTargetLContainer, TemplateRef} from './template_ref';
 import {EmbeddedViewRef, ViewRef} from './view_ref';
+
 /**
  * Represents a container where one or more views can be attached to a component.
  *
@@ -303,7 +304,9 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       injector = indexOrOptions.injector;
     }
 
+    setTargetLContainer(this._lContainer);
     const viewRef = templateRef.createEmbeddedView(context || <any>{}, injector);
+    setTargetLContainer(null);
     this.insert(viewRef, index);
     return viewRef;
   }
