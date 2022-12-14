@@ -8,7 +8,7 @@
 // import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgIf, PlatformLocation, ɵgetDOM as getDOM,} from '@angular/common';
-import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, Type, ViewEncapsulation,} from '@angular/core';
+import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, Type, ViewEncapsulation, ɵsetDocument,} from '@angular/core';
 import {TestBed, waitForAsync} from '@angular/core/testing';
 import {bootstrapApplication, makeStateKey, TransferState} from '@angular/platform-browser';
 
@@ -104,11 +104,17 @@ describe('platform-server integration', () => {
         doc.body.appendChild(serializedStateScript);
       }
 
+      function _document(): any {
+        ɵsetDocument(doc);
+        global.document = doc;  // needed for `DefaultDomRenderer2`
+        return doc;
+      }
+
       const providers = [
         {provide: APP_ID, useValue: appId},
-        {provide: DOCUMENT, useValue: doc},
+        {provide: DOCUMENT, useFactory: _document, deps: []},
       ];
-      return hydrateApplication(component, {providers});
+      return bootstrapApplication(component, {providers});
     }
 
     /**
@@ -135,14 +141,15 @@ describe('platform-server integration', () => {
         imports: [NgIf, NestedComponent],
         template: `
           <div>
-            <i *ngIf="!visible">Not visible</i>
-            <b *ngIf="visible">Visible</b>
-            <nested></nested>
+            <span>Content: {{visible}}</span>
+            <i *ngIf="!isServer">Client</i>
+            <b *ngIf="isServer">Server</b>
+            <!-- <nested></nested> -->
           </div>
         `,
       })
       class SimpleComponent {
-        visible = true;
+        isServer = true;  // isPlatformServer(inject(PLATFORM_ID));
       }
 
       const html = await ssr(SimpleComponent);
@@ -159,7 +166,16 @@ describe('platform-server integration', () => {
       // 0: host.firstChild
       // 1: host.firstChild.firstChild
       // 2: host.firstChild.firstChild.nextSibling.nextSibling
-      expect(appContents).toBe('...');
+      expect(appContents).toBe('.....');
+      debugger;
+
+      const appRef = await hydrate(html, SimpleComponent);
+      const compRef = getComponentRef<SimpleComponent>(appRef);
+      appRef.tick();
+      const rootNode = compRef.location.nativeElement;
+
+      expect(rootNode.outerHTML).toBe('...');
+
       debugger;
     });
   });

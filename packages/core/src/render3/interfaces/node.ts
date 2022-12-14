@@ -825,6 +825,8 @@ export interface TContainerNode extends TNode {
   tViews: TView|TView[]|null;
   projection: null;
   value: null;
+
+  ssrId?: string;
 }
 
 /** Static data for an <ng-container> */
