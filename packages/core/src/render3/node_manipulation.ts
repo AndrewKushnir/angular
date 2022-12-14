@@ -124,6 +124,20 @@ export function createElementNode(
   return renderer.createElement(name, namespace);
 }
 
+export function findExistingNode(host: Node, path: string[]): RNode {
+  let node = host;
+  for (const op of path) {
+    switch (op) {
+      case 'firstChild':
+        node = node.firstChild!;
+        break;
+      case 'nextSibling':
+        node = node.nextSibling!;
+        break;
+    }
+  }
+  return node as unknown as RNode;
+}
 
 /**
  * Removes all DOM elements associated with a view.

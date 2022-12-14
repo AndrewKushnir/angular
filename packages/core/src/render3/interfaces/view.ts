@@ -49,6 +49,7 @@ export const QUERIES = 19;
 export const ID = 20;
 export const EMBEDDED_VIEW_INJECTOR = 21;
 export const ON_DESTROY_HOOKS = 22;
+export const HYDRATION_INFO = 23;
 /**
  * Size of LView's header. Necessary to adjust for it when setting slots.
  *
@@ -56,7 +57,7 @@ export const ON_DESTROY_HOOKS = 22;
  * instruction index into `LView` index. All other indexes should be in the `LView` index space and
  * there should be no need to refer to `HEADER_OFFSET` anywhere else.
  */
-export const HEADER_OFFSET = 23;
+export const HEADER_OFFSET = 24;
 
 
 // This interface replaces the real LView interface if it is an arg or a
@@ -322,6 +323,8 @@ export interface LView<T = unknown> extends Array<any> {
 
   /** Unique ID of the view. Used for `__ngContext__` lookups in the `LView` registry. */
   [ID]: number;
+
+  [HYDRATION_INFO]: NghDom|null;
 
   /**
    * Optional injector assigned to embedded views that takes
@@ -852,3 +855,18 @@ export type TData = (TNode|PipeDef<any>|DirectiveDef<any>|ComponentDef<any>|numb
 // Note: This hack is necessary so we don't erroneously get a circular dependency
 // failure based on types.
 export const unusedValueExportToPlacateAjd = 1;
+
+export interface NghDom {
+  nodes: Array<string[]>;
+  containers: NghContainer[];
+  templates: Record<number, string>;
+}
+
+export interface NghContainer {
+  anchor: number; /* index from 'nodes' */
+  views: NghView[];
+}
+
+export interface NghView extends NghDom {
+  template: string;
+}
