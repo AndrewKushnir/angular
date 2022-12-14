@@ -9,8 +9,10 @@
 import {Injector} from '../di/injector';
 import {assertLContainer} from '../render3/assert';
 import {createLView, renderView} from '../render3/instructions/shared';
+import {LContainer} from '../render3/interfaces/container';
 import {TContainerNode, TNode, TNodeType} from '../render3/interfaces/node';
-import {DECLARATION_LCONTAINER, LView, LViewFlags, QUERIES, TView} from '../render3/interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, DECLARATION_LCONTAINER, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, LViewFlags, PARENT, QUERIES, T_HOST, TView} from '../render3/interfaces/view';
+import {findExistingNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
 import {ViewRef as R3_ViewRef} from '../render3/view_ref';
 import {assertDefined} from '../util/assert';
@@ -84,6 +86,49 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
         this._declarationLView, embeddedTView, context, LViewFlags.CheckAlways, null,
         embeddedTView.declTNode, null, null, null, null, injector || null);
 
+    // TODO: add the hydration info for the embedded view
+    // reconcile existing views in the container
+    if (targetLContainer !== null && targetLContainer[PARENT][HYDRATION_INFO]) {
+      // Does the target container have a view?
+      //   find the host LView of the container
+      const containerLView = targetLContainer[PARENT];
+      //   find its HYDRATION_INFO
+      const ngh = containerLView[HYDRATION_INFO]!;
+
+      //   find the container index
+      const containerTNode = targetLContainer[T_HOST];
+      const containerIndex = containerTNode.index - HEADER_OFFSET;
+
+      //   look up the container ngh in the HYDRATION_INFO.containers by index
+      //   see if .views has any views
+      const nghContainer = ngh.containers.find(c => c.anchor === containerIndex);
+
+      debugger;
+      if (nghContainer && nghContainer.views.length > 0) {
+        // We have a candidate view. Is it a view of the right type?
+
+        if (this._declarationTContainer.ssrId === nghContainer.views[0].template) {
+          // we can reuse this view.
+          // patch embeddedLView[HYDRATION_INFO] with the target view
+          embeddedLView[HYDRATION_INFO] = nghContainer.views[0];
+        } else {
+          // we shouldn't reuse this view
+          const nodes: Node[] = [];
+          for (const path of nghContainer.views[0].nodes) {
+            nodes.push(
+                findExistingNode(
+                    containerLView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, path) as
+                unknown as Node);
+          }
+
+          for (const node of nodes) {
+            node.parentNode!.removeChild(node);
+            // we've screwed up all of our other navigation inside ngh (!!)
+          }
+        }
+      }
+    }
+
     const declarationLContainer = this._declarationLView[this._declarationTContainer.index];
     ngDevMode && assertLContainer(declarationLContainer);
     embeddedLView[DECLARATION_LCONTAINER] = declarationLContainer;
@@ -122,4 +167,10 @@ export function createTemplateRef<T>(hostTNode: TNode, hostLView: LView): Templa
         hostLView, hostTNode as TContainerNode, createElementRef(hostTNode, hostLView));
   }
   return null;
+}
+
+let targetLContainer: LContainer|null = null;
+
+export function setTargetLContainer(container: LContainer|null): void {
+  targetLContainer = container;
 }

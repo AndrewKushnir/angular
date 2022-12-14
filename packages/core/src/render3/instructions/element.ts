@@ -13,9 +13,9 @@ import {registerPostOrderHooks} from '../hooks';
 import {hasClassInput, hasStyleInput, TAttributes, TElementNode, TNodeFlags, TNodeType} from '../interfaces/node';
 import {RElement} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
-import {HEADER_OFFSET, LView, RENDERER, TView} from '../interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
-import {appendChild, createElementNode, setupStaticAttributes} from '../node_manipulation';
+import {appendChild, createElementNode, findExistingNode, setupStaticAttributes} from '../node_manipulation';
 import {decreaseElementDepthCount, getBindingIndex, getCurrentTNode, getElementDepthCount, getLView, getNamespace, getTView, increaseElementDepthCount, isCurrentTNodeParent, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {computeStaticStyling} from '../styling/static_styling';
 import {getConstant} from '../util/view_utils';
@@ -85,7 +85,19 @@ export function ɵɵelementStart(
   ngDevMode && assertIndexInRange(lView, adjustedIndex);
 
   const renderer = lView[RENDERER];
-  const native = lView[adjustedIndex] = createElementNode(renderer, name, getNamespace());
+  const ngh = lView[HYDRATION_INFO];
+
+  let native: RElement;
+  debugger;
+  if (ngh !== null && ngh.nodes[index]) {
+    native = findExistingNode(
+                 lView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, ngh.nodes[index]) as
+        RElement;
+  } else {
+    native = createElementNode(renderer, name, getNamespace());
+  }
+  lView[adjustedIndex] = native;
+
   const tNode = tView.firstCreatePass ?
       elementStartFirstCreatePass(
           adjustedIndex, tView, lView, native, name, attrsIndex, localRefsIndex) :
@@ -93,7 +105,7 @@ export function ɵɵelementStart(
   setCurrentTNode(tNode, true);
   setupStaticAttributes(renderer, native, tNode);
 
-  if ((tNode.flags & TNodeFlags.isDetached) !== TNodeFlags.isDetached) {
+  if ((tNode.flags & TNodeFlags.isDetached) !== TNodeFlags.isDetached && !ngh) {
     // In the i18n case, the translation may have removed this element, so only add it if it is not
     // detached. See `TNodeType.Placeholder` and `LFrame.inI18n` for more context.
     appendChild(tView, lView, native, tNode);
