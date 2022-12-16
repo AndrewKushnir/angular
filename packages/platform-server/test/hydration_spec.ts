@@ -163,8 +163,36 @@ describe('platform-server integration', () => {
           </div>
         `,
       })
-      class SimpleComponent {
+      class SimpleComponent2 {
         isServer = true;  // isPlatformServer(inject(PLATFORM_ID));
+      }
+
+      @Component({
+        standalone: true,
+        imports: [CommonModule],
+        selector: 'projector-cmp',
+        template:
+            '<main>Projected content: <ng-container *ngIf="true"><ng-content></ng-content></ng-container></main>',
+      })
+      class ProjectorCmp {
+      }
+
+      @Component({
+        standalone: true,
+        imports: [ProjectorCmp],
+        selector: 'app',
+        template: `
+          <p>Counter: {{ count }}</p>
+          <projector-cmp>
+            <div (click)="increment()">{{ count }}</div>
+          </projector-cmp>
+        `,
+      })
+      class SimpleComponent {
+        count = 0;
+        increment() {
+          this.count++;
+        }
       }
 
       const html = await ssr(SimpleComponent);
@@ -189,6 +217,7 @@ describe('platform-server integration', () => {
       // TODO: find a better way to do that in tests, because there
       // might be nested components that would require the same.
       (SimpleComponent as any).ɵcmp.tView = null;
+      (ProjectorCmp as any).ɵcmp.tView = null;
 
       const appRef = await hydrate(html, SimpleComponent);
       const compRef = getComponentRef<SimpleComponent>(appRef);
