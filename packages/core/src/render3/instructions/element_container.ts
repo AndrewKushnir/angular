@@ -10,10 +10,11 @@ import {assertHasParent} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {TAttributes, TElementContainerNode, TNodeType} from '../interfaces/node';
+import {RComment} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
-import {HEADER_OFFSET, LView, RENDERER, TView} from '../interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
-import {appendChild} from '../node_manipulation';
+import {appendChild, findExistingNode} from '../node_manipulation';
 import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {computeStaticStyling} from '../styling/static_styling';
 import {getConstant} from '../util/view_utils';
@@ -81,10 +82,19 @@ export function ɵɵelementContainerStart(
 
   ngDevMode && ngDevMode.rendererCreateComment++;
   debugger;
-  // TODO: we should look for existing comment node here.
-  const native = lView[adjustedIndex] =
-      lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
-  appendChild(tView, lView, native, tNode);
+
+  const ngh = lView[HYDRATION_INFO];
+
+  let native: RComment;
+  if (ngh !== null && ngh.nodes[index]) {
+    native = findExistingNode(
+                 lView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, ngh.nodes[index]) as
+        RComment;
+  } else {
+    native = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
+  }
+  lView[adjustedIndex] = native;
+  !ngh && appendChild(tView, lView, native, tNode);
   attachPatchData(native, lView);
 
   if (isDirectiveHost(tNode)) {
