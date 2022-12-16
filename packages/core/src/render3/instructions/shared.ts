@@ -784,7 +784,8 @@ export function createTNode(
     // For performance reasons it is important that the tNode retains the same shape during runtime.
     // (To make sure that all of the code is monomorphic.) For this reason we seal the object to
     // prevent class transitions.
-    Object.seal(tNode);
+    // TODO: revert when `ssrId` is added as a separate field.
+    // Object.seal(tNode);
   }
   return tNode;
 }
@@ -1547,6 +1548,7 @@ export function createLContainer(
     native,       // native,
     null,         // view refs
     null,         // moved views
+    null,         // not yet hydrated views
   ];
   ngDevMode &&
       assertEqual(
