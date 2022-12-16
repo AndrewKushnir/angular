@@ -127,6 +127,10 @@ export function createElementNode(
 export function findExistingNode(host: Node, path: string[]): RNode {
   let node = host;
   for (const op of path) {
+    if (!node) {
+      // TODO: add a dev-mode assertion here.
+      debugger;
+    }
     switch (op) {
       case 'firstChild':
         node = node.firstChild!;
