@@ -7,7 +7,7 @@
  */
 // import '@angular/localize/init';
 
-import {CommonModule, DOCUMENT, isPlatformServer, NgIf, PlatformLocation, ɵgetDOM as getDOM,} from '@angular/common';
+import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, PlatformLocation, ɵgetDOM as getDOM,} from '@angular/common';
 import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, Type, ViewEncapsulation, ɵsetDocument,} from '@angular/core';
 import {TestBed, waitForAsync} from '@angular/core/testing';
 import {bootstrapApplication, makeStateKey, TransferState} from '@angular/platform-browser';
@@ -126,7 +126,7 @@ describe('platform-server integration', () => {
       return hydrate(html, component);
     }
 
-    fit('should work with simple components', async () => {
+    it('should work with simple components', async () => {
       @Component({
         standalone: true,
         selector: 'nested',
@@ -218,6 +218,48 @@ describe('platform-server integration', () => {
       // might be nested components that would require the same.
       (SimpleComponent as any).ɵcmp.tView = null;
       (ProjectorCmp as any).ɵcmp.tView = null;
+
+      const appRef = await hydrate(html, SimpleComponent);
+      const compRef = getComponentRef<SimpleComponent>(appRef);
+      appRef.tick();
+      const rootNode = compRef.location.nativeElement;
+
+      expect(rootNode.outerHTML).toBe('...');
+
+      debugger;
+    });
+
+    fit('should work with *ngFor', async () => {
+      @Component({
+        standalone: true,
+        selector: 'app',
+        imports: [NgIf, NgFor],
+        template: `
+          <div>
+            <span *ngFor="let item of items">
+              {{ item }}
+              <ng-container *ngIf="item > 15">Bigger than 15!</ng-container>
+            </span>
+            <p>Hi!</p>
+          </div>
+        `,
+      })
+      class SimpleComponent {
+        isServer = isPlatformServer(inject(PLATFORM_ID));
+        items = this.isServer ? [10, 20] : [30, 40, 50];
+      }
+
+      const html = await ssr(SimpleComponent);
+      const appContents = getAppContents(html);
+
+      expect(appContents).toBe('.....');
+      debugger;
+
+      // Reset TView, so that we re-enter the first create pass as
+      // we would normally do when we hydrate on the client.
+      // TODO: find a better way to do that in tests, because there
+      // might be nested components that would require the same.
+      (SimpleComponent as any).ɵcmp.tView = null;
 
       const appRef = await hydrate(html, SimpleComponent);
       const compRef = getComponentRef<SimpleComponent>(appRef);
