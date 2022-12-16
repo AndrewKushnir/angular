@@ -148,6 +148,21 @@ describe('platform-server integration', () => {
           </div>
         `,
       })
+      class SimpleComponentOrig {
+        isServer = true;  // isPlatformServer(inject(PLATFORM_ID));
+      }
+
+      @Component({
+        standalone: true,
+        selector: 'app',
+        imports: [NgIf, NestedComponent],
+        template: `
+          <div>
+            <ng-container *ngIf="!isServer">Client</ng-container>
+            <ng-container *ngIf="isServer">Server</ng-container>
+          </div>
+        `,
+      })
       class SimpleComponent {
         isServer = true;  // isPlatformServer(inject(PLATFORM_ID));
       }
