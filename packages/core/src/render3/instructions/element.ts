@@ -88,7 +88,6 @@ export function ɵɵelementStart(
   const ngh = lView[HYDRATION_INFO];
 
   let native: RElement;
-  debugger;
   if (ngh !== null && ngh.nodes[index]) {
     native = findExistingNode(
                  lView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, ngh.nodes[index]) as
