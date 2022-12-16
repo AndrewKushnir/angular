@@ -163,7 +163,9 @@ export function getLViewFromRootElement(element: Element): LView {
 }
 
 export function annotateForHydration(element: Element, lView: LView): void {
-  element.setAttribute('ngh', JSON.stringify(serializeLView(lView, element)));
+  const ngh = JSON.stringify(serializeLView(lView, element))
+  element.setAttribute('ngh', ngh);
+  console.log('ngh', ngh);
 }
 
 function _render<T>(

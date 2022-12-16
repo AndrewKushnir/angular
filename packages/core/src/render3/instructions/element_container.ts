@@ -80,6 +80,8 @@ export function ɵɵelementContainerStart(
   setCurrentTNode(tNode, true);
 
   ngDevMode && ngDevMode.rendererCreateComment++;
+  debugger;
+  // TODO: we should look for existing comment node here.
   const native = lView[adjustedIndex] =
       lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
   appendChild(tView, lView, native, tNode);

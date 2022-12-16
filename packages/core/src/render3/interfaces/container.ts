@@ -8,7 +8,7 @@
 
 import {TNode} from './node';
 import {RComment, RElement} from './renderer_dom';
-import {HOST, LView, NEXT, PARENT, T_HOST, TRANSPLANTED_VIEWS_TO_REFRESH} from './view';
+import {HOST, LView, NEXT, NghView, PARENT, T_HOST, TRANSPLANTED_VIEWS_TO_REFRESH} from './view';
 
 
 
@@ -44,6 +44,7 @@ export const HAS_TRANSPLANTED_VIEWS = 2;
 export const NATIVE = 7;
 export const VIEW_REFS = 8;
 export const MOVED_VIEWS = 9;
+export const DEHYDRATED_VIEWS = 10;
 
 
 /**
@@ -52,7 +53,7 @@ export const MOVED_VIEWS = 9;
  * which views are already in the DOM (and don't need to be re-added) and so we can
  * remove views from the DOM when they are no longer required.
  */
-export const CONTAINER_HEADER_OFFSET = 10;
+export const CONTAINER_HEADER_OFFSET = 11;
 
 /**
  * The state associated with a container.
@@ -130,6 +131,8 @@ export interface LContainer extends Array<any> {
    * doing so creates circular dependency.
    */
   [VIEW_REFS]: unknown[]|null;
+
+  [DEHYDRATED_VIEWS]: NghView[]|null;
 }
 
 // Note: This hack is necessary so we don't erroneously get a circular dependency

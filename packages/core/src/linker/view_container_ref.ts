@@ -304,9 +304,11 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       injector = indexOrOptions.injector;
     }
 
+    // TODO: can this be reentrant? Should we store previous lContainer?
     setTargetLContainer(this._lContainer);
     const viewRef = templateRef.createEmbeddedView(context || <any>{}, injector);
     setTargetLContainer(null);
+    // TODO: we should *not* insert if `ngh`?
     this.insert(viewRef, index);
     return viewRef;
   }
@@ -571,6 +573,8 @@ export function createContainerRef(
       // manipulation to insert it.
       const renderer = hostLView[RENDERER];
       ngDevMode && ngDevMode.rendererCreateComment++;
+      debugger;
+      // TODO: we should try to find an existing comment node here, see `elementStart` instruction.
       commentNode = renderer.createComment(ngDevMode ? 'container' : '');
 
       const hostNative = getNativeByTNode(hostTNode, hostLView)!;
@@ -580,6 +584,7 @@ export function createContainerRef(
           false);
     }
 
+    debugger;
     hostLView[hostTNode.index] = lContainer =
         createLContainer(slotValue, hostLView, commentNode, hostTNode);
 

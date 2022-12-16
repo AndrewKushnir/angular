@@ -9,7 +9,7 @@
 import {Injector} from '../di/injector';
 import {assertLContainer} from '../render3/assert';
 import {createLView, renderView} from '../render3/instructions/shared';
-import {LContainer} from '../render3/interfaces/container';
+import {DEHYDRATED_VIEWS, LContainer} from '../render3/interfaces/container';
 import {TContainerNode, TNode, TNodeType} from '../render3/interfaces/node';
 import {DECLARATION_COMPONENT_VIEW, DECLARATION_LCONTAINER, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, LViewFlags, PARENT, QUERIES, T_HOST, TView} from '../render3/interfaces/view';
 import {findExistingNode} from '../render3/node_manipulation';
@@ -88,38 +88,33 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
 
     // TODO: add the hydration info for the embedded view
     // reconcile existing views in the container
-    if (targetLContainer !== null && targetLContainer[PARENT][HYDRATION_INFO]) {
+    debugger;
+    if (targetLContainer !== null && targetLContainer[DEHYDRATED_VIEWS]) {
       // Does the target container have a view?
-      //   find the host LView of the container
-      const containerLView = targetLContainer[PARENT];
-      //   find its HYDRATION_INFO
-      const ngh = containerLView[HYDRATION_INFO]!;
+      const dehydratedViews = targetLContainer[DEHYDRATED_VIEWS];
+      if (dehydratedViews.length > 0) {
+        // TODO: we use `0` for now, but we should iterate over views instead;
+        //       test this with `*ngFor`!
 
-      //   find the container index
-      const containerTNode = targetLContainer[T_HOST];
-      const containerIndex = containerTNode.index - HEADER_OFFSET;
-
-      //   look up the container ngh in the HYDRATION_INFO.containers by index
-      //   see if .views has any views
-      const nghContainer = ngh.containers.find(c => c.anchor === containerIndex);
-
-      debugger;
-      if (nghContainer && nghContainer.views.length > 0) {
         // We have a candidate view. Is it a view of the right type?
-
-        if (this._declarationTContainer.ssrId === nghContainer.views[0].template) {
+        if (this._declarationTContainer.ssrId === dehydratedViews[0].template) {
           // we can reuse this view.
           // patch embeddedLView[HYDRATION_INFO] with the target view
-          embeddedLView[HYDRATION_INFO] = nghContainer.views[0];
+          embeddedLView[HYDRATION_INFO] = dehydratedViews[0];
+          // TODO: cleanup the `targetLContainer[DEHYDRATED_VIEWS]` by removing this view.
         } else {
           // we shouldn't reuse this view
           const nodes: Node[] = [];
-          for (const path of nghContainer.views[0].nodes) {
+          // find the host LView of the container
+          const containerLView = targetLContainer[PARENT];
+          for (const path of dehydratedViews[0].nodes) {
             nodes.push(
                 findExistingNode(
                     containerLView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, path) as
                 unknown as Node);
           }
+
+          debugger;
 
           for (const node of nodes) {
             node.parentNode!.removeChild(node);
