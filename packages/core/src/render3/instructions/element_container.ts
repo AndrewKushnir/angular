@@ -81,10 +81,8 @@ export function ɵɵelementContainerStart(
   setCurrentTNode(tNode, true);
 
   ngDevMode && ngDevMode.rendererCreateComment++;
-  debugger;
 
   const ngh = lView[HYDRATION_INFO];
-
   let native: RComment;
   if (ngh !== null && ngh.nodes[index]) {
     native = findExistingNode(
