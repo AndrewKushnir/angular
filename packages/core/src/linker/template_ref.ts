@@ -11,7 +11,7 @@ import {assertLContainer} from '../render3/assert';
 import {createLView, renderView} from '../render3/instructions/shared';
 import {DEHYDRATED_VIEWS, LContainer} from '../render3/interfaces/container';
 import {TContainerNode, TNode, TNodeType} from '../render3/interfaces/node';
-import {DECLARATION_COMPONENT_VIEW, DECLARATION_LCONTAINER, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, LViewFlags, PARENT, QUERIES, T_HOST, TView} from '../render3/interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, DECLARATION_LCONTAINER, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, LViewFlags, NghView, PARENT, QUERIES, T_HOST, TView} from '../render3/interfaces/view';
 import {findExistingNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
 import {ViewRef as R3_ViewRef} from '../render3/view_ref';
@@ -86,40 +86,25 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
         this._declarationLView, embeddedTView, context, LViewFlags.CheckAlways, null,
         embeddedTView.declTNode, null, null, null, null, injector || null);
 
-    // TODO: add the hydration info for the embedded view
-    // reconcile existing views in the container
-    debugger;
     if (targetLContainer !== null && targetLContainer[DEHYDRATED_VIEWS]) {
       // Does the target container have a view?
       const dehydratedViews = targetLContainer[DEHYDRATED_VIEWS];
       if (dehydratedViews.length > 0) {
-        // TODO: we use `0` for now, but we should iterate over views instead;
-        //       test this with `*ngFor`!
+        const ssrId = this._declarationTContainer.ssrId;
 
-        // We have a candidate view. Is it a view of the right type?
-        if (this._declarationTContainer.ssrId === dehydratedViews[0].template) {
-          // we can reuse this view.
-          // patch embeddedLView[HYDRATION_INFO] with the target view
-          embeddedLView[HYDRATION_INFO] = dehydratedViews[0];
-          // TODO: cleanup the `targetLContainer[DEHYDRATED_VIEWS]` by removing this view.
+        // TODO: take into account an index of a view within ViewContainerRef,
+        // otherwise, we may end up reusing wrong nodes from live DOM.
+        const dehydratedViewIndex = dehydratedViews.findIndex(view => view.template === ssrId);
+
+        if (dehydratedViewIndex > -1) {
+          // Patch hydration info onto an LView that would be used in embedded view.
+          embeddedLView[HYDRATION_INFO] = dehydratedViews[dehydratedViewIndex];
+
+          // Drop this view from the list of de-hydrated ones.
+          dehydratedViews.splice(dehydratedViewIndex, 1);
         } else {
-          // we shouldn't reuse this view
-          const nodes: Node[] = [];
-          // find the host LView of the container
-          const containerLView = targetLContainer[PARENT];
-          for (const path of dehydratedViews[0].nodes) {
-            nodes.push(
-                findExistingNode(
-                    containerLView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, path) as
-                unknown as Node);
-          }
-
-          debugger;
-
-          for (const node of nodes) {
-            node.parentNode!.removeChild(node);
-            // we've screwed up all of our other navigation inside ngh (!!)
-          }
+          // We didn't find a suitable view, so we'll proceed with a regular
+          // creation path (create elements from scratch).
         }
       }
     }
@@ -138,6 +123,25 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
     return new R3_ViewRef<T>(embeddedLView);
   }
 };
+
+/**
+ * Helper function to remove all nodes from dehydrated view.
+ * This will be used for views that remain dehydrated after initial app rendering.
+ */
+function removeDehydratedView(targetLContainer: LContainer, dehydratedView: NghView) {
+  const nodes: Node[] = [];
+  // find the host LView of the container
+  const containerLView = targetLContainer[PARENT];
+  for (const path of dehydratedView.nodes) {
+    nodes.push(
+        findExistingNode(
+            containerLView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, path) as unknown as
+        Node);
+  }
+  for (const node of nodes) {
+    node.parentNode!.removeChild(node);
+  }
+}
 
 /**
  * Creates a TemplateRef given a node.
