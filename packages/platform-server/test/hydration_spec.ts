@@ -141,10 +141,10 @@ describe('platform-server integration', () => {
         imports: [NgIf, NestedComponent],
         template: `
           <div>
-            <span>Content: {{visible}}</span>
+            <!-- <span>Content: {{visible}}</span> -->
             <i *ngIf="!isServer">Client</i>
             <b *ngIf="isServer">Server</b>
-            <!-- <nested></nested> -->
+            <nested></nested>
           </div>
         `,
       })
@@ -168,6 +168,12 @@ describe('platform-server integration', () => {
       // 2: host.firstChild.firstChild.nextSibling.nextSibling
       expect(appContents).toBe('.....');
       debugger;
+
+      // Reset TView, so that we re-enter the first create pass as
+      // we would normally do when we hydrate on the client.
+      // TODO: find a better way to do that in tests, because there
+      // might be nested components that would require the same.
+      (SimpleComponent as any).ɵcmp.tView = null;
 
       const appRef = await hydrate(html, SimpleComponent);
       const compRef = getComponentRef<SimpleComponent>(appRef);

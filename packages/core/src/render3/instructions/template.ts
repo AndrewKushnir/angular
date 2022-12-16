@@ -8,11 +8,12 @@
 import {assertFirstCreatePass} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
+import {DEHYDRATED_VIEWS} from '../interfaces/container';
 import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNodeType} from '../interfaces/node';
 import {RComment} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
-import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, RENDERER, TView, TViewType} from '../interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, NghView, RENDERER, TView, TViewType} from '../interfaces/view';
 import {appendChild, findExistingNode} from '../node_manipulation';
 import {getLView, getTView, setCurrentTNode} from '../state';
 import {getConstant} from '../util/view_utils';
@@ -35,8 +36,9 @@ function templateFirstCreatePass(
 
 
   const ngh = lView[HYDRATION_INFO];
-  if (ngh && ngh.templates[index]) {
-    tNode.ssrId = ngh.templates[index];
+  const adjustedIndex = index - HEADER_OFFSET;
+  if (ngh && ngh.templates[adjustedIndex]) {
+    tNode.ssrId = ngh.templates[adjustedIndex];
   }
 
   resolveDirectives(tView, lView, tNode, getConstant<string[]>(tViewConsts, localRefsIndex));
@@ -97,11 +99,23 @@ export function ɵɵtemplate(
                   ngh.nodes[index]) as RComment;
   } else {
     comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
+    appendChild(tView, lView, comment, tNode);
   }
-  appendChild(tView, lView, comment, tNode);
   attachPatchData(comment, lView);
 
-  addToViewTree(lView, lView[adjustedIndex] = createLContainer(comment, lView, comment, tNode));
+  const lContainer = createLContainer(comment, lView, comment, tNode);
+  lView[adjustedIndex] = lContainer;
+
+  if (ngh) {
+    // Look for all views within this container.
+    const nghContainer = ngh.containers.find(c => c.anchor === index);
+    if (nghContainer) {
+      // Copy the views object, since we'll be removing elements
+      // from it later.
+      lContainer[DEHYDRATED_VIEWS] = [...nghContainer.views];
+    }
+  }
+  addToViewTree(lView, lContainer);
 
   if (isDirectiveHost(tNode)) {
     createDirectivesInstances(tView, lView, tNode);
