@@ -8,9 +8,10 @@
 // import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, PlatformLocation, ɵgetDOM as getDOM,} from '@angular/common';
-import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, Type, ViewEncapsulation, ɵsetDocument,} from '@angular/core';
+import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, Type, ViewEncapsulation, ɵsetDocument, ɵwithHydrationSupport,} from '@angular/core';
 import {TestBed, waitForAsync} from '@angular/core/testing';
 import {bootstrapApplication, makeStateKey, TransferState} from '@angular/platform-browser';
+import {first} from 'rxjs/operators';
 
 import {renderApplication} from '../src/utils';
 
@@ -113,6 +114,7 @@ describe('platform-server integration', () => {
       const providers = [
         {provide: APP_ID, useValue: appId},
         {provide: DOCUMENT, useFactory: _document, deps: []},
+        ɵwithHydrationSupport(),
       ];
       return bootstrapApplication(component, {providers});
     }
@@ -238,15 +240,16 @@ describe('platform-server integration', () => {
           <div>
             <span *ngFor="let item of items">
               {{ item }}
-              <ng-container *ngIf="item > 15">Bigger than 15!</ng-container>
+              <b *ngIf="item > 15">is bigger than 15!</b>
             </span>
-            <p>Hi!</p>
+            <main>Hi! This is the main content.</main>
           </div>
         `,
       })
       class SimpleComponent {
         isServer = isPlatformServer(inject(PLATFORM_ID));
-        items = this.isServer ? [10, 20] : [30, 40, 50];
+        // Note: this is to test cleanup/reconciliation logic.
+        items = this.isServer ? [10, 20, 100, 200] : [30, 5, 50];
       }
 
       const html = await ssr(SimpleComponent);
@@ -266,9 +269,15 @@ describe('platform-server integration', () => {
       appRef.tick();
       const rootNode = compRef.location.nativeElement;
 
+      // Pre-cleanup
       expect(rootNode.outerHTML).toBe('...');
-
       debugger;
+
+      await appRef.isStable.pipe(first((isStable: boolean) => isStable)).toPromise();
+      debugger;
+
+      // Post-cleanup
+      expect(rootNode.outerHTML).toBe('...');
     });
   });
 });
