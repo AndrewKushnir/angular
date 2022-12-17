@@ -124,24 +124,6 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
   }
 };
 
-/**
- * Helper function to remove all nodes from dehydrated view.
- * This will be used for views that remain dehydrated after initial app rendering.
- */
-function removeDehydratedView(targetLContainer: LContainer, dehydratedView: NghView) {
-  const nodes: Node[] = [];
-  // find the host LView of the container
-  const containerLView = targetLContainer[PARENT];
-  for (const path of dehydratedView.nodes) {
-    nodes.push(
-        findExistingNode(
-            containerLView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, path) as unknown as
-        Node);
-  }
-  for (const node of nodes) {
-    node.parentNode!.removeChild(node);
-  }
-}
 
 /**
  * Creates a TemplateRef given a node.

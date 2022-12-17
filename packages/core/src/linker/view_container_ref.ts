@@ -19,7 +19,7 @@ import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNodeType} from '../render3/interfaces/node';
 import {RComment, RElement} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
-import {LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
+import {HYDRATION_INFO, LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
 import {addViewToContainer, destroyLView, detachView, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
@@ -469,11 +469,20 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     insertView(tView, lView, lContainer, adjustedIdx);
 
     // Physical operation of adding the DOM nodes.
-    const beforeNode = getBeforeNodeForView(adjustedIdx, lContainer);
-    const renderer = lView[RENDERER];
-    const parentRNode = nativeParentNode(renderer, lContainer[NATIVE] as RElement | RComment);
-    if (parentRNode !== null) {
-      addViewToContainer(tView, lContainer[T_HOST], renderer, lView, parentRNode, beforeNode);
+    //
+    // If an LView has hydration info, avoid inserting elements
+    // elements into the DOM as they are already attached.
+    //
+    // TODO: should we reset the `HYDRATION_INFO` afterwards?
+    //       Without that there might be a problem later on when
+    //       we'd try to insert/move the view again?
+    if (!lView[HYDRATION_INFO]) {
+      const beforeNode = getBeforeNodeForView(adjustedIdx, lContainer);
+      const renderer = lView[RENDERER];
+      const parentRNode = nativeParentNode(renderer, lContainer[NATIVE] as RElement | RComment);
+      if (parentRNode !== null) {
+        addViewToContainer(tView, lContainer[T_HOST], renderer, lView, parentRNode, beforeNode);
+      }
     }
 
     (viewRef as R3ViewRef<any>).attachToViewContainerRef();
