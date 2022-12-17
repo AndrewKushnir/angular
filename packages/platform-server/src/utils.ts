@@ -162,9 +162,11 @@ export function getLViewFromRootElement(element: Element): LView {
 }
 
 export function annotateForHydration(element: Element, lView: LView): void {
-  const ngh = JSON.stringify(serializeLView(lView, element))
-  element.setAttribute('ngh', ngh);
-  console.log('ngh', ngh);
+  const rawNgh = serializeLView(lView, element);
+  const serializedNgh = JSON.stringify(rawNgh);
+  element.setAttribute('ngh', serializedNgh);
+  // console.log('ngh', ngh);
+  // debugger;
 }
 
 function _render<T>(
@@ -211,7 +213,6 @@ the server-rendered app can be properly bootstrapped into a client app.`);
           }
 
           const complete = () => {
-            const doc = platformState.getDocument();
             applicationRef.components.forEach((componentRef) => {
               const element = componentRef.location.nativeElement;
               if (element) {
