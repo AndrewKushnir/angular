@@ -91,7 +91,6 @@ export function ɵɵtemplate(
 
   let comment: RComment;
 
-
   const ngh = lView[HYDRATION_INFO];
   if (ngh) {
     comment = findExistingNode(
@@ -112,6 +111,7 @@ export function ɵɵtemplate(
     if (nghContainer) {
       // Copy the views object, since we'll be removing elements
       // from it later.
+      // TODO: consider doing DOM lookup here and store DOM nodes instead.
       lContainer[DEHYDRATED_VIEWS] = [...nghContainer.views];
     }
   }
