@@ -1,12 +1,13 @@
 # Hydration TODO
 
-[x] serialize the basic live dom of a component into its host element
-[x] serialize container state
-[x] identify templates
+[+] serialize the basic live dom of a component into its host element
+[+] serialize container state
+[+] identify templates
 [ ] after each findExistingNode call, assert that we found an element of expected type and tag name
-[ ] remove dehydrated views (examine LContainers) after app became stable
+[+] remove dehydrated views (examine LContainers) after app became stable
 [ ] content projection
 [ ] i18n
+[ ] collect stats in ngDevMode (# of nodes hydrated, etc)
 [ ] *ngFor
 [ ] ViewContainerRef.createComponent
 [ ] NgTemplateOutlet
