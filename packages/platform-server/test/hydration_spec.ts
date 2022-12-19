@@ -8,7 +8,7 @@
 // import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, PlatformLocation, ɵgetDOM as getDOM,} from '@angular/common';
-import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, Type, ViewEncapsulation, ɵsetDocument, ɵwithHydrationSupport,} from '@angular/core';
+import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, Type, ViewChild, ViewContainerRef, ViewEncapsulation, ɵsetDocument, ɵwithHydrationSupport,} from '@angular/core';
 import {TestBed, waitForAsync} from '@angular/core/testing';
 import {bootstrapApplication, makeStateKey, TransferState} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
@@ -231,7 +231,7 @@ describe('platform-server integration', () => {
       debugger;
     });
 
-    fit('should work with *ngFor', async () => {
+    it('should work with *ngFor', async () => {
       @Component({
         standalone: true,
         selector: 'app',
@@ -263,6 +263,64 @@ describe('platform-server integration', () => {
       // TODO: find a better way to do that in tests, because there
       // might be nested components that would require the same.
       (SimpleComponent as any).ɵcmp.tView = null;
+
+      const appRef = await hydrate(html, SimpleComponent);
+      const compRef = getComponentRef<SimpleComponent>(appRef);
+      appRef.tick();
+      const rootNode = compRef.location.nativeElement;
+
+      // Pre-cleanup
+      expect(rootNode.outerHTML).toBe('...');
+      debugger;
+
+      await appRef.isStable.pipe(first((isStable: boolean) => isStable)).toPromise();
+      debugger;
+
+      // Post-cleanup
+      expect(rootNode.outerHTML).toBe('...');
+    });
+
+    fit('should work with ViewContainerRef.createComponent', async () => {
+      @Component({
+        standalone: true,
+        selector: 'dynamic',
+        template: `
+          <span>This is a content of a dynamic component.</span>
+        `,
+      })
+      class DynamicComponent {
+      }
+
+      @Component({
+        standalone: true,
+        selector: 'app',
+        imports: [NgIf, NgFor],
+        template: `
+          <div #target></div>
+          <main>Hi! This is the main content.</main>
+        `,
+      })
+      class SimpleComponent {
+        @ViewChild('target', {read: ViewContainerRef}) vcr!: ViewContainerRef;
+
+        ngAfterViewInit() {
+          const compRef = this.vcr.createComponent(DynamicComponent);
+          compRef.changeDetectorRef.detectChanges();
+        }
+      }
+
+      const html = await ssr(SimpleComponent);
+      const appContents = getAppContents(html);
+
+      expect(appContents).toBe('.....');
+      debugger;
+
+      // Reset TView, so that we re-enter the first create pass as
+      // we would normally do when we hydrate on the client.
+      // TODO: find a better way to do that in tests, because there
+      // might be nested components that would require the same.
+      (SimpleComponent as any).ɵcmp.tView = null;
+      (DynamicComponent as any).ɵcmp.tView = null;
 
       const appRef = await hydrate(html, SimpleComponent);
       const compRef = getComponentRef<SimpleComponent>(appRef);
