@@ -11,7 +11,7 @@ import {CONTAINER_HEADER_OFFSET, LContainer, TYPE} from '@angular/core/src/rende
 import {TContainerNode, TNode} from '@angular/core/src/render3/interfaces/node';
 import {RElement, RNode} from '@angular/core/src/render3/interfaces/renderer_dom';
 import {isRootView} from '@angular/core/src/render3/interfaces/type_checks';
-import {FLAGS, HEADER_OFFSET, HOST, LView, TVIEW, TView, TViewType} from '@angular/core/src/render3/interfaces/view';
+import {CONTEXT, FLAGS, HEADER_OFFSET, HOST, LView, TVIEW, TView, TViewType} from '@angular/core/src/render3/interfaces/view';
 import {unwrapRNode} from '@angular/core/src/render3/util/view_utils';
 import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
@@ -136,13 +136,28 @@ function serializeLContainer(lContainer: LContainer, hostNode: Element, anchor: 
   };
 
   for (let i = CONTAINER_HEADER_OFFSET; i < lContainer.length; i++) {
-    const childView = lContainer[i] as LView;
+    let childLView = lContainer[i] as LView;
 
-    const ssrId = getTViewSsrId(childView[TVIEW]);
+    // Get LView for underlying component.
+    if (isRootView(childLView)) {
+      childLView = childLView[HEADER_OFFSET];
+    }
+    const childTView = childLView[TVIEW];
+
+    let template;
+    if (childTView.type === TViewType.Component) {
+      const ctx = childLView[CONTEXT];
+      // TODO: this is a hack (we capture a component host element name),
+      // we need a more stable solution here, for ex. a way to generate
+      // a component id.
+      template = (ctx!.constructor as any)['ɵcmp'].selectors[0][0];
+    } else {
+      template = getTViewSsrId(childTView);
+    }
 
     // from which template did this lView originate?
     container.views.push({
-      template: ssrId,
+      template,
       ...serializeLView(lContainer[i] as LView, hostNode),
     });
   }

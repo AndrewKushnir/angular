@@ -15,6 +15,7 @@ import {LView, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
 import {setI18nHandling} from '../node_manipulation';
 import {getInsertInFrontOfRNodeWithI18n, processI18nInsertBefore} from '../node_manipulation_i18n';
+
 import {addTNodeAndUpdateInsertBeforeIndex} from './i18n_insert_before_index';
 
 
@@ -101,7 +102,7 @@ export function setTNodeInsertBeforeIndex(tNode: TNode, index: number) {
  */
 export function createTNodePlaceholder(
     tView: TView, previousTNodes: TNode[], index: number): TNode {
-  const tNode = createTNodeAtIndex(tView, index, TNodeType.Placeholder, null, null);
+  const tNode = createTNodeAtIndex(tView, index, TNodeType.Placeholder, null, null, null);
   addTNodeAndUpdateInsertBeforeIndex(previousTNodes, tNode);
   return tNode;
 }
