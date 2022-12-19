@@ -29,17 +29,13 @@ function templateFirstCreatePass(
   ngDevMode && assertFirstCreatePass(tView);
   ngDevMode && ngDevMode.firstCreatePass++;
   const tViewConsts = tView.consts;
+  const adjustedIndex = index + HEADER_OFFSET;
+  const ngh = lView[HYDRATION_INFO];
+  let ssrId = (ngh && ngh.templates[index]) || null;
   // TODO(pk): refactor getOrCreateTNode to have the "create" only version
   const tNode = getOrCreateTNode(
-      tView, index, TNodeType.Container, tagName || null,
-      getConstant<TAttributes>(tViewConsts, attrsIndex));
-
-
-  const ngh = lView[HYDRATION_INFO];
-  const adjustedIndex = index - HEADER_OFFSET;
-  if (ngh && ngh.templates[adjustedIndex]) {
-    tNode.ssrId = ngh.templates[adjustedIndex];
-  }
+      tView, adjustedIndex, TNodeType.Container, tagName || null,
+      getConstant<TAttributes>(tViewConsts, attrsIndex), ssrId);
 
   resolveDirectives(tView, lView, tNode, getConstant<string[]>(tViewConsts, localRefsIndex));
   registerPostOrderHooks(tView, tNode);
@@ -83,10 +79,10 @@ export function ɵɵtemplate(
   const tView = getTView();
   const adjustedIndex = index + HEADER_OFFSET;
 
-  const tNode = tView.firstCreatePass ? templateFirstCreatePass(
-                                            adjustedIndex, tView, lView, templateFn, decls, vars,
-                                            tagName, attrsIndex, localRefsIndex) :
-                                        tView.data[adjustedIndex] as TContainerNode;
+  const tNode = tView.firstCreatePass ?
+      templateFirstCreatePass(
+          index, tView, lView, templateFn, decls, vars, tagName, attrsIndex, localRefsIndex) :
+      tView.data[adjustedIndex] as TContainerNode;
   setCurrentTNode(tNode, false);
 
   let comment: RComment;

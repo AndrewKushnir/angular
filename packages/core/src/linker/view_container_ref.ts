@@ -10,18 +10,18 @@ import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {isType, Type} from '../interface/type';
 import {assertNodeInjector} from '../render3/assert';
-import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
+import {ComponentFactory as R3ComponentFactory, setHydrationInfo} from '../render3/component_ref';
 import {getComponentDef} from '../render3/definition';
 import {getParentInjectorLocation, NodeInjector} from '../render3/di';
 import {addToViewTree, createLContainer} from '../render3/instructions/shared';
-import {CONTAINER_HEADER_OFFSET, LContainer, NATIVE, VIEW_REFS} from '../render3/interfaces/container';
+import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer, NATIVE, VIEW_REFS} from '../render3/interfaces/container';
 import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNodeType} from '../render3/interfaces/node';
 import {RComment, RElement} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
-import {HYDRATION_INFO, LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
-import {addViewToContainer, destroyLView, detachView, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
+import {addViewToContainer, destroyLView, detachView, findExistingNode, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
 import {getParentInjectorIndex, getParentInjectorView, hasParentInjector} from '../render3/util/injector_utils';
 import {getNativeByTNode, unwrapRNode, viewAttachedToContainer} from '../render3/util/view_utils';
@@ -421,8 +421,55 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       }
     }
 
+    const targetLContainer = this._lContainer;
+    // TODO: this is not correct for selectors like `app[param]`,
+    // we need to rely on some other info (like component id).
+    const elementName = componentFactory.selector;
+    let hydrationInfo;
+    let rNode;
+
+    if (targetLContainer !== null && targetLContainer[DEHYDRATED_VIEWS]) {
+      // Does the target container have a view?
+      const dehydratedViews = targetLContainer[DEHYDRATED_VIEWS];
+      if (dehydratedViews.length > 0) {
+        // TODO: take into account an index of a view within ViewContainerRef,
+        // otherwise, we may end up reusing wrong nodes from live DOM.
+        const dehydratedViewIndex =
+            dehydratedViews.findIndex(view => view.template === elementName);
+
+        if (dehydratedViewIndex > -1) {
+          // Patch hydration info onto an LView that would be used in embedded view.
+          hydrationInfo = dehydratedViews[dehydratedViewIndex];
+
+          // Drop this view from the list of de-hydrated ones.
+          dehydratedViews.splice(dehydratedViewIndex, 1);
+        }
+      }
+    }
+
+    debugger;
+
+    if (hydrationInfo) {
+      const hostLView = targetLContainer[PARENT];
+      rNode = findExistingNode(
+                  hostLView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Element,
+                  hydrationInfo.nodes[0]) as RComment;
+
+      // Read hydration info and pass it over to the component view.
+      const ngh = (rNode as HTMLElement).getAttribute('ngh');
+      if (ngh) {
+        debugger;
+        hydrationInfo = JSON.parse(ngh) as any;
+        (rNode as HTMLElement).removeAttribute('ngh');
+      }
+    }
+
+    // TODO: this code is re-entrant, so we should store it in LFrame.
+    hydrationInfo && setHydrationInfo(hydrationInfo);
     const componentRef =
-        componentFactory.create(contextInjector, projectableNodes, undefined, environmentInjector);
+        componentFactory.create(contextInjector, projectableNodes, rNode, environmentInjector);
+    hydrationInfo && setHydrationInfo(null);
+
     this.insert(componentRef.hostView, index);
     return componentRef;
   }
@@ -563,6 +610,7 @@ export function createContainerRef(
     hostLView: LView): ViewContainerRef {
   ngDevMode && assertTNodeType(hostTNode, TNodeType.AnyContainer | TNodeType.AnyRNode);
 
+  let ngh;
   let lContainer: LContainer;
   const slotValue = hostLView[hostTNode.index];
   if (isLContainer(slotValue)) {
@@ -577,25 +625,40 @@ export function createContainerRef(
     if (hostTNode.type & TNodeType.ElementContainer) {
       commentNode = unwrapRNode(slotValue) as RComment;
     } else {
-      // If the host is a regular element, we have to insert a comment node manually which will
-      // be used as an anchor when inserting elements. In this specific case we use low-level DOM
-      // manipulation to insert it.
-      const renderer = hostLView[RENDERER];
-      ngDevMode && ngDevMode.rendererCreateComment++;
-      debugger;
-      // TODO: we should try to find an existing comment node here, see `elementStart` instruction.
-      commentNode = renderer.createComment(ngDevMode ? 'container' : '');
+      ngh = hostLView[HYDRATION_INFO];
+      if (ngh) {
+        commentNode = findExistingNode(
+                          hostLView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Element,
+                          ngh.nodes[hostTNode.index - HEADER_OFFSET]) as RComment;
+      } else {
+        // If the host is a regular element, we have to insert a comment node manually which will
+        // be used as an anchor when inserting elements. In this specific case we use low-level DOM
+        // manipulation to insert it.
+        const renderer = hostLView[RENDERER];
+        ngDevMode && ngDevMode.rendererCreateComment++;
+        commentNode = renderer.createComment(ngDevMode ? 'container' : '');
 
-      const hostNative = getNativeByTNode(hostTNode, hostLView)!;
-      const parentOfHostNative = nativeParentNode(renderer, hostNative);
-      nativeInsertBefore(
-          renderer, parentOfHostNative!, commentNode, nativeNextSibling(renderer, hostNative),
-          false);
+        const hostNative = getNativeByTNode(hostTNode, hostLView)!;
+        const parentOfHostNative = nativeParentNode(renderer, hostNative);
+        nativeInsertBefore(
+            renderer, parentOfHostNative!, commentNode, nativeNextSibling(renderer, hostNative),
+            false);
+      }
     }
 
-    debugger;
     hostLView[hostTNode.index] = lContainer =
         createLContainer(slotValue, hostLView, commentNode, hostTNode);
+
+    if (ngh) {
+      // Look for all views within this container.
+      const nghContainer = ngh.containers.find(c => c.anchor === hostTNode.index - HEADER_OFFSET);
+      if (nghContainer) {
+        // Copy the views object, since we'll be removing elements
+        // from it later.
+        // TODO: consider doing DOM lookup here and store DOM nodes instead.
+        lContainer[DEHYDRATED_VIEWS] = [...nghContainer.views];
+      }
+    }
 
     addToViewTree(hostLView, lContainer);
   }
