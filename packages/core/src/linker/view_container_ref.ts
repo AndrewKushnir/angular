@@ -10,7 +10,7 @@ import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {isType, Type} from '../interface/type';
 import {assertNodeInjector} from '../render3/assert';
-import {ComponentFactory as R3ComponentFactory, setHydrationInfo} from '../render3/component_ref';
+import {ComponentFactory as R3ComponentFactory, setCurrentHydrationInfo as setCurrentHydrationInfoForComponentRef} from '../render3/component_ref';
 import {getComponentDef} from '../render3/definition';
 import {getParentInjectorLocation, NodeInjector} from '../render3/di';
 import {addToViewTree, createLContainer} from '../render3/instructions/shared';
@@ -19,7 +19,7 @@ import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNodeType} from '../render3/interfaces/node';
 import {RComment, RElement} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
-import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, NghDom, NghView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
 import {addViewToContainer, destroyLView, detachView, findExistingNode, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
@@ -32,7 +32,7 @@ import {assertDefined, assertEqual, assertGreaterThan, assertLessThan, throwErro
 import {ComponentFactory, ComponentRef} from './component_factory';
 import {createElementRef, ElementRef} from './element_ref';
 import {NgModuleRef} from './ng_module_factory';
-import {setTargetLContainer, TemplateRef} from './template_ref';
+import {setCurrentHydrationInfo as setCurrentHydrationInfoForTemplateRef, TemplateRef} from './template_ref';
 import {EmbeddedViewRef, ViewRef} from './view_ref';
 
 /**
@@ -304,11 +304,19 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       injector = indexOrOptions.injector;
     }
 
-    // TODO: can this be reentrant? Should we store previous lContainer?
-    setTargetLContainer(this._lContainer);
+    let origHydrationInfo: NghView|null = null;
+    const ssrId = (templateRef as unknown as {ssrId: string | null}).ssrId;
+    if (ssrId) {
+      const newHydrationInfo = findMatchingDehydratedView(this._lContainer, ssrId);
+      origHydrationInfo = setCurrentHydrationInfoForTemplateRef(newHydrationInfo);
+    }
+
     const viewRef = templateRef.createEmbeddedView(context || <any>{}, injector);
-    setTargetLContainer(null);
-    // TODO: we should *not* insert if `ngh`?
+
+    if (ssrId) {
+      // Reset hydration info...
+      setCurrentHydrationInfoForTemplateRef(origHydrationInfo);
+    }
     this.insert(viewRef, index);
     return viewRef;
   }
@@ -421,54 +429,32 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       }
     }
 
-    const targetLContainer = this._lContainer;
     // TODO: this is not correct for selectors like `app[param]`,
     // we need to rely on some other info (like component id).
     const elementName = componentFactory.selector;
-    let hydrationInfo;
+    const dehydratedView = findMatchingDehydratedView(this._lContainer, elementName);
     let rNode;
+    let origHydrationInfo: NghView|null = null;
 
-    if (targetLContainer !== null && targetLContainer[DEHYDRATED_VIEWS]) {
-      // Does the target container have a view?
-      const dehydratedViews = targetLContainer[DEHYDRATED_VIEWS];
-      if (dehydratedViews.length > 0) {
-        // TODO: take into account an index of a view within ViewContainerRef,
-        // otherwise, we may end up reusing wrong nodes from live DOM.
-        const dehydratedViewIndex =
-            dehydratedViews.findIndex(view => view.template === elementName);
-
-        if (dehydratedViewIndex > -1) {
-          // Patch hydration info onto an LView that would be used in embedded view.
-          hydrationInfo = dehydratedViews[dehydratedViewIndex];
-
-          // Drop this view from the list of de-hydrated ones.
-          dehydratedViews.splice(dehydratedViewIndex, 1);
-        }
-      }
-    }
-
-    debugger;
-
-    if (hydrationInfo) {
-      const hostLView = targetLContainer[PARENT];
+    if (dehydratedView) {
+      const hostLView = this._lContainer[PARENT];
       rNode = findExistingNode(
                   hostLView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Element,
-                  hydrationInfo.nodes[0]) as RComment;
+                  dehydratedView.nodes[0]) as RComment;
 
       // Read hydration info and pass it over to the component view.
       const ngh = (rNode as HTMLElement).getAttribute('ngh');
       if (ngh) {
-        debugger;
-        hydrationInfo = JSON.parse(ngh) as any;
+        const hydrationInfo = JSON.parse(ngh) as NghView;
         (rNode as HTMLElement).removeAttribute('ngh');
+        origHydrationInfo = setCurrentHydrationInfoForComponentRef(hydrationInfo);
       }
     }
 
-    // TODO: this code is re-entrant, so we should store it in LFrame.
-    hydrationInfo && setHydrationInfo(hydrationInfo);
     const componentRef =
         componentFactory.create(contextInjector, projectableNodes, rNode, environmentInjector);
-    hydrationInfo && setHydrationInfo(null);
+
+    setCurrentHydrationInfoForComponentRef(null);
 
     this.insert(componentRef.hostView, index);
     return componentRef;
@@ -664,4 +650,25 @@ export function createContainerRef(
   }
 
   return new R3ViewContainerRef(lContainer, hostTNode, hostLView);
+}
+
+function findMatchingDehydratedView(lContainer: LContainer, template: string): NghView|null {
+  let hydrationInfo: NghView|null = null;
+  if (lContainer !== null && lContainer[DEHYDRATED_VIEWS]) {
+    // Does the target container have a view?
+    const dehydratedViews = lContainer[DEHYDRATED_VIEWS];
+    if (dehydratedViews.length > 0) {
+      // TODO: take into account an index of a view within ViewContainerRef,
+      // otherwise, we may end up reusing wrong nodes from live DOM?
+      const dehydratedViewIndex = dehydratedViews.findIndex(view => view.template === template);
+
+      if (dehydratedViewIndex > -1) {
+        hydrationInfo = dehydratedViews[dehydratedViewIndex];
+
+        // Drop this view from the list of de-hydrated ones.
+        dehydratedViews.splice(dehydratedViewIndex, 1);
+      }
+    }
+  }
+  return hydrationInfo;
 }
