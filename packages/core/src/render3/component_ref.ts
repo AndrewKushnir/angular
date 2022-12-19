@@ -32,11 +32,12 @@ import {throwProviderNotFoundError} from './errors_di';
 import {registerPostOrderHooks} from './hooks';
 import {reportUnknownPropertyError} from './instructions/element_validation';
 import {addToViewTree, createLView, createTView, executeContentQueries, getOrCreateComponentTView, getOrCreateTNode, initializeDirectives, invokeDirectivesHostBindings, locateHostElement, markAsComponentHost, markDirtyIfOnPush, renderView, setInputsForProperty} from './instructions/shared';
+import {DEHYDRATED_VIEWS} from './interfaces/container';
 import {ComponentDef, DirectiveDef, HostDirectiveDefs} from './interfaces/definition';
 import {PropertyAliasValue, TContainerNode, TElementContainerNode, TElementNode, TNode, TNodeType} from './interfaces/node';
 import {Renderer, RendererFactory} from './interfaces/renderer';
 import {RElement, RNode} from './interfaces/renderer_dom';
-import {CONTEXT, HEADER_OFFSET, HYDRATION_INFO, LView, LViewFlags, TVIEW, TViewType} from './interfaces/view';
+import {CONTEXT, HEADER_OFFSET, HYDRATION_INFO, LView, LViewFlags, NghView, TVIEW, TViewType} from './interfaces/view';
 import {MATH_ML_NAMESPACE, SVG_NAMESPACE} from './namespaces';
 import {createElementNode, setupStaticAttributes, writeDirectClass} from './node_manipulation';
 import {extractAttrsAndClassesFromSelector, stringifyCSSSelectorList} from './node_selector_matcher';
@@ -207,7 +208,7 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
       const hostTNode = createRootComponentTNode(rootLView, hostRNode);
       const componentView = createRootComponentView(
           hostTNode, hostRNode, rootComponentDef, rootDirectives, rootLView, rendererFactory,
-          hostRenderer);
+          hostRenderer, null, hydrationInfo ?? undefined);
 
       tElementNode = getTNode(rootTView, HEADER_OFFSET) as TElementNode;
 
@@ -332,7 +333,7 @@ function createRootComponentTNode(lView: LView, rNode: RNode): TElementNode {
 function createRootComponentView(
     tNode: TElementNode, rNode: RElement|null, rootComponentDef: ComponentDef<any>,
     rootDirectives: DirectiveDef<any>[], rootView: LView, rendererFactory: RendererFactory,
-    hostRenderer: Renderer, sanitizer?: Sanitizer|null): LView {
+    hostRenderer: Renderer, sanitizer?: Sanitizer|null, hydrationInfo?: NghView): LView {
   const tView = rootView[TVIEW];
   applyRootComponentStyling(rootDirectives, tNode, rNode, hostRenderer);
 
@@ -340,9 +341,11 @@ function createRootComponentView(
   const componentView = createLView(
       rootView, getOrCreateComponentTView(rootComponentDef), null,
       rootComponentDef.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways, rootView[tNode.index],
-      tNode, rendererFactory, viewRenderer, sanitizer || null, null, null);
+      tNode, rendererFactory, viewRenderer, sanitizer || null, null, null, hydrationInfo);
 
 
+  // TODO: avoid duplication of this code.
+  // (there is similar one in shared.ts and view_container_ref.ts)
   const ngh = (rNode as HTMLElement).getAttribute('ngh');
   if (ngh) {
     componentView[HYDRATION_INFO] = JSON.parse(ngh) as any;
@@ -476,4 +479,10 @@ export function LifecycleHooksFeature(): void {
   const tNode = getCurrentTNode()!;
   ngDevMode && assertDefined(tNode, 'TNode is required');
   registerPostOrderHooks(getLView()[TVIEW], tNode);
+}
+
+let hydrationInfo: NghView|null = null;
+
+export function setHydrationInfo(info: NghView|null): void {
+  hydrationInfo = info;
 }

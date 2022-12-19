@@ -86,6 +86,10 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
         this._declarationLView, embeddedTView, context, LViewFlags.CheckAlways, null,
         embeddedTView.declTNode, null, null, null, null, injector || null);
 
+    // TODO: consider moving this logic to the ViewContainerRef.createEmbeddedView.
+    // Ideally, we should pass over the hydration info to store in embeddedLView[HYDRATION_INFO],
+    // everything else can live in ViewContainerRef.createEmbeddedView and be shared with
+    // the code from ViewContainerRef.createComponent.
     if (targetLContainer !== null && targetLContainer[DEHYDRATED_VIEWS]) {
       // Does the target container have a view?
       const dehydratedViews = targetLContainer[DEHYDRATED_VIEWS];
