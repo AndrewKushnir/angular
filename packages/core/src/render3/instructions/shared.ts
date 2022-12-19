@@ -164,13 +164,14 @@ export function createLView<T>(
  * @param native The native element for this node, if applicable
  * @param name The tag name of the associated native element, if applicable
  * @param attrs Any attrs for the native element, if applicable
+ * @param ssrId
  */
 export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType.Element|TNodeType.Text, name: string|null,
     attrs: TAttributes|null): TElementNode;
 export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType.Container, name: string|null,
-    attrs: TAttributes|null): TContainerNode;
+    attrs: TAttributes|null, ssrId: string|null): TContainerNode;
 export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType.Projection, name: null,
     attrs: TAttributes|null): TProjectionNode;
@@ -181,8 +182,9 @@ export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType.Icu, name: null,
     attrs: TAttributes|null): TElementContainerNode;
 export function getOrCreateTNode(
-    tView: TView, index: number, type: TNodeType, name: string|null, attrs: TAttributes|null):
-    TElementNode&TContainerNode&TElementContainerNode&TProjectionNode&TIcuContainerNode {
+    tView: TView, index: number, type: TNodeType, name: string|null, attrs: TAttributes|null,
+    ssrId?: string|null): TElementNode&TContainerNode&TElementContainerNode&TProjectionNode&
+    TIcuContainerNode {
   ngDevMode && index !== 0 &&  // 0 are bogus nodes and they are OK. See `createContainerRef` in
                                // `view_engine_compatibility` for additional context.
       assertGreaterThanOrEqual(index, HEADER_OFFSET, 'TNodes can\'t be in the LView header.');
@@ -190,7 +192,7 @@ export function getOrCreateTNode(
   ngDevMode && assertPureTNodeType(type);
   let tNode = tView.data[index] as TNode;
   if (tNode === null) {
-    tNode = createTNodeAtIndex(tView, index, type, name, attrs);
+    tNode = createTNodeAtIndex(tView, index, type, name, attrs, ssrId || null);
     if (isInI18nBlock()) {
       // If we are in i18n block then all elements should be pre declared through `Placeholder`
       // See `TNodeType.Placeholder` and `LFrame.inI18n` for more context.
@@ -213,13 +215,14 @@ export function getOrCreateTNode(
 }
 
 export function createTNodeAtIndex(
-    tView: TView, index: number, type: TNodeType, name: string|null, attrs: TAttributes|null) {
+    tView: TView, index: number, type: TNodeType, name: string|null, attrs: TAttributes|null,
+    ssrId: string|null) {
   const currentTNode = getCurrentTNodePlaceholderOk();
   const isParent = isCurrentTNodeParent();
   const parent = isParent ? currentTNode : currentTNode && currentTNode.parent;
   // Parents cannot cross component boundaries because components will be used in multiple places.
   const tNode = tView.data[index] =
-      createTNode(tView, parent as TElementNode | TContainerNode, type, index, name, attrs);
+      createTNode(tView, parent as TElementNode | TContainerNode, type, index, name, attrs, ssrId);
   // Assign a pointer to the first child node of a given view. The first node is not always the one
   // at index 0, in case of i18n, index 0 can be the instruction `i18nStart` and the first node has
   // the index 1 or more, so we can't just check node index.
@@ -713,29 +716,33 @@ export function storeCleanupWithContext(
  * @param tagName The tag name of the node
  * @param attrs The attributes defined on this node
  * @param tViews Any TViews attached to this node
+ * @param ssrId
  * @returns the TNode object
  */
 export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType.Container,
-    index: number, tagName: string|null, attrs: TAttributes|null): TContainerNode;
+    index: number, tagName: string|null, attrs: TAttributes|null,
+    ssrId: string|null): TContainerNode;
 export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType.Element|TNodeType.Text,
-    index: number, tagName: string|null, attrs: TAttributes|null): TElementNode;
+    index: number, tagName: string|null, attrs: TAttributes|null, ssrId: string|null): TElementNode;
 export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType.ElementContainer,
-    index: number, tagName: string|null, attrs: TAttributes|null): TElementContainerNode;
+    index: number, tagName: string|null, attrs: TAttributes|null,
+    ssrId: string|null): TElementContainerNode;
 export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType.Icu, index: number,
-    tagName: string|null, attrs: TAttributes|null): TIcuContainerNode;
+    tagName: string|null, attrs: TAttributes|null, ssrId: string|null): TIcuContainerNode;
 export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType.Projection,
-    index: number, tagName: string|null, attrs: TAttributes|null): TProjectionNode;
+    index: number, tagName: string|null, attrs: TAttributes|null,
+    ssrId: string|null): TProjectionNode;
 export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType, index: number,
-    tagName: string|null, attrs: TAttributes|null): TNode;
+    tagName: string|null, attrs: TAttributes|null, ssrId: string|null): TNode;
 export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType, index: number,
-    value: string|null, attrs: TAttributes|null): TNode {
+    value: string|null, attrs: TAttributes|null, ssrId?: string|null): TNode {
   ngDevMode && index !== 0 &&  // 0 are bogus nodes and they are OK. See `createContainerRef` in
                                // `view_engine_compatibility` for additional context.
       assertGreaterThanOrEqual(index, HEADER_OFFSET, 'TNodes can\'t be in the LView header.');
@@ -777,13 +784,13 @@ export function createTNode(
     residualClasses: undefined,
     classBindings: 0 as any,
     styleBindings: 0 as any,
+    ssrId,
   };
   if (ngDevMode) {
     // For performance reasons it is important that the tNode retains the same shape during runtime.
     // (To make sure that all of the code is monomorphic.) For this reason we seal the object to
     // prevent class transitions.
-    // TODO: revert when `ssrId` is added as a separate field.
-    // Object.seal(tNode);
+    Object.seal(tNode);
   }
   return tNode;
 }
