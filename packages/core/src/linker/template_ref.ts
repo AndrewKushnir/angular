@@ -9,10 +9,8 @@
 import {Injector} from '../di/injector';
 import {assertLContainer} from '../render3/assert';
 import {createLView, renderView} from '../render3/instructions/shared';
-import {DEHYDRATED_VIEWS, LContainer} from '../render3/interfaces/container';
 import {TContainerNode, TNode, TNodeType} from '../render3/interfaces/node';
-import {DECLARATION_COMPONENT_VIEW, DECLARATION_LCONTAINER, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, LViewFlags, NghView, PARENT, QUERIES, T_HOST, TView} from '../render3/interfaces/view';
-import {findExistingNode} from '../render3/node_manipulation';
+import {DECLARATION_LCONTAINER, LView, LViewFlags, NghView, QUERIES, TView} from '../render3/interfaces/view';
 import {getCurrentTNode, getLView} from '../render3/state';
 import {ViewRef as R3_ViewRef} from '../render3/view_ref';
 import {assertDefined} from '../util/assert';
@@ -80,38 +78,16 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
     super();
   }
 
+  /* @internal */
+  get ssrId(): string|null {
+    return this._declarationTContainer.ssrId || null;
+  }
+
   override createEmbeddedView(context: T, injector?: Injector): EmbeddedViewRef<T> {
     const embeddedTView = this._declarationTContainer.tViews as TView;
     const embeddedLView = createLView(
         this._declarationLView, embeddedTView, context, LViewFlags.CheckAlways, null,
-        embeddedTView.declTNode, null, null, null, null, injector || null);
-
-    // TODO: consider moving this logic to the ViewContainerRef.createEmbeddedView.
-    // Ideally, we should pass over the hydration info to store in embeddedLView[HYDRATION_INFO],
-    // everything else can live in ViewContainerRef.createEmbeddedView and be shared with
-    // the code from ViewContainerRef.createComponent.
-    if (targetLContainer !== null && targetLContainer[DEHYDRATED_VIEWS]) {
-      // Does the target container have a view?
-      const dehydratedViews = targetLContainer[DEHYDRATED_VIEWS];
-      if (dehydratedViews.length > 0) {
-        const ssrId = this._declarationTContainer.ssrId;
-
-        // TODO: take into account an index of a view within ViewContainerRef,
-        // otherwise, we may end up reusing wrong nodes from live DOM.
-        const dehydratedViewIndex = dehydratedViews.findIndex(view => view.template === ssrId);
-
-        if (dehydratedViewIndex > -1) {
-          // Patch hydration info onto an LView that would be used in embedded view.
-          embeddedLView[HYDRATION_INFO] = dehydratedViews[dehydratedViewIndex];
-
-          // Drop this view from the list of de-hydrated ones.
-          dehydratedViews.splice(dehydratedViewIndex, 1);
-        } else {
-          // We didn't find a suitable view, so we'll proceed with a regular
-          // creation path (create elements from scratch).
-        }
-      }
-    }
+        embeddedTView.declTNode, null, null, null, null, injector || null, hydrationInfo);
 
     const declarationLContainer = this._declarationLView[this._declarationTContainer.index];
     ngDevMode && assertLContainer(declarationLContainer);
@@ -154,8 +130,10 @@ export function createTemplateRef<T>(hostTNode: TNode, hostLView: LView): Templa
   return null;
 }
 
-let targetLContainer: LContainer|null = null;
+let hydrationInfo: NghView|null = null;
 
-export function setTargetLContainer(container: LContainer|null): void {
-  targetLContainer = container;
+export function setCurrentHydrationInfo(info: NghView|null): NghView|null {
+  const origHydrationInfo = info;
+  hydrationInfo = info;
+  return origHydrationInfo;
 }
