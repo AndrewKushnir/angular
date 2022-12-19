@@ -182,7 +182,7 @@ function createTNodeAndAddOpCode(
   // bindings are.
   const tNode = createTNodeAtIndex(
       tView, i18nNodeIdx, isICU ? TNodeType.Icu : TNodeType.Text,
-      text === null ? (ngDevMode ? '{{?}}' : '') : text, null);
+      text === null ? (ngDevMode ? '{{?}}' : '') : text, null, null);
   addTNodeAndUpdateInsertBeforeIndex(existingTNodes, tNode);
   const tNodeIdx = tNode.index;
   setCurrentTNode(tNode, false /* Text nodes are self closing */);

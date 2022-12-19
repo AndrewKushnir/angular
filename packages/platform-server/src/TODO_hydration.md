@@ -19,3 +19,4 @@
 [ ] nested views (for ex. nested `*ngIf`s)
 [ ] annotate and find nodes located outside of host elements (for ex. moved to `<body>`)
 [ ] test with nested views, when nested views contain other templates and components (check ssrId stability)
+[ ] test with Router (`<router-outlet />`)
