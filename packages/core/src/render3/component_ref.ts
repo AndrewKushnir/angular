@@ -32,12 +32,11 @@ import {throwProviderNotFoundError} from './errors_di';
 import {registerPostOrderHooks} from './hooks';
 import {reportUnknownPropertyError} from './instructions/element_validation';
 import {addToViewTree, createLView, createTView, executeContentQueries, getOrCreateComponentTView, getOrCreateTNode, initializeDirectives, invokeDirectivesHostBindings, locateHostElement, markAsComponentHost, markDirtyIfOnPush, renderView, setInputsForProperty} from './instructions/shared';
-import {DEHYDRATED_VIEWS} from './interfaces/container';
 import {ComponentDef, DirectiveDef, HostDirectiveDefs} from './interfaces/definition';
 import {PropertyAliasValue, TContainerNode, TElementContainerNode, TElementNode, TNode, TNodeType} from './interfaces/node';
 import {Renderer, RendererFactory} from './interfaces/renderer';
 import {RElement, RNode} from './interfaces/renderer_dom';
-import {CONTEXT, HEADER_OFFSET, HYDRATION_INFO, LView, LViewFlags, NghView, TVIEW, TViewType} from './interfaces/view';
+import {CONTEXT, HEADER_OFFSET, HYDRATION_INFO, LView, LViewFlags, NghDom, NghView, TVIEW, TViewType} from './interfaces/view';
 import {MATH_ML_NAMESPACE, SVG_NAMESPACE} from './namespaces';
 import {createElementNode, setupStaticAttributes, writeDirectClass} from './node_manipulation';
 import {extractAttrsAndClassesFromSelector, stringifyCSSSelectorList} from './node_selector_matcher';
@@ -483,6 +482,8 @@ export function LifecycleHooksFeature(): void {
 
 let hydrationInfo: NghView|null = null;
 
-export function setHydrationInfo(info: NghView|null): void {
+export function setCurrentHydrationInfo(info: NghView|null): NghView|null {
+  const origHydrationInfo = info;
   hydrationInfo = info;
+  return origHydrationInfo;
 }
