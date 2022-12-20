@@ -8,21 +8,23 @@
 import {assertFirstCreatePass} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
-import {ComponentTemplate} from '../interfaces/definition';
+import {ComponentTemplate, DependencyTypeList} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNodeType} from '../interfaces/node';
 import {isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, LView, RENDERER, TView, TViewType} from '../interfaces/view';
 import {appendChild} from '../node_manipulation';
 import {getLView, getTView, setCurrentTNode} from '../state';
 import {getConstant} from '../util/view_utils';
+
 import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
+export type LazyDepsFn = () => Promise<DependencyTypeList>;
 
 
 function templateFirstCreatePass(
     index: number, tView: TView, lView: LView, templateFn: ComponentTemplate<any>|null,
-    decls: number, vars: number, tagName?: string|null, attrsIndex?: number|null,
-    localRefsIndex?: number|null): TContainerNode {
+    lazyDepsFn: LazyDepsFn|null, decls: number, vars: number, tagName?: string|null,
+    attrsIndex?: number|null, localRefsIndex?: number|null): TContainerNode {
   ngDevMode && assertFirstCreatePass(tView);
   ngDevMode && ngDevMode.firstCreatePass++;
   const tViewConsts = tView.consts;
@@ -37,6 +39,7 @@ function templateFirstCreatePass(
   const embeddedTView = tNode.tViews = createTView(
       TViewType.Embedded, tNode, templateFn, decls, vars, tView.directiveRegistry,
       tView.pipeRegistry, null, tView.schemas, tViewConsts);
+  embeddedTView.dependencies = lazyDepsFn;
 
   if (tView.queries !== null) {
     tView.queries.template(tView, tNode);
@@ -69,13 +72,30 @@ export function ɵɵtemplate(
     index: number, templateFn: ComponentTemplate<any>|null, decls: number, vars: number,
     tagName?: string|null, attrsIndex?: number|null, localRefsIndex?: number|null,
     localRefExtractor?: LocalRefExtractor) {
+  return templateInternal(
+      index, templateFn, null, decls, vars, tagName, attrsIndex, localRefsIndex, localRefExtractor);
+}
+
+export function ɵɵlazy(
+    index: number, templateFn: ComponentTemplate<any>|null, lazyDepsFn: LazyDepsFn, decls: number,
+    vars: number, tagName?: string|null, attrsIndex?: number|null, localRefsIndex?: number|null,
+    localRefExtractor?: LocalRefExtractor) {
+  return templateInternal(
+      index, templateFn, lazyDepsFn, decls, vars, tagName, attrsIndex, localRefsIndex,
+      localRefExtractor);
+}
+
+export function templateInternal(
+    index: number, templateFn: ComponentTemplate<any>|null, lazyDepsFn: LazyDepsFn|null,
+    decls: number, vars: number, tagName?: string|null, attrsIndex?: number|null,
+    localRefsIndex?: number|null, localRefExtractor?: LocalRefExtractor) {
   const lView = getLView();
   const tView = getTView();
   const adjustedIndex = index + HEADER_OFFSET;
 
   const tNode = tView.firstCreatePass ? templateFirstCreatePass(
-                                            adjustedIndex, tView, lView, templateFn, decls, vars,
-                                            tagName, attrsIndex, localRefsIndex) :
+                                            adjustedIndex, tView, lView, templateFn, lazyDepsFn,
+                                            decls, vars, tagName, attrsIndex, localRefsIndex) :
                                         tView.data[adjustedIndex] as TContainerNode;
   setCurrentTNode(tNode, false);
 

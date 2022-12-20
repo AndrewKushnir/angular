@@ -20,12 +20,13 @@ import {normalizeDebugBindingName, normalizeDebugBindingValue} from '../../util/
 import {stringify} from '../../util/stringify';
 import {assertFirstCreatePass, assertFirstUpdatePass, assertLContainer, assertLView, assertTNodeForLView, assertTNodeForTView} from '../assert';
 import {attachPatchData} from '../context_discovery';
+import {getDirectiveDef} from '../definition';
 import {getFactoryDef} from '../definition_factory';
 import {diPublicInInjector, getNodeInjectable, getOrCreateNodeInjectorForNode} from '../di';
 import {throwMultipleComponentError} from '../errors';
 import {executeCheckHooks, executeInitAndCheckHooks, incrementInitPhaseFlags} from '../hooks';
 import {CONTAINER_HEADER_OFFSET, HAS_TRANSPLANTED_VIEWS, LContainer, MOVED_VIEWS} from '../interfaces/container';
-import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefListOrFactory, HostBindingsFunction, HostDirectiveBindingMap, HostDirectiveDefs, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from '../interfaces/definition';
+import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefList, DirectiveDefListOrFactory, HostBindingsFunction, HostDirectiveBindingMap, HostDirectiveDefs, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from '../interfaces/definition';
 import {NodeInjectorFactory} from '../interfaces/injector';
 import {getUniqueLViewId} from '../interfaces/lview_tracking';
 import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliases, PropertyAliasValue, TAttributes, TConstantsOrFactory, TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeType, TProjectionNode} from '../interfaces/node';
@@ -613,6 +614,7 @@ export function createTView(
     data: blueprint.slice().fill(null, bindingStartIndex),
     bindingStartIndex: bindingStartIndex,
     expandoStartIndex: initialViewLength,
+    dependencies: null,
     hostBindingOpCodes: null,
     firstCreatePass: true,
     firstUpdatePass: true,
@@ -1218,7 +1220,19 @@ function findDirectiveDefMatches(
   ngDevMode && assertFirstCreatePass(tView);
   ngDevMode && assertTNodeType(tNode, TNodeType.AnyRNode | TNodeType.AnyContainer);
 
-  const registry = tView.directiveRegistry;
+  let registry = [...(tView.directiveRegistry ?? [])];
+  // TODO: do we do it once per tView?
+  // TODO: separate pipes and directives.
+  if (Array.isArray(tView.dependencies)) {
+    for (const dep of tView.dependencies) {
+      const dir = getDirectiveDef(dep);
+      if (dir) {
+        registry.push(dir);
+      }
+    }
+  } else if (tView.dependencies instanceof Function) {
+    throw new Error(`Unresolved lazy dependencies... should not be possible`);
+  }
   let matches: DirectiveDef<unknown>[]|null = null;
   let hostDirectiveDefs: HostDirectiveDefs|null = null;
   if (registry) {

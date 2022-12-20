@@ -12,7 +12,7 @@ import {SchemaMetadata} from '../../metadata/schema';
 import {Sanitizer} from '../../sanitization/sanitizer';
 
 import {LContainer} from './container';
-import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefList, HostBindingsFunction, PipeDef, PipeDefList, ViewQueriesFunction} from './definition';
+import {ComponentDef, ComponentTemplate, DependencyTypeList, DirectiveDef, DirectiveDefList, HostBindingsFunction, PipeDef, PipeDefList, ViewQueriesFunction} from './definition';
 import {I18nUpdateOpCodes, TI18n, TIcu} from './i18n';
 import {TConstants, TNode} from './node';
 import {LQueries, TQueries} from './query';
@@ -538,6 +538,8 @@ export interface TView {
    * A function containing query-related instructions.
    */
   viewQuery: ViewQueriesFunction<{}>|null;
+
+  dependencies: DependencyTypeList|(() => Promise<DependencyTypeList>)|null;
 
   /**
    * A `TNode` representing the declaration location of this `TView` (not part of this TView).

@@ -137,6 +137,7 @@ export const angularCoreEnv: {[name: string]: Function} =
        'ɵɵclassProp': r3.ɵɵclassProp,
        'ɵɵadvance': r3.ɵɵadvance,
        'ɵɵtemplate': r3.ɵɵtemplate,
+       'ɵɵlazy': r3.ɵɵlazy,
        'ɵɵtext': r3.ɵɵtext,
        'ɵɵtextInterpolate': r3.ɵɵtextInterpolate,
        'ɵɵtextInterpolate1': r3.ɵɵtextInterpolate1,

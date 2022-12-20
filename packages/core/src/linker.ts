@@ -14,6 +14,6 @@ export {ElementRef} from './linker/element_ref';
 export {NgModuleFactory, NgModuleRef} from './linker/ng_module_factory';
 export {getModuleFactory, getNgModuleById} from './linker/ng_module_factory_loader';
 export {QueryList} from './linker/query_list';
-export {TemplateRef} from './linker/template_ref';
+export {LazyTemplateRef, TemplateRef} from './linker/template_ref';
 export {ViewContainerRef} from './linker/view_container_ref';
 export {EmbeddedViewRef, ViewRef} from './linker/view_ref';
