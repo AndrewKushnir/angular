@@ -117,6 +117,7 @@ export {
   ɵɵsyntheticHostProperty,
 
   ɵɵtemplate,
+  ɵɵlazy,
 
   ɵɵtext,
   ɵɵtextInterpolate,

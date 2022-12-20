@@ -15,7 +15,7 @@ import {TContainerNode, TNode, TNodeType} from '../render3/interfaces/node';
 import {DECLARATION_LCONTAINER, FLAGS, LView, LViewFlags, QUERIES, TView} from '../render3/interfaces/view';
 import {getCurrentTNode, getLView} from '../render3/state';
 import {ViewRef as R3_ViewRef} from '../render3/view_ref';
-import {assertDefined} from '../util/assert';
+import {assertDefined, assertNotDefined} from '../util/assert';
 
 import {createElementRef, ElementRef} from './element_ref';
 import {EmbeddedViewRef} from './view_ref';
@@ -163,8 +163,48 @@ export function injectTemplateRef<T>(): TemplateRef<T>|null {
 export function createTemplateRef<T>(hostTNode: TNode, hostLView: LView): TemplateRef<T>|null {
   if (hostTNode.type & TNodeType.Container) {
     ngDevMode && assertDefined(hostTNode.tView, 'TView must be allocated');
+    ngDevMode &&
+        assertNotDefined(hostTNode.tView!.dependencies, 'Creating TemplateRef for lazy view');
     return new R3TemplateRef(
         hostLView, hostTNode as TContainerNode, createElementRef(hostTNode, hostLView));
+  }
+  return null;
+}
+
+export class LazyTemplateRef<T> {
+  private embeddedViewTView: TView;
+  constructor(private declarationLView: LView, private declarationTContainer: TContainerNode) {
+    this.embeddedViewTView = declarationTContainer.tView as TView;
+  }
+
+  async load(): Promise<TemplateRef<T>> {
+    // debugger;
+    if (this.embeddedViewTView.dependencies instanceof Function) {
+      this.embeddedViewTView.dependencies = await this.embeddedViewTView.dependencies();
+    }
+    return new R3TemplateRef(
+        this.declarationLView, this.declarationTContainer,
+        createElementRef(this.declarationTContainer, this.declarationLView));
+  }
+
+  /**
+   * @internal
+   * @nocollapse
+   */
+  static __NG_ELEMENT_ID__: () => LazyTemplateRef<any>| null = injectLazyTemplateRef;
+}
+
+export function injectLazyTemplateRef<T>(): LazyTemplateRef<T>|null {
+  return createLazyTemplateRef<T>(getCurrentTNode()!, getLView());
+}
+
+export function createLazyTemplateRef<T>(hostTNode: TNode, hostLView: LView): LazyTemplateRef<T>|
+    null {
+  if (hostTNode.type & TNodeType.Container) {
+    ngDevMode && assertDefined(hostTNode.tView, 'TView must be allocated');
+    ngDevMode &&
+        assertDefined(hostTNode.tView!.dependencies, 'Creating LazyTemplateRef for non-lazy view');
+    return new LazyTemplateRef<T>(hostLView, hostTNode as TContainerNode);
   }
   return null;
 }
