@@ -5,22 +5,21 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {assertFirstCreatePass} from '../assert';
+import {assertDefined} from '../../util/assert';
+import {assertFirstCreatePass, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {DEHYDRATED_VIEWS} from '../interfaces/container';
 import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNodeType} from '../interfaces/node';
-import {RComment} from '../interfaces/renderer_dom';
+import {RComment, RElement, RNode} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
 import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, NghView, RENDERER, TView, TViewType} from '../interfaces/view';
 import {appendChild, findExistingNode} from '../node_manipulation';
-import {getLView, getTView, setCurrentTNode} from '../state';
-import {getConstant} from '../util/view_utils';
+import {getCurrentTNode, getLView, getTView, isCurrentTNodeParent, setCurrentTNode} from '../state';
+import {getConstant, getNativeByTNode} from '../util/view_utils';
 
-import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
-
-
+import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, locateNextRNode, resolveDirectives, saveResolvedLocalsInData, siblingAfter} from './shared';
 
 function templateFirstCreatePass(
     index: number, tView: TView, lView: LView, templateFn: ComponentTemplate<any>|null,
@@ -79,37 +78,61 @@ export function ɵɵtemplate(
   const tView = getTView();
   const adjustedIndex = index + HEADER_OFFSET;
 
+  const previousTNode = getCurrentTNode();
+  const previousTNodeParent = isCurrentTNodeParent();
+
   const tNode = tView.firstCreatePass ?
       templateFirstCreatePass(
           index, tView, lView, templateFn, decls, vars, tagName, attrsIndex, localRefsIndex) :
       tView.data[adjustedIndex] as TContainerNode;
-  setCurrentTNode(tNode, false);
 
   let comment: RComment;
-
+  const dehydratedViews: any[] = [];
   const ngh = lView[HYDRATION_INFO];
   if (ngh) {
-    comment = findExistingNode(
-                  lView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Element,
-                  ngh.nodes[index]) as RComment;
+    debugger;
+    let currentRNode =
+        locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
+
+    const sContainer = ngh.containers[index];
+    ngDevMode &&
+        assertDefined(sContainer, 'There is no hydration info available for this template');
+
+    const sViews = sContainer.views as any;
+    for (const sView of sViews) {
+      const view = {...sView};
+      if (view.numTopLevelNodes > 0) {
+        debugger;
+        // Keep reference to the first node in this view,
+        // so it can be accessed while invoking template instructions.
+        view.firstChild = currentRNode;
+
+        // Move over to the first node after this view, which can
+        // either be a first node of the next view or an anchor comment
+        // node after the last view in a container.
+        currentRNode = siblingAfter(view.numTopLevelNodes, currentRNode as RElement);
+      }
+      dehydratedViews.push(view);
+    }
+    debugger;
+    // After processing of all views, the `currentRNode` points
+    // to the first node *after* the last view, which must be a
+    // comment node which acts as an anchor.
+    comment = currentRNode as RComment;
+
+    ngDevMode && assertRComment(comment, 'Expecting a comment node in template instruction');
   } else {
     comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
-    appendChild(tView, lView, comment, tNode);
   }
+  setCurrentTNode(tNode, false);
+  !ngh && appendChild(tView, lView, comment, tNode);
   attachPatchData(comment, lView);
 
   const lContainer = createLContainer(comment, lView, comment, tNode);
   lView[adjustedIndex] = lContainer;
 
   if (ngh) {
-    // Look for all views within this container.
-    const nghContainer = ngh.containers.find(c => c.anchor === index);
-    if (nghContainer) {
-      // Copy the views object, since we'll be removing elements
-      // from it later.
-      // TODO: consider doing DOM lookup here and store DOM nodes instead.
-      lContainer[DEHYDRATED_VIEWS] = [...nghContainer.views];
-    }
+    lContainer[DEHYDRATED_VIEWS] = dehydratedViews;
   }
   addToViewTree(lView, lContainer);
 
