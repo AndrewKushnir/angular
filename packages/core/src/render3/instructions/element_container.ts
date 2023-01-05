@@ -5,12 +5,12 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {assertEqual, assertIndexInRange} from '../../util/assert';
-import {assertHasParent} from '../assert';
+import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert';
+import {assertHasParent, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {TAttributes, TElementContainerNode, TNodeType} from '../interfaces/node';
-import {RComment} from '../interfaces/renderer_dom';
+import {RComment, RNode} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
 import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
@@ -19,7 +19,7 @@ import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodePare
 import {computeStaticStyling} from '../styling/static_styling';
 import {getConstant} from '../util/view_utils';
 
-import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
+import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, locateNextRNode, resolveDirectives, saveResolvedLocalsInData, siblingAfter} from './shared';
 
 function elementContainerStartFirstCreatePass(
     index: number, tView: TView, lView: LView, attrsIndex?: number|null,
@@ -74,24 +74,39 @@ export function ɵɵelementContainerStart(
           getBindingIndex(), tView.bindingStartIndex,
           'element containers should be created before any bindings');
 
+  const previousTNode = getCurrentTNode();
+  const previousTNodeParent = isCurrentTNodeParent();
+
   const tNode = tView.firstCreatePass ?
       elementContainerStartFirstCreatePass(
           adjustedIndex, tView, lView, attrsIndex, localRefsIndex) :
       tView.data[adjustedIndex] as TElementContainerNode;
-  setCurrentTNode(tNode, true);
 
-  ngDevMode && ngDevMode.rendererCreateComment++;
-
-  const ngh = lView[HYDRATION_INFO];
   let native: RComment;
-  if (ngh !== null && ngh.nodes[index]) {
-    native = findExistingNode(
-                 lView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, ngh.nodes[index]) as
-        RComment;
+  const ngh = lView[HYDRATION_INFO];
+  if (ngh !== null) {
+    debugger;
+    const sContainer = ngh.containers[index] as any;
+    ngDevMode &&
+        assertDefined(
+            sContainer, 'There is no hydration info available for this element container');
+    const currentRNode =
+        locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
+
+    // Store a reference to the first node in a container,
+    // so it can be referenced while invoking further instructions.
+    sContainer.firstChild = currentRNode;
+
+    native = siblingAfter<RComment>(sContainer.numTopLevelNodes, currentRNode!)!;
+    ngDevMode && assertRComment(native, 'Expecting a comment node in elementContainer instruction');
   } else {
+    ngDevMode && ngDevMode.rendererCreateComment++;
     native = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
   }
   lView[adjustedIndex] = native;
+
+  setCurrentTNode(tNode, true);
+
   !ngh && appendChild(tView, lView, native, tNode);
   attachPatchData(native, lView);
 
