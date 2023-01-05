@@ -18,7 +18,7 @@ import {assertDefined, assertEqual, assertGreaterThan, assertGreaterThanOrEqual,
 import {escapeCommentText} from '../../util/dom';
 import {normalizeDebugBindingName, normalizeDebugBindingValue} from '../../util/ng_reflect';
 import {stringify} from '../../util/stringify';
-import {assertFirstCreatePass, assertFirstUpdatePass, assertLContainer, assertLView, assertTNodeForLView, assertTNodeForTView} from '../assert';
+import {assertFirstCreatePass, assertFirstUpdatePass, assertLContainer, assertLView, assertTNode, assertTNodeForLView, assertTNodeForTView} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {getFactoryDef} from '../definition_factory';
 import {diPublicInInjector, getNodeInjectable, getOrCreateNodeInjectorForNode} from '../di';
@@ -35,7 +35,7 @@ import {SanitizerFn} from '../interfaces/sanitization';
 import {isComponentDef, isComponentHost, isContentQueryHost, isRootView} from '../interfaces/type_checks';
 import {CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_COMPONENT_VIEW, DECLARATION_VIEW, EMBEDDED_VIEW_INJECTOR, FLAGS, HEADER_OFFSET, HOST, HostBindingOpCodes, HYDRATION_INFO, ID, InitPhaseState, INJECTOR, LView, LViewFlags, NEXT, NghDom, PARENT, RENDERER, RENDERER_FACTORY, SANITIZER, T_HOST, TData, TRANSPLANTED_VIEWS_TO_REFRESH, TVIEW, TView, TViewType} from '../interfaces/view';
 import {assertPureTNodeType, assertTNodeType} from '../node_assert';
-import {updateTextNode} from '../node_manipulation';
+import {getClosestRElement, updateTextNode} from '../node_manipulation';
 import {isInlineTemplate, isNodeMatchingSelectorList} from '../node_selector_matcher';
 import {profiler, ProfilerEvent} from '../profiler';
 import {enterView, getBindingsEnabled, getCurrentDirectiveIndex, getCurrentParentTNode, getCurrentTNode, getCurrentTNodePlaceholderOk, getSelectedIndex, isCurrentTNodeParent, isInCheckNoChangesMode, isInI18nBlock, leaveView, setBindingIndex, setBindingRootForHostBindings, setCurrentDirectiveIndex, setCurrentQueryIndex, setCurrentTNode, setIsInCheckNoChangesMode, setSelectedIndex} from '../state';
@@ -1680,12 +1680,13 @@ function renderComponent(hostLView: LView, componentHostIdx: number) {
   syncViewWithBlueprint(componentTView, componentView);
 
   // TODO: populate componentView with ngh data from component element.
-  const element = componentView[HOST];
-  if (element !== null) {
-    const rawNgh = (element as unknown as Element).getAttribute('ngh');
+  const host = componentView[HOST] as unknown as Element;
+  if (host !== null) {
+    const rawNgh = host.getAttribute('ngh');
     if (rawNgh !== null) {
       const ngh = JSON.parse(rawNgh) as NghDom;
-      (element as unknown as Element).removeAttribute('ngh');
+      (ngh as any).firstChild = host.firstChild;
+      host.removeAttribute('ngh');
       componentView[HYDRATION_INFO] = ngh;
     }
   }
@@ -1934,4 +1935,68 @@ export function textBindingInternal(lView: LView, index: number, value: string):
   const element = getNativeByIndex(index, lView) as any as RText;
   ngDevMode && assertDefined(element, 'native element should exist');
   updateTextNode(lView[RENDERER], element, value);
+}
+
+
+// TODO: consider using WeakMap instead.
+export function claimNode(node: RNode) {
+  (node as any).__claimed = true;
+}
+
+export function isNodeClaimed(node: RNode): boolean {
+  return !!(node as any).__claimed;
+}
+
+export function locateNextRNode<T extends RNode>(
+    hydrationInfo: any, tView: TView, lView: LView<unknown>, tNode: TNode,
+    previousTNode: TNode|null, previousTNodeParent: boolean): T|null {
+  /*
+  // TODO: add full path handling.
+  if (ngh.projection[index]) { // or ngh.nodes[idx]
+    node = findNativeByPath(ngh.projection[index].path);
+    // We need to know when to "exit" the projection mode!
+    // Keep track of it in ngh somewhere or just annotate first
+    // projected node and first node *after* projection?
+    // {projection: {9: 'host.fc.fc.ns', 12: 'host.fc.ns.ns'}}
+    // Which basically says: lView[HEADER_OFFSET + 9] is the first node in projection,
+    // go find it using a path. lView[HEADER_OFFSET + 12] is the node after the projection,
+    // go find it using a path as well to get back to the regular flow.
+  }
+  */
+  let native: RNode|null = null;
+  if (tView.firstChild === tNode) {
+    // We create a first node in this view.
+    native = hydrationInfo.firstChild;
+  } else {
+    ngDevMode && assertDefined(previousTNode, 'Unexpected state: no current TNode found.');
+    const previousRElement = getNativeByTNode(previousTNode!, lView) as RElement;
+    // TODO: we may want to use this instead?
+    // const closest = getClosestRElement(tView, previousTNode, lView);
+    if (previousTNodeParent && previousTNode!.type === TNodeType.ElementContainer) {
+      // Previous node was an `<ng-container>`, so this node is a first child
+      // within an element container, so we can locate the container in ngh data
+      // structure and use its first child.
+      const sContainer = hydrationInfo.containers[previousTNode!.index - HEADER_OFFSET];
+      if (ngDevMode && !sContainer) {
+        throw new Error('Invalid state.');
+      }
+      native = sContainer.firstChild;
+    } else {
+      if (previousTNodeParent) {
+        native = (previousRElement as any).firstChild;
+      } else {
+        native = previousRElement.nextSibling as RElement;
+      }
+    }
+  }
+  return native as T;
+}
+
+export function siblingAfter<T extends RNode>(skip: number, from: RNode): T|null {
+  let currentNode = from;
+  for (let i = 0; i < skip; i++) {
+    currentNode = currentNode.nextSibling!;
+    ngDevMode && assertDefined(currentNode, 'Expected more siblings to be present');
+  }
+  return currentNode as T;
 }

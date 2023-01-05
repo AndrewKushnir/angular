@@ -7,8 +7,9 @@
  */
 
 import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵgetLViewById as getLViewById, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise,} from '@angular/core';
-import {CONTAINER_HEADER_OFFSET, LContainer, TYPE} from '@angular/core/src/render3/interfaces/container';
-import {TContainerNode, TNode} from '@angular/core/src/render3/interfaces/node';
+import {collectNativeNodes} from '@angular/core/src/render3/collect_native_nodes';
+import {CONTAINER_HEADER_OFFSET, LContainer, TYPE, VIEW_REFS} from '@angular/core/src/render3/interfaces/container';
+import {TContainerNode, TNode, TNodeType} from '@angular/core/src/render3/interfaces/node';
 import {RElement, RNode} from '@angular/core/src/render3/interfaces/renderer_dom';
 import {isRootView} from '@angular/core/src/render3/interfaces/type_checks';
 import {CONTEXT, FLAGS, HEADER_OFFSET, HOST, LView, TVIEW, TView, TViewType} from '@angular/core/src/render3/interfaces/view';
@@ -53,18 +54,24 @@ function appendServerContextInfo(serverContext: string, applicationRef: Applicat
 }
 
 export interface LiveDom {
-  nodes: Array<string[]>;
-  containers: Container[];
-  templates: Record<number, string>;
+  /* anchor is an index from LView */
+  containers?: {[anchor: string]: Container};
+  projections?: {[anchor: string]: Projection};
+  templates?: Record<number, string>;
+}
+
+export interface Projection {
+  path: string; /* host.firstChild.nextSibling... */
+  numTopLevelNodes: number;
 }
 
 export interface Container {
-  anchor: number; /* index from 'nodes' */
   views: View[];
 }
 
 export interface View extends LiveDom {
   template: string;
+  numTopLevelNodes: number;
 }
 
 export function isLContainer(value: RNode|LView|LContainer|{}|null): value is LContainer {
@@ -72,14 +79,17 @@ export function isLContainer(value: RNode|LView|LContainer|{}|null): value is LC
 }
 
 function serializeLView(lView: LView, hostNode: Element): LiveDom {
+  // TODO: all objects are optional, create only when needed.
   const ngh: LiveDom = {
-    nodes: [],
-    containers: [],
+    containers: {},
     templates: {},
+    projections: {},
   };
+
   const tView = lView[TVIEW];
   for (let i = HEADER_OFFSET; i < tView.bindingStartIndex; i++) {
     let targetNode: Node|null = null;
+    const adjustedIndex = i - HEADER_OFFSET;
     if (isLContainer(lView[i])) {
       // this is a container
       const tNode = tView.data[i] as TContainerNode;
@@ -88,21 +98,39 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
         if (Array.isArray(embeddedTView)) {
           throw new Error(`Expecting tNode.tViews to be an object, but it's an array.`);
         }
-        ngh.templates[i - HEADER_OFFSET] = getTViewSsrId(embeddedTView);
+        ngh.templates![i - HEADER_OFFSET] = getTViewSsrId(embeddedTView);
       }
 
       targetNode = unwrapRNode(lView[i][HOST]!) as Node;
-      const container = serializeLContainer(lView[i], hostNode, i - HEADER_OFFSET);
-      ngh.containers.push(container);
+      const container = serializeLContainer(lView[i], hostNode, adjustedIndex);
+      ngh.containers![adjustedIndex] = container;
     } else if (Array.isArray(lView[i])) {
       // this is a component
       targetNode = unwrapRNode(lView[i][HOST]!) as Element;
       annotateForHydration(targetNode as Element, lView[i]);
     } else {
-      // this is a DOM element
-      targetNode = lView[i] as Node;
+      const tNode = tView.data[i] as TContainerNode;
+      const tNodeType = tNode.type;
+      if (tNodeType & TNodeType.ElementContainer) {
+        const rootNodes: any[] = [];
+        collectNativeNodes(tView, lView, tNode.child, rootNodes);
+        debugger;
+
+        // This is an "element" container (vs "view" container),
+        // so it's only represented by the number of top-level nodes
+        // as a shift to get to a corresponding comment node.
+        const container = {
+          numTopLevelNodes: rootNodes.length,
+        };
+
+        (ngh.containers! as any)[adjustedIndex] = container;
+      }
+
+      // ... otherwise, this is a DOM element, we do not serialize it
+      // targetNode = lView[i] as Node;
     }
 
+    /* TODO: this would be needed for projection!
     if (targetNode !== null) {
       // TODO: support cases when a DOM element is moved outside of the app host node,
       // for ex. material modal dialog root element that is moved to the `<body>`.
@@ -115,6 +143,7 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
         }
       });
     }
+    */
   }
   return ngh;
 }
@@ -131,7 +160,6 @@ function getTViewSsrId(tView: TView): string {
 
 function serializeLContainer(lContainer: LContainer, hostNode: Element, anchor: number): Container {
   const container: Container = {
-    anchor,
     views: [],
   };
 
@@ -155,9 +183,14 @@ function serializeLContainer(lContainer: LContainer, hostNode: Element, anchor: 
       template = getTViewSsrId(childTView);
     }
 
+    const rootNodes: any[] = [];
+    collectNativeNodes(childTView, childLView, childTView.firstChild, rootNodes);
+    debugger;
+
     // from which template did this lView originate?
     container.views.push({
       template,
+      numTopLevelNodes: rootNodes.length,
       ...serializeLView(lContainer[i] as LView, hostNode),
     });
   }
@@ -182,7 +215,7 @@ export function annotateForHydration(element: Element, lView: LView): void {
   const serializedNgh = JSON.stringify(rawNgh);
   element.setAttribute('ngh', serializedNgh);
   // console.log('ngh', ngh);
-  // debugger;
+  debugger;
 }
 
 function _render<T>(
