@@ -24,7 +24,6 @@ export interface RNode {
    */
   parentNode: RNode|null;
 
-
   /**
    * Returns the parent Element if there is one
    */

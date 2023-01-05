@@ -7,7 +7,7 @@
  */
 
 import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert';
-import {assertFirstCreatePass, assertHasParent} from '../assert';
+import {assertFirstCreatePass, assertHasParent, assertRElement} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {hasClassInput, hasStyleInput, TAttributes, TElementNode, TNodeFlags, TNodeType} from '../interfaces/node';
@@ -18,15 +18,15 @@ import {assertTNodeType} from '../node_assert';
 import {appendChild, createElementNode, findExistingNode, setupStaticAttributes} from '../node_manipulation';
 import {decreaseElementDepthCount, getBindingIndex, getCurrentTNode, getElementDepthCount, getLView, getNamespace, getTView, increaseElementDepthCount, isCurrentTNodeParent, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {computeStaticStyling} from '../styling/static_styling';
-import {getConstant} from '../util/view_utils';
+import {getConstant, getNativeByTNode} from '../util/view_utils';
 
 import {validateElementIsKnown} from './element_validation';
 import {setDirectiveInputsWhichShadowsStyling} from './property';
-import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
+import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, locateNextRNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
 
 function elementStartFirstCreatePass(
-    index: number, tView: TView, lView: LView, native: RElement, name: string,
+    index: number, tView: TView, lView: LView, native: RElement|null, name: string,
     attrsIndex?: number|null, localRefsIndex?: number): TElementNode {
   ngDevMode && assertFirstCreatePass(tView);
   ngDevMode && ngDevMode.firstCreatePass++;
@@ -37,7 +37,9 @@ function elementStartFirstCreatePass(
 
   const hasDirectives =
       resolveDirectives(tView, lView, tNode, getConstant<string[]>(tViewConsts, localRefsIndex));
-  if (ngDevMode) {
+  // FIXME: rework this part to run `validateElementIsKnown` outside of this function.
+  // We can use tNode.directiveEnd - tNode.directiveStart to see if this node has any directives?
+  if (ngDevMode && native) {
     validateElementIsKnown(native, lView, tNode.value, tView.schemas, hasDirectives);
   }
 
@@ -87,20 +89,29 @@ export function ɵɵelementStart(
   const renderer = lView[RENDERER];
   const ngh = lView[HYDRATION_INFO];
 
+  const previousTNode = getCurrentTNode();
+  const previousTNodeParent = isCurrentTNodeParent();
+
+  const tNode = tView.firstCreatePass ?
+      elementStartFirstCreatePass(
+          adjustedIndex, tView, lView, /* native */ null, name, attrsIndex, localRefsIndex) :
+      tView.data[adjustedIndex] as TElementNode;
+
   let native: RElement;
-  if (ngh !== null && ngh.nodes[index]) {
-    native = findExistingNode(
-                 lView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, ngh.nodes[index]) as
-        RElement;
+  if (ngh !== null) {
+    // debugger;
+    native =
+        locateNextRNode<RElement>(ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
+    ngDevMode &&
+        assertRElement(
+            native, name,
+            `Expecting an element node with ${name} tag name in the elementStart instruction`);
+
   } else {
     native = createElementNode(renderer, name, getNamespace());
   }
   lView[adjustedIndex] = native;
 
-  const tNode = tView.firstCreatePass ?
-      elementStartFirstCreatePass(
-          adjustedIndex, tView, lView, native, name, attrsIndex, localRefsIndex) :
-      tView.data[adjustedIndex] as TElementNode;
   setCurrentTNode(tNode, true);
   setupStaticAttributes(renderer, native, tNode);
 
