@@ -7,7 +7,7 @@
  */
 
 import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert';
-import {assertFirstCreatePass, assertHasParent} from '../assert';
+import {assertFirstCreatePass, assertHasParent, assertRElement} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {hasClassInput, hasStyleInput, TAttributes, TElementNode, TNodeFlags, TNodeType} from '../interfaces/node';
@@ -18,11 +18,11 @@ import {assertTNodeType} from '../node_assert';
 import {appendChild, createElementNode, findExistingNode, setupStaticAttributes} from '../node_manipulation';
 import {decreaseElementDepthCount, getBindingIndex, getCurrentTNode, getElementDepthCount, getLView, getNamespace, getTView, increaseElementDepthCount, isCurrentTNodeParent, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {computeStaticStyling} from '../styling/static_styling';
-import {getConstant} from '../util/view_utils';
+import {getConstant, getNativeByTNode} from '../util/view_utils';
 
 import {validateElementIsKnown} from './element_validation';
 import {setDirectiveInputsWhichShadowsStyling} from './property';
-import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
+import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, locateNextRNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
 
 function elementStartFirstCreatePass(
@@ -81,6 +81,10 @@ export function ɵɵelementStart(
   ngDevMode && assertIndexInRange(lView, adjustedIndex);
 
   const renderer = lView[RENDERER];
+
+  const previousTNode = getCurrentTNode();
+  const previousTNodeParent = isCurrentTNodeParent();
+
   const tNode = tView.firstCreatePass ?
       elementStartFirstCreatePass(adjustedIndex, tView, lView, name, attrsIndex, localRefsIndex) :
       tView.data[adjustedIndex] as TElementNode;
@@ -88,10 +92,15 @@ export function ɵɵelementStart(
   const ngh = lView[HYDRATION_INFO];
 
   let native: RElement;
-  if (ngh !== null && ngh.nodes[index]) {
-    native = findExistingNode(
-                 lView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Node, ngh.nodes[index]) as
-        RElement;
+  if (ngh !== null) {
+    // debugger;
+    native =
+        locateNextRNode<RElement>(ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
+    ngDevMode &&
+        assertRElement(
+            native, name,
+            `Expecting an element node with ${name} tag name in the elementStart instruction`);
+
   } else {
     native = createElementNode(renderer, name, getNamespace());
   }

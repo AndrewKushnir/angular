@@ -345,9 +345,11 @@ function createRootComponentView(
 
   // TODO: avoid duplication of this code.
   // (there is similar one in shared.ts and view_container_ref.ts)
-  const ngh = (rNode as HTMLElement).getAttribute('ngh');
-  if (ngh) {
-    componentView[HYDRATION_INFO] = JSON.parse(ngh) as any;
+  const rawNgh = (rNode as HTMLElement).getAttribute('ngh');
+  if (rawNgh) {
+    const ngh = JSON.parse(rawNgh) as any;
+    (ngh as any).firstChild = (rNode as any).firstChild;
+    componentView[HYDRATION_INFO] = ngh;
     (rNode as HTMLElement).removeAttribute('ngh');
   }
 
