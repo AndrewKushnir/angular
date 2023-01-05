@@ -14,6 +14,7 @@ import {DirectiveDef} from './interfaces/definition';
 import {TIcu} from './interfaces/i18n';
 import {NodeInjectorOffset} from './interfaces/injector';
 import {TNode} from './interfaces/node';
+import {RComment, RNode} from './interfaces/renderer_dom';
 import {isLContainer, isLView} from './interfaces/type_checks';
 import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, LView, T_HOST, TVIEW, TView} from './interfaces/view';
 
@@ -160,4 +161,25 @@ export function assertNodeInjector(lView: LView, injectorIndex: number) {
   assertNumber(
       lView[injectorIndex + NodeInjectorOffset.PARENT],
       'injectorIndex should point to parent injector');
+}
+
+export function assertRComment(native: RNode, errMessage?: string) {
+  assertEqual(
+      (native as HTMLElement).nodeType, Node.COMMENT_NODE,
+      errMessage ?? 'Expected this element to be a comment node');
+}
+
+export function assertRElement(native: RNode, tagName: string, errMessage?: string) {
+  assertEqual(
+      (native as HTMLElement).nodeType, Node.ELEMENT_NODE,
+      errMessage ?? 'Expected this element to be an element node');
+  assertEqual(
+      (native as HTMLElement).tagName.toLowerCase(), tagName,
+      errMessage ?? `Expected this element node to have the ${tagName} tag name`);
+}
+
+export function assertRText(native: RNode, errMessage?: string) {
+  assertEqual(
+      (native as HTMLElement).nodeType, Node.TEXT_NODE,
+      errMessage ?? 'Expected this element to be a text node');
 }

@@ -311,6 +311,8 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       origHydrationInfo = setCurrentHydrationInfoForTemplateRef(newHydrationInfo);
     }
 
+    debugger;
+
     const viewRef = templateRef.createEmbeddedView(context || <any>{}, injector);
 
     if (ssrId) {
@@ -438,6 +440,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
 
     if (dehydratedView) {
       const hostLView = this._lContainer[PARENT];
+      // FIXME: this needs an update!
       rNode = findExistingNode(
                   hostLView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Element,
                   dehydratedView.nodes[0]) as RComment;
@@ -599,6 +602,7 @@ export function createContainerRef(
   let ngh;
   let lContainer: LContainer;
   const slotValue = hostLView[hostTNode.index];
+  // debugger;
   if (isLContainer(slotValue)) {
     // If the host is a container, we don't need to create a new LContainer
     lContainer = slotValue;
@@ -636,6 +640,8 @@ export function createContainerRef(
         createLContainer(slotValue, hostLView, commentNode, hostTNode);
 
     if (ngh) {
+      debugger;
+      // FIXME: this needs an update!
       // Look for all views within this container.
       const nghContainer = ngh.containers.find(c => c.anchor === hostTNode.index - HEADER_OFFSET);
       if (nghContainer) {

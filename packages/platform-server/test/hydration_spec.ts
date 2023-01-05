@@ -131,6 +131,48 @@ describe('platform-server integration', () => {
     it('should work with simple components', async () => {
       @Component({
         standalone: true,
+        selector: 'app',
+        imports: [NgIf],
+        template: `
+          <p *ngIf="isServer">isServer!</p>
+          <ng-container>
+            <ng-container>
+              Hi!
+            </ng-container>
+          </ng-container>
+          After container!
+        `,
+      })
+      class SimpleComponent {
+        isServer = true;  //  isPlatformServer(inject(PLATFORM_ID));
+      }
+
+      const html = await ssr(SimpleComponent);
+      const appContents = getAppContents(html);
+
+      expect(appContents).toBe('.....');
+      debugger;
+
+      // Reset TView, so that we re-enter the first create pass as
+      // we would normally do when we hydrate on the client.
+      // TODO: find a better way to do that in tests, because there
+      // might be nested components that would require the same.
+      (SimpleComponent as any).ɵcmp.tView = null;
+
+      const appRef = await hydrate(html, SimpleComponent);
+      const compRef = getComponentRef<SimpleComponent>(appRef);
+      appRef.tick();
+      const rootNode = compRef.location.nativeElement;
+
+      expect(rootNode.outerHTML).toBe('...');
+
+      debugger;
+    });
+
+    // FIXME: this test needs more work...
+    xit('should work with projection', async () => {
+      @Component({
+        standalone: true,
         selector: 'nested',
         template: `<span>Nested content</span>`,
       })
@@ -159,14 +201,17 @@ describe('platform-server integration', () => {
         selector: 'app',
         imports: [NgIf, NestedComponent],
         template: `
-          <div>
-            <ng-container *ngIf="!isServer">Client</ng-container>
-            <ng-container *ngIf="isServer">Server</ng-container>
-          </div>
+          <p *ngIf="isServer">isServer!</p>
+          <ng-container>
+            <ng-container>
+              Hi!
+            </ng-container>
+          </ng-container>
+          After container!
         `,
       })
-      class SimpleComponent2 {
-        isServer = true;  // isPlatformServer(inject(PLATFORM_ID));
+      class SimpleComponent {
+        isServer = true;  //  isPlatformServer(inject(PLATFORM_ID));
       }
 
       @Component({
@@ -174,7 +219,7 @@ describe('platform-server integration', () => {
         imports: [CommonModule],
         selector: 'projector-cmp',
         template:
-            '<main>Projected content: <ng-container *ngIf="true"><ng-content></ng-content></ng-container></main>',
+            '<main>Projected content: <ng-content></ng-content><ng-content select="[id=left]"></ng-content></main>',
       })
       class ProjectorCmp {
       }
@@ -186,11 +231,12 @@ describe('platform-server integration', () => {
         template: `
           <p>Counter: {{ count }}</p>
           <projector-cmp>
+            <nav id="left">Nav!</nav>
             <div (click)="increment()">{{ count }}</div>
           </projector-cmp>
         `,
       })
-      class SimpleComponent {
+      class SimpleComponent2 {
         count = 0;
         increment() {
           this.count++;
@@ -200,17 +246,6 @@ describe('platform-server integration', () => {
       const html = await ssr(SimpleComponent);
       const appContents = getAppContents(html);
 
-      // <div> [0 - right]
-      //   <!-- container --> [1]
-      //   <b>
-      //     text
-      //   </b>
-      //   <!-- container --> [2]
-      // </div>
-      //
-      // 0: host.firstChild
-      // 1: host.firstChild.firstChild
-      // 2: host.firstChild.firstChild.nextSibling.nextSibling
       expect(appContents).toBe('.....');
       debugger;
 
@@ -278,9 +313,14 @@ describe('platform-server integration', () => {
 
       // Post-cleanup
       expect(rootNode.outerHTML).toBe('...');
+
+      setTimeout(() => {
+        const a = appRef;
+        debugger;
+      }, 0);
     });
 
-    fit('should work with ViewContainerRef.createComponent', async () => {
+    it('should work with ViewContainerRef.createComponent', async () => {
       @Component({
         standalone: true,
         selector: 'dynamic',
