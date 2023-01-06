@@ -9,17 +9,18 @@ import {assertDefined} from '../../util/assert';
 import {assertFirstCreatePass, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
+import {locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
 import {DEHYDRATED_VIEWS} from '../interfaces/container';
 import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNodeType} from '../interfaces/node';
-import {RComment, RElement, RNode} from '../interfaces/renderer_dom';
+import {RComment, RElement} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
-import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, NghView, RENDERER, TView, TViewType} from '../interfaces/view';
-import {appendChild, findExistingNode} from '../node_manipulation';
+import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView, TViewType} from '../interfaces/view';
+import {appendChild} from '../node_manipulation';
 import {getCurrentTNode, getLView, getTView, isCurrentTNodeParent, setCurrentTNode} from '../state';
-import {getConstant, getNativeByTNode} from '../util/view_utils';
+import {getConstant} from '../util/view_utils';
 
-import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, locateNextRNode, resolveDirectives, saveResolvedLocalsInData, siblingAfter} from './shared';
+import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
 function templateFirstCreatePass(
     index: number, tView: TView, lView: LView, templateFn: ComponentTemplate<any>|null,
@@ -101,7 +102,7 @@ export function ɵɵtemplate(
     const sViews = sContainer.views as any;
     for (const sView of sViews) {
       const view = {...sView};
-      if (view.numTopLevelNodes > 0) {
+      if (view.numRootNodes > 0) {
         debugger;
         // Keep reference to the first node in this view,
         // so it can be accessed while invoking template instructions.
@@ -110,17 +111,17 @@ export function ɵɵtemplate(
         // Move over to the first node after this view, which can
         // either be a first node of the next view or an anchor comment
         // node after the last view in a container.
-        currentRNode = siblingAfter(view.numTopLevelNodes, currentRNode as RElement);
+        currentRNode = siblingAfter(view.numRootNodes, currentRNode as RElement);
       }
       dehydratedViews.push(view);
     }
-    debugger;
     // After processing of all views, the `currentRNode` points
     // to the first node *after* the last view, which must be a
     // comment node which acts as an anchor.
     comment = currentRNode as RComment;
 
     ngDevMode && assertRComment(comment, 'Expecting a comment node in template instruction');
+    ngDevMode && markRNodeAsClaimedForHydration(comment);
   } else {
     comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
   }

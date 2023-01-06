@@ -10,19 +10,20 @@ import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert'
 import {assertFirstCreatePass, assertHasParent, assertRElement} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
+import {locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
 import {hasClassInput, hasStyleInput, TAttributes, TElementNode, TNodeFlags, TNodeType} from '../interfaces/node';
 import {RElement} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
-import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
+import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
-import {appendChild, createElementNode, findExistingNode, setupStaticAttributes} from '../node_manipulation';
+import {appendChild, createElementNode, setupStaticAttributes} from '../node_manipulation';
 import {decreaseElementDepthCount, getBindingIndex, getCurrentTNode, getElementDepthCount, getLView, getNamespace, getTView, increaseElementDepthCount, isCurrentTNodeParent, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {computeStaticStyling} from '../styling/static_styling';
-import {getConstant, getNativeByTNode} from '../util/view_utils';
+import {getConstant} from '../util/view_utils';
 
 import {validateElementIsKnown} from './element_validation';
 import {setDirectiveInputsWhichShadowsStyling} from './property';
-import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, locateNextRNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
+import {createDirectivesInstances, executeContentQueries, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
 
 function elementStartFirstCreatePass(
@@ -99,14 +100,13 @@ export function ɵɵelementStart(
 
   let native: RElement;
   if (ngh !== null) {
-    // debugger;
     native =
         locateNextRNode<RElement>(ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
     ngDevMode &&
         assertRElement(
             native, name,
             `Expecting an element node with ${name} tag name in the elementStart instruction`);
-
+    ngDevMode && markRNodeAsClaimedForHydration(native);
   } else {
     native = createElementNode(renderer, name, getNamespace());
   }

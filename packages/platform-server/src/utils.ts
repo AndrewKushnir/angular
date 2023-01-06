@@ -8,11 +8,11 @@
 
 import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵgetLViewById as getLViewById, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise,} from '@angular/core';
 import {collectNativeNodes} from '@angular/core/src/render3/collect_native_nodes';
-import {CONTAINER_HEADER_OFFSET, LContainer, TYPE, VIEW_REFS} from '@angular/core/src/render3/interfaces/container';
+import {CONTAINER_HEADER_OFFSET, LContainer, TYPE} from '@angular/core/src/render3/interfaces/container';
 import {TContainerNode, TNode, TNodeType} from '@angular/core/src/render3/interfaces/node';
-import {RElement, RNode} from '@angular/core/src/render3/interfaces/renderer_dom';
+import {RNode} from '@angular/core/src/render3/interfaces/renderer_dom';
 import {isRootView} from '@angular/core/src/render3/interfaces/type_checks';
-import {CONTEXT, FLAGS, HEADER_OFFSET, HOST, LView, TVIEW, TView, TViewType} from '@angular/core/src/render3/interfaces/view';
+import {CONTEXT, HEADER_OFFSET, HOST, LView, TVIEW, TView, TViewType} from '@angular/core/src/render3/interfaces/view';
 import {unwrapRNode} from '@angular/core/src/render3/util/view_utils';
 import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
@@ -55,41 +55,69 @@ function appendServerContextInfo(serverContext: string, applicationRef: Applicat
 
 export interface LiveDom {
   /* anchor is an index from LView */
-  containers?: {[anchor: string]: Container};
-  projections?: {[anchor: string]: Projection};
-  templates?: Record<number, string>;
-}
-
-export interface Projection {
-  path: string; /* host.firstChild.nextSibling... */
-  numTopLevelNodes: number;
+  containers: Record<number, Container>;
+  nodes: Record<number, string>;
+  templates: Record<number, string>;
 }
 
 export interface Container {
   views: View[];
+  // Describes the number of top level nodes in this container.
+  // Only applicable to <ng-container>s.
+  //
+  // TODO: consider moving this info elsewhere to avoid confusion
+  // between view containers (<div *ngIf>) and element containers
+  // (<ng-container>s).
+  numRootNodes?: number;
 }
 
 export interface View extends LiveDom {
   template: string;
-  numTopLevelNodes: number;
+  numRootNodes: number;
 }
 
 export function isLContainer(value: RNode|LView|LContainer|{}|null): value is LContainer {
   return Array.isArray(value) && value[TYPE] === true;
 }
 
+function firstRNodeInElementContainer(tView: TView, lView: LView, tNode: TNode): RNode|null {
+  const rootNodes: any[] = [];
+  // TODO: find more efficient way to do this. We don't need to traverse the entire
+  // structure, we can just stop after examining the first node.
+  collectNativeNodes(tView, lView, tNode, rootNodes);
+  return rootNodes[0];
+}
+
+function isProjectionTNode(tNode: TNode): boolean {
+  return (tNode.type & TNodeType.Projection) === TNodeType.Projection;
+}
+
 function serializeLView(lView: LView, hostNode: Element): LiveDom {
-  // TODO: all objects are optional, create only when needed.
   const ngh: LiveDom = {
     containers: {},
     templates: {},
-    projections: {},
+    nodes: {},
   };
 
   const tView = lView[TVIEW];
   for (let i = HEADER_OFFSET; i < tView.bindingStartIndex; i++) {
     let targetNode: Node|null = null;
     const adjustedIndex = i - HEADER_OFFSET;
+    const tNode = tView.data[i] as TContainerNode;
+    if (Array.isArray(tNode.projection)) {
+      debugger;
+      // TODO: handle `RNode[]` as well.
+      for (const headTNode of (tNode.projection as any[])) {
+        // We may have `null`s in slots with no projected content.
+        // Also, if we process re-projected content (i.e. `<ng-content>`
+        // appears at projection location), skip annotations for this content
+        // since all DOM nodes in this projection were handled while processing
+        // a parent lView, which contains those nodes.
+        if (headTNode && !isProjectionTNode(headTNode)) {
+          ngh.nodes[headTNode.index - HEADER_OFFSET] = calcPathForNode(tView, lView, headTNode);
+        }
+      }
+    }
     if (isLContainer(lView[i])) {
       // this is a container
       const tNode = tView.data[i] as TContainerNode;
@@ -109,43 +137,88 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
       targetNode = unwrapRNode(lView[i][HOST]!) as Element;
       annotateForHydration(targetNode as Element, lView[i]);
     } else {
-      const tNode = tView.data[i] as TContainerNode;
       const tNodeType = tNode.type;
+      // <ng-container> case
       if (tNodeType & TNodeType.ElementContainer) {
         const rootNodes: any[] = [];
         collectNativeNodes(tView, lView, tNode.child, rootNodes);
-        debugger;
 
         // This is an "element" container (vs "view" container),
         // so it's only represented by the number of top-level nodes
         // as a shift to get to a corresponding comment node.
-        const container = {
-          numTopLevelNodes: rootNodes.length,
+        const container: Container = {
+          views: [],
+          numRootNodes: rootNodes.length,
         };
 
-        (ngh.containers! as any)[adjustedIndex] = container;
-      }
-
-      // ... otherwise, this is a DOM element, we do not serialize it
-      // targetNode = lView[i] as Node;
-    }
-
-    /* TODO: this would be needed for projection!
-    if (targetNode !== null) {
-      // TODO: support cases when a DOM element is moved outside of the app host node,
-      // for ex. material modal dialog root element that is moved to the `<body>`.
-      ngh.nodes[i - HEADER_OFFSET] = navigateBetween(hostNode, targetNode).map(op => {
-        switch (op) {
-          case NodeNavigationStep.FirstChild:
-            return 'firstChild';
-          case NodeNavigationStep.NextSibling:
-            return 'nextSibling';
+        ngh.containers[adjustedIndex] = container;
+      } else if (tNodeType & TNodeType.Projection) {
+        // Current TNode has no DOM element associated with it,
+        // so the following node would not be able to find an anchor.
+        // Use full path instead.
+        let nextTNode = tNode.next;
+        while (nextTNode !== null && (nextTNode.type & TNodeType.Projection)) {
+          nextTNode = nextTNode.next;
         }
-      });
+        if (nextTNode) {
+          const index = nextTNode.index - HEADER_OFFSET;
+          const path = calcPathForNode(tView, lView, nextTNode);
+          ngh.nodes[index] = path;
+        }
+      } else {
+        // ... otherwise, this is a DOM element, for which we may need to
+        // serialize in some cases.
+        targetNode = lView[i] as Node;
+
+        // Check if projection next is not the same as next, in which case
+        // the node would not be found at creation time at runtime and we
+        // need to provide a location to that node.
+        if (tNode.projectionNext && tNode.projectionNext !== tNode.next) {
+          const nextProjectedTNode = tNode.projectionNext;
+          const index = nextProjectedTNode.index - HEADER_OFFSET;
+          const path = calcPathForNode(tView, lView, nextProjectedTNode);
+          ngh.nodes[index] = path;
+        }
+      }
     }
-    */
   }
   return ngh;
+}
+
+function calcPathForNode(tView: TView, lView: LView, tNode: TNode): string {
+  const index = tNode.index;
+  const parentTNode = tNode.parent!;
+  const parentIndex = parentTNode.index;
+  const parentRNode = unwrapRNode(lView[parentIndex]);
+  let rNode = unwrapRNode(lView[index]);
+  if (tNode.type & TNodeType.AnyContainer) {
+    // For <ng-container> nodes, instead of serializing a reference
+    // to the anchor comment node, serialize a location of the first
+    // DOM element. Paired with the container size (serialized as a part
+    // of `ngh.containers`), it should give enough information for runtime
+    // to hydrate nodes in this container.
+    //
+    // Note: for ElementContainers (i.e. `<ng-container>` elements), we use
+    // a first child from the tNode data structures, since we want to collect
+    // add root nodes starting from the first child node in a container.
+    const childTNode = tNode.type & TNodeType.ElementContainer ? tNode.child : tNode;
+    const firstRNode = firstRNodeInElementContainer(tView, lView, childTNode!);
+    // If container is not empty, use a reference to the first element,
+    // otherwise, rNode would point to an anchor comment node.
+    if (firstRNode) {
+      rNode = firstRNode;
+    }
+  }
+  const path: string[] = navigateBetween(parentRNode as Node, rNode as Node).map(op => {
+    switch (op) {
+      case NodeNavigationStep.FirstChild:
+        return 'firstChild';
+      case NodeNavigationStep.NextSibling:
+        return 'nextSibling';
+    }
+  });
+  path.unshift('' + (parentIndex - HEADER_OFFSET));
+  return path.join('.');
 }
 
 let ssrId: number = 0;
@@ -185,12 +258,10 @@ function serializeLContainer(lContainer: LContainer, hostNode: Element, anchor: 
 
     const rootNodes: any[] = [];
     collectNativeNodes(childTView, childLView, childTView.firstChild, rootNodes);
-    debugger;
 
-    // from which template did this lView originate?
     container.views.push({
-      template,
-      numTopLevelNodes: rootNodes.length,
+      template,  // from which template did this lView originate?
+      numRootNodes: rootNodes.length,
       ...serializeLView(lContainer[i] as LView, hostNode),
     });
   }
@@ -214,7 +285,6 @@ export function annotateForHydration(element: Element, lView: LView): void {
   const rawNgh = serializeLView(lView, element);
   const serializedNgh = JSON.stringify(rawNgh);
   element.setAttribute('ngh', serializedNgh);
-  // console.log('ngh', ngh);
   debugger;
 }
 
