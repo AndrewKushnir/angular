@@ -13,15 +13,16 @@ import {assertNodeInjector} from '../render3/assert';
 import {ComponentFactory as R3ComponentFactory, setCurrentHydrationInfo as setCurrentHydrationInfoForComponentRef} from '../render3/component_ref';
 import {getComponentDef} from '../render3/definition';
 import {getParentInjectorLocation, NodeInjector} from '../render3/di';
+import {findExistingNode, markRNodeAsClaimedForHydration} from '../render3/hydration';
 import {addToViewTree, createLContainer} from '../render3/instructions/shared';
 import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer, NATIVE, VIEW_REFS} from '../render3/interfaces/container';
 import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNodeType} from '../render3/interfaces/node';
 import {RComment, RElement} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
-import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, NghDom, NghView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, NghView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
-import {addViewToContainer, destroyLView, detachView, findExistingNode, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
+import {addViewToContainer, destroyLView, detachView, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
 import {getParentInjectorIndex, getParentInjectorView, hasParentInjector} from '../render3/util/injector_utils';
 import {getNativeByTNode, unwrapRNode, viewAttachedToContainer} from '../render3/util/view_utils';
@@ -443,7 +444,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       // FIXME: this needs an update!
       rNode = findExistingNode(
                   hostLView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Element,
-                  dehydratedView.nodes[0]) as RComment;
+                  (dehydratedView as any).nodes[0]) as RComment;
 
       // Read hydration info and pass it over to the component view.
       const ngh = (rNode as HTMLElement).getAttribute('ngh');
@@ -451,6 +452,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
         const hydrationInfo = JSON.parse(ngh) as NghView;
         (rNode as HTMLElement).removeAttribute('ngh');
         origHydrationInfo = setCurrentHydrationInfoForComponentRef(hydrationInfo);
+        ngDevMode && markRNodeAsClaimedForHydration(rNode!);
       }
     }
 
@@ -617,9 +619,10 @@ export function createContainerRef(
     } else {
       ngh = hostLView[HYDRATION_INFO];
       if (ngh) {
+        // FIXME: this needs an update!
         commentNode = findExistingNode(
                           hostLView[DECLARATION_COMPONENT_VIEW][HOST] as unknown as Element,
-                          ngh.nodes[hostTNode.index - HEADER_OFFSET]) as RComment;
+                          (ngh.nodes as any)[hostTNode.index - HEADER_OFFSET]) as RComment;
       } else {
         // If the host is a regular element, we have to insert a comment node manually which will
         // be used as an anchor when inserting elements. In this specific case we use low-level DOM
@@ -643,7 +646,8 @@ export function createContainerRef(
       debugger;
       // FIXME: this needs an update!
       // Look for all views within this container.
-      const nghContainer = ngh.containers.find(c => c.anchor === hostTNode.index - HEADER_OFFSET);
+      const nghContainer =
+          (ngh.containers as any).find((c: any) => c.anchor === hostTNode.index - HEADER_OFFSET);
       if (nghContainer) {
         // Copy the views object, since we'll be removing elements
         // from it later.
