@@ -76,8 +76,8 @@ export const enum TNodeType {
   // if `TNode.type` is one of several choices.
 
   // See: https://github.com/microsoft/TypeScript/issues/35875 why we can't refer to existing enum.
-  AnyRNode = 0b11,        // Text | Element,
-  AnyContainer = 0b1100,  // Container | ElementContainer, // See:
+  AnyRNode = 0b11,        // Text | Element
+  AnyContainer = 0b1100,  // Container | ElementContainer
 }
 
 /**

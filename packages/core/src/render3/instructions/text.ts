@@ -7,14 +7,14 @@
  */
 import {assertEqual, assertIndexInRange} from '../../util/assert';
 import {assertRText} from '../assert';
+import {locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
 import {TElementNode, TNodeType} from '../interfaces/node';
-import {RElement, RText} from '../interfaces/renderer_dom';
-import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, RENDERER, T_HOST} from '../interfaces/view';
-import {appendChild, createTextNode, findExistingNode} from '../node_manipulation';
+import {RText} from '../interfaces/renderer_dom';
+import {HEADER_OFFSET, HYDRATION_INFO, RENDERER} from '../interfaces/view';
+import {appendChild, createTextNode} from '../node_manipulation';
 import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, setCurrentTNode} from '../state';
-import {getNativeByTNode} from '../util/view_utils';
 
-import {getOrCreateTNode, locateNextRNode} from './shared';
+import {getOrCreateTNode} from './shared';
 
 
 
@@ -47,10 +47,13 @@ export function ɵɵtext(index: number, value: string = ''): void {
   let textNative: RText;
   const ngh = lView[HYDRATION_INFO];
   if (ngh) {
-    debugger;
     textNative =
         locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent) as RText;
-    ngDevMode && assertRText(textNative, 'Expecting a text node in the `text` instruction');
+    ngDevMode &&
+        assertRText(
+            textNative,
+            `Expecting a text node (with the '${value}' value) in the text instruction`);
+    ngDevMode && markRNodeAsClaimedForHydration(textNative);
   } else {
     textNative = createTextNode(lView[RENDERER], value);
   }

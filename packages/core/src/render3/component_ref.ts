@@ -30,6 +30,7 @@ import {getComponentDef} from './definition';
 import {getNodeInjectable, NodeInjector} from './di';
 import {throwProviderNotFoundError} from './errors_di';
 import {registerPostOrderHooks} from './hooks';
+import {markRNodeAsClaimedForHydration} from './hydration';
 import {reportUnknownPropertyError} from './instructions/element_validation';
 import {addToViewTree, createLView, createTView, executeContentQueries, getOrCreateComponentTView, getOrCreateTNode, initializeDirectives, invokeDirectivesHostBindings, locateHostElement, markAsComponentHost, markDirtyIfOnPush, renderView, setInputsForProperty} from './instructions/shared';
 import {ComponentDef, DirectiveDef, HostDirectiveDefs} from './interfaces/definition';
@@ -345,12 +346,14 @@ function createRootComponentView(
 
   // TODO: avoid duplication of this code.
   // (there is similar one in shared.ts and view_container_ref.ts)
-  const rawNgh = (rNode as HTMLElement).getAttribute('ngh');
+  const hostRNode = rNode as HTMLElement;
+  const rawNgh = hostRNode.getAttribute('ngh');
   if (rawNgh) {
-    const ngh = JSON.parse(rawNgh) as any;
-    (ngh as any).firstChild = (rNode as any).firstChild;
+    const ngh = JSON.parse(rawNgh) as NghDom;
+    ngh.firstChild = hostRNode.firstChild as HTMLElement;
     componentView[HYDRATION_INFO] = ngh;
-    (rNode as HTMLElement).removeAttribute('ngh');
+    hostRNode.removeAttribute('ngh');
+    ngDevMode && markRNodeAsClaimedForHydration(rNode!);
   }
 
   if (tView.firstCreatePass) {
