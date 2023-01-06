@@ -8,10 +8,11 @@
 import {newArray} from '../../util/array_utils';
 import {TAttributes, TElementNode, TNode, TNodeFlags, TNodeType} from '../interfaces/node';
 import {ProjectionSlots} from '../interfaces/projection';
-import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, T_HOST} from '../interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HYDRATION_INFO, T_HOST} from '../interfaces/view';
 import {applyProjection} from '../node_manipulation';
 import {getProjectAsAttrValue, isNodeMatchingSelectorList, isSelectorInSelectorList} from '../node_selector_matcher';
 import {getLView, getTView, setCurrentTNodeAsNotParent} from '../state';
+
 import {getOrCreateTNode} from './shared';
 
 
@@ -75,6 +76,7 @@ export function matchingProjectionSlotIndex(tNode: TNode, projectionSlots: Proje
 export function ɵɵprojectionDef(projectionSlots?: ProjectionSlots): void {
   const componentNode = getLView()[DECLARATION_COMPONENT_VIEW][T_HOST] as TElementNode;
 
+  debugger;
   if (!componentNode.projection) {
     // If no explicit projection slots are defined, fall back to a single
     // projection slot with the wildcard selector.
@@ -128,7 +130,8 @@ export function ɵɵprojection(
   // `<ng-content>` has no content
   setCurrentTNodeAsNotParent();
 
-  if ((tProjectionNode.flags & TNodeFlags.isDetached) !== TNodeFlags.isDetached) {
+  const ngh = lView[HYDRATION_INFO];
+  if (!ngh && (tProjectionNode.flags & TNodeFlags.isDetached) !== TNodeFlags.isDetached) {
     // re-distribution of projectable nodes is stored on a component's view level
     applyProjection(tView, lView, tProjectionNode);
   }

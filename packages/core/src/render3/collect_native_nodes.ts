@@ -30,9 +30,6 @@ export function collectNativeNodes(
             TNodeType.AnyRNode | TNodeType.AnyContainer | TNodeType.Projection | TNodeType.Icu);
 
     const lNode = lView[tNode.index];
-    if (lNode !== null) {
-      result.push(unwrapRNode(lNode));
-    }
 
     // A given lNode can represent either a native node or a LContainer (when it is a host of a
     // ViewContainerRef). When we find a LContainer we need to descend into it to collect root nodes
@@ -67,6 +64,15 @@ export function collectNativeNodes(
         collectNativeNodes(parentView[TVIEW], parentView, nodesInSlot, result, true);
       }
     }
+    // FIXME: this code is moved here to calculate the list of root nodes
+    // within a view correctly in case `<ng-container>` is used (which adds)
+    // an anchor node to the very end of the list. This should be fixed
+    // separately, but we just include the change here for now to get hydration
+    // working properly in this prototype.
+    if (lNode !== null) {
+      result.push(unwrapRNode(lNode));
+    }
+
     tNode = isProjection ? tNode.projectionNext : tNode.next;
   }
 
