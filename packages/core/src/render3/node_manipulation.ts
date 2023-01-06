@@ -124,31 +124,6 @@ export function createElementNode(
   return renderer.createElement(name, namespace);
 }
 
-export function findExistingNode(host: Node, path: string[]): RNode {
-  let node = host;
-  for (const op of path) {
-    if (!node) {
-      // TODO: add a dev-mode assertion here.
-      debugger;
-      throw new Error(`findExistingNode: failed to find node at ${path}.`);
-    }
-    switch (op) {
-      case 'firstChild':
-        node = node.firstChild!;
-        break;
-      case 'nextSibling':
-        node = node.nextSibling!;
-        break;
-    }
-  }
-  if (!node) {
-    // TODO: add a dev-mode assertion here.
-    debugger;
-    throw new Error(`findExistingNode: failed to find node at ${path}.`);
-  }
-  return node as unknown as RNode;
-}
-
 /**
  * Removes all DOM elements associated with a view.
  *

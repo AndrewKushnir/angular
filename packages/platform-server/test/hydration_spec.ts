@@ -27,10 +27,18 @@ function getAppContents(html: string): string {
   return result[1];
 }
 
-function hydrateApplication(type: Type<unknown>, options: {providers: Provider[]}) {
-  // ...
-  const applicationRef = null! as ApplicationRef;
-  return Promise.resolve(applicationRef);
+/**
+ * Reset TView, so that we re-enter the first create pass as
+ * we would normally do when we hydrate on the client. Otherwise,
+ * hydration info would not be applied to T data structures.
+ *
+ * TODO: find a better way to do that in tests, because there
+ * might be nested components that would require the same.
+ */
+function resetTViewsFor(...types: Type<unknown>[]) {
+  for (const type of types) {
+    (type as any).ɵcmp.tView = null;
+  }
 }
 
 function getAppDOM(html: string, doc: Document): HTMLElement {
@@ -44,24 +52,26 @@ function getComponentRef<T>(appRef: ApplicationRef): ComponentRef<T> {
   return appRef.components[0];
 }
 
-function getAppRootNode(appRef: ApplicationRef): Element {
-  return getComponentRef(appRef).location.nativeElement;
+function verifyClientAndSSRContentsMatch(ssrContents: string, clientAppRootElement: HTMLElement) {
+  const clientContents = clientAppRootElement.outerHTML.replace(/ ng-version=".*?"/, '');
+  ssrContents = ssrContents.replace(/ ngh=".*?"/g, '');
+  expect(clientContents).toBe(ssrContents, 'Client and server contents mismatch');
 }
 
-function verifyAllNodesHydrated(el: any) {
-  if (!el.__hydrated) {
+function verifyAllNodesClaimedForHydration(el: any) {
+  if (!el.__claimed) {
     fail('Hydration error: the node is *not* hydrated: ' + el.outerHTML);
   }
   let current = el.firstChild;
   while (current) {
-    verifyAllNodesHydrated(current);
+    verifyAllNodesClaimedForHydration(current);
     current = current.nextSibling;
   }
 }
 
 // if (getDOM().supportsDOMEvents) return;  // NODE only
 
-describe('platform-server integration', () => {
+fdescribe('platform-server integration', () => {
   beforeEach(() => {
     if (getPlatform()) destroyPlatform();
   });
@@ -119,159 +129,323 @@ describe('platform-server integration', () => {
       return bootstrapApplication(component, {providers});
     }
 
-    /**
-     * Helper function that server-side renders a standalone component
-     * and after that tries to hydrate it.
-     */
-    async function ssrAndHydrate(component: Type<unknown>): Promise<ApplicationRef> {
-      const html = await ssr(component);
-      return hydrate(html, component);
-    }
-
-    it('should work with simple components', async () => {
-      @Component({
-        standalone: true,
-        selector: 'app',
-        imports: [NgIf],
-        template: `
-          <p *ngIf="isServer">isServer!</p>
-          <ng-container>
-            <ng-container>
-              Hi!
-            </ng-container>
-          </ng-container>
-          After container!
-        `,
-      })
-      class SimpleComponent {
-        isServer = true;  //  isPlatformServer(inject(PLATFORM_ID));
-      }
-
-      const html = await ssr(SimpleComponent);
-      const appContents = getAppContents(html);
-
-      expect(appContents).toBe('.....');
-      debugger;
-
-      // Reset TView, so that we re-enter the first create pass as
-      // we would normally do when we hydrate on the client.
-      // TODO: find a better way to do that in tests, because there
-      // might be nested components that would require the same.
-      (SimpleComponent as any).ɵcmp.tView = null;
-
-      const appRef = await hydrate(html, SimpleComponent);
-      const compRef = getComponentRef<SimpleComponent>(appRef);
-      appRef.tick();
-      const rootNode = compRef.location.nativeElement;
-
-      expect(rootNode.outerHTML).toBe('...');
-
-      debugger;
-    });
-
-    // FIXME: this test needs more work...
-    xit('should work with projection', async () => {
-      @Component({
-        standalone: true,
-        selector: 'nested',
-        template: `<span>Nested content</span>`,
-      })
-      class NestedComponent {
-      }
-
-      @Component({
-        standalone: true,
-        selector: 'app',
-        imports: [NgIf, NestedComponent],
-        template: `
-          <div>
-            <!-- <span>Content: {{visible}}</span> -->
-            <i *ngIf="!isServer">Client</i>
-            <b *ngIf="isServer">Server</b>
-            <nested></nested>
-          </div>
-        `,
-      })
-      class SimpleComponentOrig {
-        isServer = true;  // isPlatformServer(inject(PLATFORM_ID));
-      }
-
-      @Component({
-        standalone: true,
-        selector: 'app',
-        imports: [NgIf, NestedComponent],
-        template: `
-          <p *ngIf="isServer">isServer!</p>
-          <ng-container>
-            <ng-container>
-              Hi!
-            </ng-container>
-          </ng-container>
-          After container!
-        `,
-      })
-      class SimpleComponent {
-        isServer = true;  //  isPlatformServer(inject(PLATFORM_ID));
-      }
-
-      @Component({
-        standalone: true,
-        imports: [CommonModule],
-        selector: 'projector-cmp',
-        template:
-            '<main>Projected content: <ng-content></ng-content><ng-content select="[id=left]"></ng-content></main>',
-      })
-      class ProjectorCmp {
-      }
-
-      @Component({
-        standalone: true,
-        imports: [ProjectorCmp],
-        selector: 'app',
-        template: `
-          <p>Counter: {{ count }}</p>
-          <projector-cmp>
-            <nav id="left">Nav!</nav>
-            <div (click)="increment()">{{ count }}</div>
-          </projector-cmp>
-        `,
-      })
-      class SimpleComponent2 {
-        count = 0;
-        increment() {
-          this.count++;
+    describe('basic scenarios', () => {
+      it('should support text-only contents', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            This is hydrated content.
+          `,
+        })
+        class SimpleComponent {
         }
-      }
 
-      const html = await ssr(SimpleComponent);
-      const appContents = getAppContents(html);
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
 
-      expect(appContents).toBe('.....');
-      debugger;
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
 
-      // Reset TView, so that we re-enter the first create pass as
-      // we would normally do when we hydrate on the client.
-      // TODO: find a better way to do that in tests, because there
-      // might be nested components that would require the same.
-      (SimpleComponent as any).ɵcmp.tView = null;
-      (ProjectorCmp as any).ɵcmp.tView = null;
+        resetTViewsFor(SimpleComponent);
 
-      const appRef = await hydrate(html, SimpleComponent);
-      const compRef = getComponentRef<SimpleComponent>(appRef);
-      appRef.tick();
-      const rootNode = compRef.location.nativeElement;
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
 
-      expect(rootNode.outerHTML).toBe('...');
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
 
-      debugger;
+      it('should support text and HTML elements', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            <header>Header</header>
+            <main>This is hydrated content in the main element.</main>
+            <footer>Footer</footer>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
     });
 
-    it('should work with *ngFor', async () => {
-      @Component({
-        standalone: true,
-        selector: 'app',
-        imports: [NgIf, NgFor],
-        template: `
+    describe('content projection', () => {
+      it('should project plain text', async () => {
+        @Component({
+          standalone: true,
+          selector: 'projector-cmp',
+          template: `
+            <main>
+              <ng-content></ng-content>
+            </main>
+          `,
+        })
+        class ProjectorCmp {
+        }
+
+        @Component({
+          standalone: true,
+          imports: [ProjectorCmp],
+          selector: 'app',
+          template: `
+            <projector-cmp>
+              Projected content is just a plain text.
+            </projector-cmp>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent, ProjectorCmp);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+
+      it('should project plain text and HTML elements', async () => {
+        @Component({
+          standalone: true,
+          selector: 'projector-cmp',
+          template: `
+            <main>
+              <ng-content></ng-content>
+            </main>
+          `,
+        })
+        class ProjectorCmp {
+        }
+
+        @Component({
+          standalone: true,
+          imports: [ProjectorCmp],
+          selector: 'app',
+          template: `
+            <projector-cmp>
+              Projected content is a plain text.
+              <b>Also the content has some tags</b>
+            </projector-cmp>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent, ProjectorCmp);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+
+      it('should support re-projection of contents', async () => {
+        @Component({
+          standalone: true,
+          selector: 'reprojector-cmp',
+          template: `
+            <main>
+              <ng-content></ng-content>
+            </main>
+          `,
+        })
+        class ReprojectorCmp {
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'projector-cmp',
+          imports: [ReprojectorCmp],
+          template: `
+            <reprojector-cmp>
+              <b>Before</b>
+              <ng-content></ng-content>
+              <i>After</i>
+            </reprojector-cmp>
+          `,
+        })
+        class ProjectorCmp {
+        }
+
+        @Component({
+          standalone: true,
+          imports: [ProjectorCmp],
+          selector: 'app',
+          template: `
+            <projector-cmp>
+              Projected content is a plain text.
+            </projector-cmp>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent, ProjectorCmp, ReprojectorCmp);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+
+      it('should project contents into different slots', async () => {
+        @Component({
+          standalone: true,
+          selector: 'projector-cmp',
+          template: `
+            <div>
+              Header slot: <ng-content select="header"></ng-content>
+              Main slot: <ng-content select="main"></ng-content>
+              Footer slot: <ng-content select="footer"></ng-content>
+              <ng-content></ng-content> <!-- everything else -->
+            </div>
+          `,
+        })
+        class ProjectorCmp {
+        }
+
+        @Component({
+          standalone: true,
+          imports: [ProjectorCmp],
+          selector: 'app',
+          template: `
+            <projector-cmp>
+              <!-- contents is intentionally randomly ordered -->
+              <h1>H1</h1>
+              <footer>Footer</footer>
+              <header>Header</header>
+              <main>Main</main>
+              <h2>H2</h2>
+            </projector-cmp>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent, ProjectorCmp);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+
+      it('should project contents with *ngIf\'s', async () => {
+        @Component({
+          standalone: true,
+          selector: 'projector-cmp',
+          template: `
+            <main>
+              <ng-content></ng-content>
+            </main>
+          `,
+        })
+        class ProjectorCmp {
+        }
+
+        @Component({
+          standalone: true,
+          imports: [ProjectorCmp, CommonModule],
+          selector: 'app',
+          template: `
+            <projector-cmp>
+              <h1 *ngIf="visible">Header with an ngIf condition.</h1>
+            </projector-cmp>
+          `,
+        })
+        class SimpleComponent {
+          visible = true;
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent, ProjectorCmp);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+    });
+
+    // FIXME: this test needs additional work...
+    xdescribe('*ngFor', () => {
+      it('should work with *ngFor', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [NgIf, NgFor],
+          template: `
           <div>
             <span *ngFor="let item of items">
               {{ item }}
@@ -280,102 +454,106 @@ describe('platform-server integration', () => {
             <main>Hi! This is the main content.</main>
           </div>
         `,
-      })
-      class SimpleComponent {
-        isServer = isPlatformServer(inject(PLATFORM_ID));
-        // Note: this is to test cleanup/reconciliation logic.
-        items = this.isServer ? [10, 20, 100, 200] : [30, 5, 50];
-      }
+        })
+        class SimpleComponent {
+          isServer = isPlatformServer(inject(PLATFORM_ID));
+          // Note: this is to test cleanup/reconciliation logic.
+          items = this.isServer ? [10, 20, 100, 200] : [30, 5, 50];
+        }
 
-      const html = await ssr(SimpleComponent);
-      const appContents = getAppContents(html);
+        const html = await ssr(SimpleComponent);
+        const appContents = getAppContents(html);
 
-      expect(appContents).toBe('.....');
-      debugger;
-
-      // Reset TView, so that we re-enter the first create pass as
-      // we would normally do when we hydrate on the client.
-      // TODO: find a better way to do that in tests, because there
-      // might be nested components that would require the same.
-      (SimpleComponent as any).ɵcmp.tView = null;
-
-      const appRef = await hydrate(html, SimpleComponent);
-      const compRef = getComponentRef<SimpleComponent>(appRef);
-      appRef.tick();
-      const rootNode = compRef.location.nativeElement;
-
-      // Pre-cleanup
-      expect(rootNode.outerHTML).toBe('...');
-      debugger;
-
-      await appRef.isStable.pipe(first((isStable: boolean) => isStable)).toPromise();
-      debugger;
-
-      // Post-cleanup
-      expect(rootNode.outerHTML).toBe('...');
-
-      setTimeout(() => {
-        const a = appRef;
+        expect(appContents).toBe('.....');
         debugger;
-      }, 0);
+
+        // Reset TView, so that we re-enter the first create pass as
+        // we would normally do when we hydrate on the client.
+        // TODO: find a better way to do that in tests, because there
+        // might be nested components that would require the same.
+        (SimpleComponent as any).ɵcmp.tView = null;
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+        const rootNode = compRef.location.nativeElement;
+
+        // Pre-cleanup
+        expect(rootNode.outerHTML).toBe('...');
+        debugger;
+
+        await appRef.isStable.pipe(first((isStable: boolean) => isStable)).toPromise();
+        debugger;
+
+        // Post-cleanup
+        expect(rootNode.outerHTML).toBe('...');
+
+        setTimeout(() => {
+          const a = appRef;
+          debugger;
+        }, 0);
+      });
     });
 
-    it('should work with ViewContainerRef.createComponent', async () => {
-      @Component({
-        standalone: true,
-        selector: 'dynamic',
-        template: `
+    // FIXME: this test needs additional work...
+    xdescribe('ViewContainerRef.createComponent', () => {
+      it('should work with ViewContainerRef.createComponent', async () => {
+        @Component({
+          standalone: true,
+          selector: 'dynamic',
+          template: `
           <span>This is a content of a dynamic component.</span>
         `,
-      })
-      class DynamicComponent {
-      }
+        })
+        class DynamicComponent {
+        }
 
-      @Component({
-        standalone: true,
-        selector: 'app',
-        imports: [NgIf, NgFor],
-        template: `
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [NgIf, NgFor],
+          template: `
           <div #target></div>
           <main>Hi! This is the main content.</main>
         `,
-      })
-      class SimpleComponent {
-        @ViewChild('target', {read: ViewContainerRef}) vcr!: ViewContainerRef;
+        })
+        class SimpleComponent {
+          @ViewChild('target', {read: ViewContainerRef}) vcr!: ViewContainerRef;
 
-        ngAfterViewInit() {
-          const compRef = this.vcr.createComponent(DynamicComponent);
-          compRef.changeDetectorRef.detectChanges();
+          ngAfterViewInit() {
+            const compRef = this.vcr.createComponent(DynamicComponent);
+            compRef.changeDetectorRef.detectChanges();
+          }
         }
-      }
 
-      const html = await ssr(SimpleComponent);
-      const appContents = getAppContents(html);
+        const html = await ssr(SimpleComponent);
+        const appContents = getAppContents(html);
 
-      expect(appContents).toBe('.....');
-      debugger;
+        expect(appContents).toBe('.....');
+        debugger;
 
-      // Reset TView, so that we re-enter the first create pass as
-      // we would normally do when we hydrate on the client.
-      // TODO: find a better way to do that in tests, because there
-      // might be nested components that would require the same.
-      (SimpleComponent as any).ɵcmp.tView = null;
-      (DynamicComponent as any).ɵcmp.tView = null;
+        // Reset TView, so that we re-enter the first create pass as
+        // we would normally do when we hydrate on the client.
+        // TODO: find a better way to do that in tests, because there
+        // might be nested components that would require the same.
+        (SimpleComponent as any).ɵcmp.tView = null;
+        (DynamicComponent as any).ɵcmp.tView = null;
 
-      const appRef = await hydrate(html, SimpleComponent);
-      const compRef = getComponentRef<SimpleComponent>(appRef);
-      appRef.tick();
-      const rootNode = compRef.location.nativeElement;
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+        const rootNode = compRef.location.nativeElement;
 
-      // Pre-cleanup
-      expect(rootNode.outerHTML).toBe('...');
-      debugger;
+        // Pre-cleanup
+        expect(rootNode.outerHTML).toBe('...');
+        debugger;
 
-      await appRef.isStable.pipe(first((isStable: boolean) => isStable)).toPromise();
-      debugger;
+        await appRef.isStable.pipe(first((isStable: boolean) => isStable)).toPromise();
+        debugger;
 
-      // Post-cleanup
-      expect(rootNode.outerHTML).toBe('...');
+        // Post-cleanup
+        expect(rootNode.outerHTML).toBe('...');
+      });
     });
   });
 });

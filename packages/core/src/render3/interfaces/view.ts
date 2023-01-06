@@ -857,16 +857,40 @@ export type TData = (TNode|PipeDef<any>|DirectiveDef<any>|ComponentDef<any>|numb
 export const unusedValueExportToPlacateAjd = 1;
 
 export interface NghDom {
-  nodes: Array<string[]>;
-  containers: NghContainer[];
+  nodes: Record<number, string>;
+  containers: Record<number, NghContainer>;
   templates: Record<number, string>;
+  // First node in this view.
+  // TODO: consider storing this info elsewhere to keep separation
+  // between deserialized data from `ngh` attributes and the data
+  // that is used at runtime for hydration.
+  firstChild: HTMLElement;
 }
 
 export interface NghContainer {
-  anchor: number; /* index from 'nodes' */
   views: NghView[];
+  // Describes the number of top level nodes in this container.
+  // Only applicable to <ng-container>s.
+  //
+  // TODO: consider moving this info elsewhere to avoid confusion
+  // between view containers (<div *ngIf>) and element containers
+  // (<ng-container>s).
+  numRootNodes?: number;
+  // First node in this container. This is applicable to
+  // <ng-container> only.
+  //
+  // TODO: consider moving this info elsewhere to avoid confusion
+  // between view containers (<div *ngIf>) and element containers
+  // (<ng-container>s).
+  firstChild?: HTMLElement;
 }
 
 export interface NghView extends NghDom {
   template: string;
+  numRootNodes: number;
+  // First node in this view.
+  // TODO: consider storing this info elsewhere to keep separation
+  // between deserialized data from `ngh` attributes and the data
+  // that is used at runtime for hydration.
+  firstChild: HTMLElement;
 }
