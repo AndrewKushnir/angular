@@ -11,12 +11,13 @@ import {getPluralCase} from '../../i18n/localization';
 import {assertDefined, assertDomNode, assertEqual, assertGreaterThan, assertIndexInRange, throwError} from '../../util/assert';
 import {assertIndexInExpandoRange, assertTIcu} from '../assert';
 import {attachPatchData} from '../context_discovery';
+import {locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
 import {elementPropertyInternal, setElementAttribute} from '../instructions/shared';
 import {ELEMENT_MARKER, I18nCreateOpCode, I18nCreateOpCodes, I18nUpdateOpCode, I18nUpdateOpCodes, ICU_MARKER, IcuCreateOpCode, IcuCreateOpCodes, IcuType, TI18n, TIcu} from '../interfaces/i18n';
 import {TNode} from '../interfaces/node';
 import {RElement, RNode, RText} from '../interfaces/renderer_dom';
 import {SanitizerFn} from '../interfaces/sanitization';
-import {HEADER_OFFSET, LView, RENDERER, TView} from '../interfaces/view';
+import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TVIEW, TView} from '../interfaces/view';
 import {createCommentNode, createElementNode, createTextNode, nativeInsertBefore, nativeParentNode, nativeRemoveNode, updateTextNode} from '../node_manipulation';
 import {getBindingIndex} from '../state';
 import {renderStringify} from '../util/stringify_utils';
@@ -94,19 +95,35 @@ export function applyCreateOpCodes(
     lView: LView, createOpCodes: I18nCreateOpCodes, parentRNode: RElement|null,
     insertInFrontOf: RElement|null): void {
   const renderer = lView[RENDERER];
+  debugger;
   for (let i = 0; i < createOpCodes.length; i++) {
     const opCode = createOpCodes[i++] as any;
     const text = createOpCodes[i] as string;
     const isComment = (opCode & I18nCreateOpCode.COMMENT) === I18nCreateOpCode.COMMENT;
-    const appendNow =
-        (opCode & I18nCreateOpCode.APPEND_EAGERLY) === I18nCreateOpCode.APPEND_EAGERLY;
+    let appendNow = (opCode & I18nCreateOpCode.APPEND_EAGERLY) === I18nCreateOpCode.APPEND_EAGERLY;
     const index = opCode >>> I18nCreateOpCode.SHIFT;
     let rNode = lView[index];
+    const ngh = lView[HYDRATION_INFO];
     if (rNode === null) {
-      // We only create new DOM nodes if they don't already exist: If ICU switches case back to a
-      // case which was already instantiated, no need to create new DOM nodes.
-      rNode = lView[index] =
-          isComment ? renderer.createComment(text) : createTextNode(renderer, text);
+      let native;
+      if (ngh) {
+        // debugger;
+        const tView = lView[TVIEW];
+        const tNode = tView.data[index] as TNode;
+        native = locateNextRNode<RElement>(ngh, tView, lView, tNode, null, false)!;
+        appendNow = false;
+        // ngDevMode &&
+        //     assertRElement(
+        //         native, name,
+        //                `Expecting an element node with ${name} tag name in the elementStart
+        //                instruction`);
+        ngDevMode && markRNodeAsClaimedForHydration(native);
+      } else {
+        // We only create new DOM nodes if they don't already exist: If ICU switches case back to a
+        // case which was already instantiated, no need to create new DOM nodes.
+        native = isComment ? renderer.createComment(text) : createTextNode(renderer, text);
+      }
+      rNode = lView[index] = native;
     }
     if (appendNow && parentRNode !== null) {
       nativeInsertBefore(renderer, parentRNode, rNode, insertInFrontOf, false);
