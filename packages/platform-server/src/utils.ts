@@ -53,6 +53,13 @@ function appendServerContextInfo(serverContext: string, applicationRef: Applicat
   });
 }
 
+// TODO: import from `@angular/core` instead, this is just a copy.
+export enum I18nCreateOpCode {
+  SHIFT = 2,
+  APPEND_EAGERLY = 0b01,
+  COMMENT = 0b10,
+}
+
 export interface LiveDom {
   /* anchor is an index from LView */
   containers: Record<number, Container>;
@@ -92,6 +99,25 @@ function isProjectionTNode(tNode: TNode): boolean {
   return (tNode.type & TNodeType.Projection) === TNodeType.Projection;
 }
 
+export function isTI18nNode(obj: any): boolean {
+  // TODO: consider adding a node type to TI18n?
+  return obj.hasOwnProperty('create') && obj.hasOwnProperty('update');
+}
+
+export function findClosestElementTNode(tNode: TNode|null): TNode|null {
+  let parentTNode: TNode|null = tNode;
+  // FIXME: this condition should also take into account whether
+  // resulting tNode is not marked as `insertBeforeIndex`.
+  while (parentTNode !== null &&
+         ((parentTNode.type & TNodeType.Element) !== TNodeType.Element ||
+          parentTNode.insertBeforeIndex !== null)) {
+    tNode = parentTNode;
+    parentTNode = tNode.parent;
+  }
+  return parentTNode;
+}
+
+
 function serializeLView(lView: LView, hostNode: Element): LiveDom {
   const ngh: LiveDom = {
     containers: {},
@@ -101,11 +127,12 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
 
   const tView = lView[TVIEW];
   for (let i = HEADER_OFFSET; i < tView.bindingStartIndex; i++) {
+    debugger;
+
     let targetNode: Node|null = null;
     const adjustedIndex = i - HEADER_OFFSET;
     const tNode = tView.data[i] as TContainerNode;
     if (Array.isArray(tNode.projection)) {
-      debugger;
       // TODO: handle `RNode[]` as well.
       for (const headTNode of (tNode.projection as any[])) {
         // We may have `null`s in slots with no projected content.
@@ -136,6 +163,29 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
       // this is a component
       targetNode = unwrapRNode(lView[i][HOST]!) as Element;
       annotateForHydration(targetNode as Element, lView[i]);
+    } else if (isTI18nNode(tNode)) {
+      // Process i18n text nodes...
+      const createOpCodes = (tNode as any).create;
+      for (let i = 0; i < createOpCodes.length; i++) {
+        const opCode = createOpCodes[i++] as any;
+        const appendNow =
+            (opCode & I18nCreateOpCode.APPEND_EAGERLY) === I18nCreateOpCode.APPEND_EAGERLY;
+        const index = opCode >>> I18nCreateOpCode.SHIFT;
+        const tNode = tView.data[index] as TNode;
+        // if (appendNow) {
+        const parentTNode = findClosestElementTNode(tNode);
+        const path = calcPathForNode(tView, lView, tNode, parentTNode);
+        ngh.nodes[tNode.index - HEADER_OFFSET] = path;
+        // }
+      }
+    } else if (tNode.insertBeforeIndex) {
+      debugger;
+      if (Array.isArray(tNode.insertBeforeIndex) && tNode.insertBeforeIndex[0] !== null) {
+        // A root node within i18n block.
+        // TODO: add a comment on *why* we need a path here.
+        const path = calcPathForNode(tView, lView, tNode);
+        ngh.nodes[tNode.index - HEADER_OFFSET] = path;
+      }
     } else {
       const tNodeType = tNode.type;
       // <ng-container> case
@@ -185,11 +235,15 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
   return ngh;
 }
 
-function calcPathForNode(tView: TView, lView: LView, tNode: TNode): string {
+function calcPathForNode(
+    tView: TView, lView: LView, tNode: TNode, parentTNode?: TNode|null): string {
   const index = tNode.index;
-  const parentTNode = tNode.parent!;
-  const parentIndex = parentTNode.index;
-  const parentRNode = unwrapRNode(lView[parentIndex]);
+  // If `null` is passed explicitly, use this as a signal that we want to calculate
+  // the path starting from `lView[HOST]`.
+  parentTNode = parentTNode === null ? null : (parentTNode || tNode.parent!);
+  const parentIndex = parentTNode === null ? 'host' : parentTNode.index;
+  const parentRNode =
+      parentTNode === null ? lView[HOST] : unwrapRNode(lView[parentIndex as number]);
   let rNode = unwrapRNode(lView[index]);
   if (tNode.type & TNodeType.AnyContainer) {
     // For <ng-container> nodes, instead of serializing a reference
@@ -209,6 +263,7 @@ function calcPathForNode(tView: TView, lView: LView, tNode: TNode): string {
       rNode = firstRNode;
     }
   }
+  debugger;
   const path: string[] = navigateBetween(parentRNode as Node, rNode as Node).map(op => {
     switch (op) {
       case NodeNavigationStep.FirstChild:
@@ -217,7 +272,12 @@ function calcPathForNode(tView: TView, lView: LView, tNode: TNode): string {
         return 'nextSibling';
     }
   });
-  path.unshift('' + (parentIndex - HEADER_OFFSET));
+  if (parentIndex === 'host') {
+    // TODO: add support for `host` to the `locateNextRNode` fn.
+    path.unshift(parentIndex);
+  } else {
+    path.unshift('' + (parentIndex - HEADER_OFFSET));
+  }
   return path.join('.');
 }
 

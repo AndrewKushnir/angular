@@ -17,7 +17,7 @@ import {TI18n} from '../interfaces/i18n';
 import {TElementNode, TNodeType} from '../interfaces/node';
 import {HEADER_OFFSET, T_HOST} from '../interfaces/view';
 import {getClosestRElement} from '../node_manipulation';
-import {getCurrentParentTNode, getLView, getTView, nextBindingIndex, setInI18nBlock} from '../state';
+import {getCurrentParentTNode, getLView, getTView, isCurrentTNodeParent, nextBindingIndex, setInI18nBlock} from '../state';
 import {getConstant} from '../util/view_utils';
 
 /**
