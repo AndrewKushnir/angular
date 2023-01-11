@@ -184,6 +184,9 @@ export function locateNextRNode<T extends RNode>(
       }
       native = sContainer.firstChild!;
     } else {
+      // FIXME: this doesn't work for i18n :(
+      // In i18n case, previous tNode is a parent element,
+      // when in fact, it might be a text node in front of it.
       if (previousTNodeParent) {
         native = (previousRElement as any).firstChild;
       } else {

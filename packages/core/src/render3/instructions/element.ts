@@ -100,6 +100,7 @@ export function ɵɵelementStart(
 
   let native: RElement;
   if (ngh !== null) {
+    debugger;
     native =
         locateNextRNode<RElement>(ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
     ngDevMode &&
