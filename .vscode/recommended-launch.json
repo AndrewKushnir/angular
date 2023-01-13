@@ -30,7 +30,7 @@
       "remoteRoot": "${workspaceRoot}",
       "stopOnEntry": false,
       "timeout": 600000,
-      "outFiles": ["${workspaceFolder}/dist/out/**/packages/**/*.js"]
+      "outFiles": ["${workspaceFolder}/non-existing/dist/out/**/packages/**/*.js"]
     },
     {
       "name": "IVY:packages/core/test/acceptance",

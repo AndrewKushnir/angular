@@ -52,6 +52,88 @@ export function ɵɵi18nStart(
   const adjustedIndex = HEADER_OFFSET + index;
   ngDevMode && assertDefined(tView, `tView should be defined`);
   const message = getConstant<string>(tView.consts, messageIndex)!;
+  // Case 1: text + DOM nodes
+  // Tmpl: ' Hello <span><b>world</b></span> and <div>universe</div>! '
+  // Gen:  ' Hello �#2��#3� world �/#3��/#2� and �#4�universe�/#4� ! '
+  const treeA = [
+    {type: 'text', value: ' Hello '}, {
+      type: 'element',
+      index: 2,
+      children: [{
+        type: 'element',
+        index: 3,
+        children: [
+          {type: 'text', value: ' world '},
+        ]
+      }]
+    },
+    {type: 'text', value: ' and '}, {
+      type: 'element',
+      index: 4,
+      children: [
+        {type: 'text', value: 'universe'},
+      ]
+    },
+    {type: 'text', value: ' ! '}
+  ];
+  // Case 2: text + DOM nodes + containers
+  // Tmpl: ' Hello <span *ngIf="true"><b *ngIf="true">world</b></span> and <div>universe</div>! '
+  // Gen:  ' Hello �*2:1��#1:1��*2:2��#1:2� world �/#1:2��/*2:2��/#1:1��/*2:1� and �#3�universe�/#3�
+  // ! '
+  const treeB = [
+    {type: 'text', value: ' Hello '}, {
+      type: 'template',
+      index: 2,
+      subIndex: 1 /* *2:1 <-- */,
+      children: [{
+        type: 'element' /* span */,
+        index: 1,
+        children: [
+          {
+            type: 'template',
+            index: 2,
+            subIndex: 2 /* *2:2 <-- */,
+            children: [{
+              type: 'element' /* span */,
+              index: 1,
+              children: [
+                {type: 'text', value: ' world '},
+              ]
+            }]
+          },
+        ]
+      }]
+    },
+    {type: 'text', value: ' and '}, {
+      type: 'element',
+      index: 4,
+      children: [
+        {type: 'text', value: 'universe'},
+      ]
+    },
+    {type: 'text', value: ' ! '}
+  ];
+
+  // Case 3: ICUs
+  // Tmpl: <b>{count, plural, =0 {<i>zero</i>} =1 {just one} other {{{count}} minutes ago}}</b>
+  // Gen:  �#2� {�0�, plural, =0 {<i>zero</i>} =1 {just one} other {�1� minutes ago}} �/#2�
+
+  const treeC = [{
+    type: 'element' /* b */,
+    children: [{
+      type: 'icu',
+      bindingIndex: 0,
+      cases: [
+        [{type: 'element', tagName: 'i', children: [{type: 'text', value: 'zero'}]}],  // =0
+        [{type: 'text', value: 'just one'}],                                           // =1
+        [{type: 'text', value: '�1� minutes ago'}]                                     // other
+      ]
+    }]
+  }];
+  // <b><i>zero</i></b> // =0
+  // <b>just one</b> // =1
+  // <b>3 minutes ago</b> // other, when count=3
+  debugger;
   const parentTNode = getCurrentParentTNode() as TElementNode | null;
   if (tView.firstCreatePass) {
     i18nStartFirstCreatePass(

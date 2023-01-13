@@ -155,15 +155,50 @@ describe('runtime i18n', () => {
         .toEqual(`<div>Bonjour <span>monde</span></div><div>!</div>`);
   });
 
-  it('should support moving elements', () => {
+  fit('should support moving elements', () => {
     loadTranslations({
       [computeMsgId(
           'Hello {$START_TAG_SPAN}world{$CLOSE_TAG_SPAN} and {$START_TAG_DIV}universe{$CLOSE_TAG_DIV}!',
           '')]:
           'Bonjour {$START_TAG_DIV}univers{$CLOSE_TAG_DIV} et {$START_TAG_SPAN}monde{$CLOSE_TAG_SPAN}!'
     });
-    const fixture = initWithTemplate(
-        AppComp, `<div i18n>Hello <span>world</span> and <div>universe</div>!</div>`);
+
+    // Case 1: text + DOM nodes
+    const fixture = initWithTemplate(AppComp, `
+      <div i18n>
+        Hello
+        <span>
+          <b>world</b>
+        </span>
+        and
+        <div>universe</div>
+        !
+    `.trim());
+
+    // Case 2: text + DOM nodes + containers
+    /*
+    const fixture = initWithTemplate(AppComp, `
+        <div i18n>
+          Hello
+          <span *ngIf="true">
+            <b *ngIf="true">world</b>
+          </span>
+          and
+          <div>universe</div>
+          !
+      `.trim());
+    */
+
+    // Case 3: ICUs (ICUs can be nested as well):
+    /*
+    const fixture = initWithTemplate(AppComp, `
+      <div i18n>
+        <b>
+          {count, plural, =0 {<i>zero</i>} =1 {just one} other {{{count}} minutes ago}}
+        </b>
+      </div>
+    `.trim());
+    */
     expect(fixture.nativeElement.innerHTML)
         .toEqual(`<div>Bonjour <div>univers</div> et <span>monde</span>!</div>`);
   });
