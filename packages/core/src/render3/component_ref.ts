@@ -30,7 +30,7 @@ import {getComponentDef} from './definition';
 import {getNodeInjectable, NodeInjector} from './di';
 import {throwProviderNotFoundError} from './errors_di';
 import {registerPostOrderHooks} from './hooks';
-import {markRNodeAsClaimedForHydration} from './hydration';
+import {IS_HYDRATION_ENABLED, markRNodeAsClaimedForHydration} from './hydration';
 import {reportUnknownPropertyError} from './instructions/element_validation';
 import {addToViewTree, createLView, createTView, executeContentQueries, getOrCreateComponentTView, getOrCreateTNode, initializeDirectives, invokeDirectivesHostBindings, locateHostElement, markAsComponentHost, markDirtyIfOnPush, renderView, setInputsForProperty} from './instructions/shared';
 import {ComponentDef, DirectiveDef, HostDirectiveDefs} from './interfaces/definition';
@@ -168,8 +168,10 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
     // Determine a tag name used for creating host elements when this component is created
     // dynamically. Default to 'div' if this component did not specify any tag name in its selector.
     const elementName = this.componentDef.selectors[0][0] as string || 'div';
+    const ishydrationEnabled = rootViewInjector.get(IS_HYDRATION_ENABLED, false);
     const hostRNode = rootSelectorOrNode ?
-        locateHostElement(hostRenderer, rootSelectorOrNode, this.componentDef.encapsulation) :
+        locateHostElement(
+            hostRenderer, rootSelectorOrNode, this.componentDef.encapsulation, ishydrationEnabled) :
         createElementNode(hostRenderer, elementName, getNamespace(elementName));
 
     const rootFlags = this.componentDef.onPush ? LViewFlags.Dirty | LViewFlags.IsRoot :
