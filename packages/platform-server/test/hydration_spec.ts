@@ -18,8 +18,8 @@ import {renderApplication} from '../src/utils';
 function getAppContents(html: string): string {
   // Drop `ng-version` and `ng-server-context` attrs,
   // so that it's easier to make assertions in tests.
-  html = html.replace(/ ng-version=".*?"/, '')  //
-             .replace(/ ng-server-context=".*?"/, '');
+  html = html.replace(/ ng-version=".*?"/g, '')  //
+             .replace(/ ng-server-context=".*?"/g, '');
   const result = html.match(/<body>(.*?)<\/body>/s);
   if (!result) {
     throw new Error('App not found!');
@@ -53,7 +53,7 @@ function getComponentRef<T>(appRef: ApplicationRef): ComponentRef<T> {
 }
 
 function verifyClientAndSSRContentsMatch(ssrContents: string, clientAppRootElement: HTMLElement) {
-  const clientContents = clientAppRootElement.outerHTML.replace(/ ng-version=".*?"/, '');
+  const clientContents = clientAppRootElement.outerHTML.replace(/ ng-version=".*?"/g, '');
   ssrContents = ssrContents.replace(/ ngh=".*?"/g, '');
   expect(clientContents).toBe(ssrContents, 'Client and server contents mismatch');
 }
@@ -565,8 +565,9 @@ fdescribe('platform-server integration', () => {
       });
     });
 
-    // FIXME: this test needs additional work...
-    xdescribe('ViewContainerRef.createComponent', () => {
+    // TODO: also add a test where `ViewContainerRef.createComponent`
+    // is used inside a component that is created dynamically.
+    describe('ViewContainerRef.createComponent', () => {
       it('should work with ViewContainerRef.createComponent', async () => {
         @Component({
           standalone: true,
@@ -597,32 +598,21 @@ fdescribe('platform-server integration', () => {
         }
 
         const html = await ssr(SimpleComponent);
-        const appContents = getAppContents(html);
+        const ssrContents = getAppContents(html);
 
-        expect(appContents).toBe('.....');
-        debugger;
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
 
-        // Reset TView, so that we re-enter the first create pass as
-        // we would normally do when we hydrate on the client.
-        // TODO: find a better way to do that in tests, because there
-        // might be nested components that would require the same.
-        (SimpleComponent as any).ɵcmp.tView = null;
-        (DynamicComponent as any).ɵcmp.tView = null;
+        resetTViewsFor(SimpleComponent, DynamicComponent);
 
         const appRef = await hydrate(html, SimpleComponent);
         const compRef = getComponentRef<SimpleComponent>(appRef);
         appRef.tick();
-        const rootNode = compRef.location.nativeElement;
 
-        // Pre-cleanup
-        expect(rootNode.outerHTML).toBe('...');
-        debugger;
-
-        await appRef.isStable.pipe(first((isStable: boolean) => isStable)).toPromise();
-        debugger;
-
-        // Post-cleanup
-        expect(rootNode.outerHTML).toBe('...');
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
     });
   });
