@@ -6,10 +6,11 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ENVIRONMENT_INITIALIZER, inject, InjectionToken} from '@angular/core';
+import {ENVIRONMENT_INITIALIZER, inject} from '@angular/core';
 import {first} from 'rxjs/operators';
 
 import {ApplicationRef} from '../application_ref';
+import {InjectionToken} from '../di/injection_token';
 import {assertDefined} from '../util/assert';
 
 import {readPatchedLView} from './context_discovery';
@@ -159,7 +160,9 @@ export function findExistingNode(host: Node, path: string[]): RNode {
 
 function locateRNodeByPath(path: string, lView: LView): RNode {
   const pathParts = path.split('.');
-  // First element is a parent node id: `12.nextSibling...`.
+  // First element in a path is:
+  // - either a parent node id: `12.nextSibling...`
+  // - or a 'host' string to indicate that the search should start from the host node
   const firstPathPart = pathParts.shift();
   if (firstPathPart === 'host') {
     return findExistingNode(lView[0] as unknown as Element, pathParts);
@@ -178,7 +181,6 @@ export function locateNextRNode<T extends RNode>(
   if (hydrationInfo.nodes[adjustedIndex]) {
     // We know exact location of the node.
     native = locateRNodeByPath(hydrationInfo.nodes[adjustedIndex], lView);
-    debugger;
   } else if (tView.firstChild === tNode) {
     // We create a first node in this view.
     native = hydrationInfo.firstChild;
