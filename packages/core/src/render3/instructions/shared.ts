@@ -669,12 +669,11 @@ function createViewBlueprint(bindingStartIndex: number, initialViewLength: numbe
  * @param encapsulation View Encapsulation defined for component that requests host element.
  */
 export function locateHostElement(
-    renderer: Renderer, elementOrSelector: RElement|string,
-    encapsulation: ViewEncapsulation): RElement {
+    renderer: Renderer, elementOrSelector: RElement|string, encapsulation: ViewEncapsulation,
+    isHydrationEnabled: boolean): RElement {
   // When using native Shadow DOM, do not clear host element to allow native slot projection
-  const preserveContent = encapsulation === ViewEncapsulation.ShadowDom;
-  // TODO: make sure the `preserveContent` is `true` when we are in "hydration" mode.
-  return renderer.selectRootElement(elementOrSelector, true);
+  const preserveContent = isHydrationEnabled || encapsulation === ViewEncapsulation.ShadowDom;
+  return renderer.selectRootElement(elementOrSelector, preserveContent);
 }
 
 /**
