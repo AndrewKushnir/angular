@@ -15,7 +15,7 @@ import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNodeType} from '../interfaces/node';
 import {RComment, RElement} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
-import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView, TViewType} from '../interfaces/view';
+import {HEADER_OFFSET, HYDRATION_INFO, LView, NghView, RENDERER, TView, TViewType} from '../interfaces/view';
 import {appendChild} from '../node_manipulation';
 import {getCurrentTNode, getLView, getTView, isCurrentTNodeParent, setCurrentTNode} from '../state';
 import {getConstant} from '../util/view_utils';
@@ -88,7 +88,7 @@ export function ɵɵtemplate(
       tView.data[adjustedIndex] as TContainerNode;
 
   let comment: RComment;
-  const dehydratedViews: any[] = [];
+  const dehydratedViews: NghView[] = [];
   const ngh = lView[HYDRATION_INFO];
   if (ngh) {
     debugger;
@@ -132,7 +132,7 @@ export function ɵɵtemplate(
   const lContainer = createLContainer(comment, lView, comment, tNode);
   lView[adjustedIndex] = lContainer;
 
-  if (ngh) {
+  if (ngh && dehydratedViews.length > 0) {
     lContainer[DEHYDRATED_VIEWS] = dehydratedViews;
   }
   addToViewTree(lView, lContainer);
