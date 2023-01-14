@@ -8,7 +8,7 @@
 import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, PlatformLocation, ɵgetDOM as getDOM,} from '@angular/common';
-import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, Type, ViewChild, ViewContainerRef, ViewEncapsulation, ɵsetDocument, ɵwithHydrationSupport,} from '@angular/core';
+import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, Type, ViewChild, ViewContainerRef, ViewEncapsulation, ɵprovideHydrationSupport, ɵsetDocument,} from '@angular/core';
 import {TestBed, waitForAsync} from '@angular/core/testing';
 import {bootstrapApplication, makeStateKey, TransferState} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
@@ -124,7 +124,7 @@ fdescribe('platform-server integration', () => {
       const providers = [
         {provide: APP_ID, useValue: appId},
         {provide: DOCUMENT, useFactory: _document, deps: []},
-        ɵwithHydrationSupport(),
+        ɵprovideHydrationSupport(),
       ];
       return bootstrapApplication(component, {providers});
     }
