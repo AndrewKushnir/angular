@@ -6,14 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵgetLViewById as getLViewById, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
-import {collectNativeNodes} from '@angular/core/src/render3/collect_native_nodes';
-import {CONTAINER_HEADER_OFFSET, LContainer, TYPE} from '@angular/core/src/render3/interfaces/container';
-import {TContainerNode, TNode, TNodeType} from '@angular/core/src/render3/interfaces/node';
-import {RNode} from '@angular/core/src/render3/interfaces/renderer_dom';
-import {isRootView} from '@angular/core/src/render3/interfaces/type_checks';
-import {CONTEXT, HEADER_OFFSET, HOST, LView, TVIEW, TView, TViewType} from '@angular/core/src/render3/interfaces/view';
-import {unwrapRNode} from '@angular/core/src/render3/util/view_utils';
+import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵcollectNativeNodes as collectNativeNodes, ɵCONTAINER_HEADER_OFFSET as CONTAINER_HEADER_OFFSET, ɵCONTEXT as CONTEXT, ɵgetLViewById as getLViewById, ɵHEADER_OFFSET as HEADER_OFFSET, ɵHOST as HOST, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise, ɵisRootView as isRootView, ɵLContainer as LContainer, ɵLView as LView, ɵRNode as RNode, ɵTContainerNode as TContainerNode, ɵTNode as TNode, ɵTNodeType as TNodeType, ɵTVIEW as TVIEW, ɵTView as TView, ɵTViewType as TViewType, ɵTYPE as TYPE, ɵunwrapRNode as unwrapRNode,} from '@angular/core';
 import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
@@ -131,6 +124,10 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
     let targetNode: Node|null = null;
     const adjustedIndex = i - HEADER_OFFSET;
     const tNode = tView.data[i] as TContainerNode;
+    // tNode may be null in the case of a localRef
+    if (!tNode) {
+      continue;
+    }
     if (Array.isArray(tNode.projection)) {
       // TODO: handle `RNode[]` as well.
       for (const headTNode of (tNode.projection as any[])) {
