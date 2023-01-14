@@ -14,7 +14,11 @@ export function navigateBetween(start: Node, finish: Node): NodeNavigationStep[]
   if (start === finish) {
     return [];
   } else if (start.parentElement == null || finish.parentElement == null) {
-    throw new Error(`Ran off the top of the document when navigating between nodes`);
+    // throw new Error(`Ran off the top of the document when navigating between nodes`);
+    console.log(
+        'Ran off the top of the document when navigating between nodes',
+        (start as any).tagName ?? start.nodeType, (finish as any).tagName ?? finish.nodeType);
+    return [];
   } else if (start.parentElement === finish.parentElement) {
     return navigateBetweenSiblings(start, finish);
   } else {
@@ -38,7 +42,9 @@ function navigateBetweenSiblings(start: Node, finish: Node): NodeNavigationStep[
     nav.push(NodeNavigationStep.NextSibling);
   }
   if (node === null) {
-    throw new Error(`Is finish before start? Hit end of siblings before finding start`);
+    // throw new Error(`Is finish before start? Hit end of siblings before finding start`);
+    console.log(`Is finish before start? Hit end of siblings before finding start`);
+    return [];
   }
   return nav;
 }
