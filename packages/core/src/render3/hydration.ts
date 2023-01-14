@@ -186,7 +186,7 @@ export function locateNextRNode<T extends RNode>(
     native = hydrationInfo.firstChild;
   } else {
     ngDevMode && assertDefined(previousTNode, 'Unexpected state: no current TNode found.');
-    const previousRElement = getNativeByTNode(previousTNode!, lView) as RElement;
+    let previousRElement = getNativeByTNode(previousTNode!, lView) as RElement;
     // TODO: we may want to use this instead?
     // const closest = getClosestRElement(tView, previousTNode, lView);
     if (previousTNodeParent && previousTNode!.type === TNodeType.ElementContainer) {
@@ -205,11 +205,31 @@ export function locateNextRNode<T extends RNode>(
       if (previousTNodeParent) {
         native = (previousRElement as any).firstChild;
       } else {
+        const previousNodeHydrationInfo =
+            hydrationInfo.containers[previousTNode!.index - HEADER_OFFSET];
+        if (previousTNode!.type === TNodeType.Element && previousNodeHydrationInfo) {
+          // If the previous node is an element, but it also has container info,
+          // this means that we are processing a node like `<div #vcrTarget>`, which is
+          // represented in live DOM as `<div></div>...<!--container-->`.
+          // In this case, there are nodes *after* this element and we need to skip those.
+          // `+1` stands for an anchor comment node after all the views in this container.
+          const nodesToSkip = calcViewContainerSize(previousNodeHydrationInfo.views) + 1;
+          previousRElement = siblingAfter(nodesToSkip, previousRElement)!;
+          // TODO: add an assert that `previousRElement` is a comment node.
+        }
         native = previousRElement.nextSibling as RElement;
       }
     }
   }
   return native as T;
+}
+
+function calcViewContainerSize(views: NghView[]): number {
+  let numNodes = 0;
+  for (let view of views) {
+    numNodes += view.numRootNodes;
+  }
+  return numNodes;
 }
 
 export function siblingAfter<T extends RNode>(skip: number, from: RNode): T|null {
