@@ -120,8 +120,6 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
 
   const tView = lView[TVIEW];
   for (let i = HEADER_OFFSET; i < tView.bindingStartIndex; i++) {
-    debugger;
-
     let targetNode: Node|null = null;
     const adjustedIndex = i - HEADER_OFFSET;
     const tNode = tView.data[i] as TContainerNode;
