@@ -6,10 +6,10 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {ENVIRONMENT_INITIALIZER, inject, InjectionToken} from '@angular/core';
 import {first} from 'rxjs/operators';
 
 import {ApplicationRef} from '../application_ref';
-import {ENVIRONMENT_INITIALIZER, inject} from '../di';
 import {assertDefined} from '../util/assert';
 
 import {readPatchedLView} from './context_discovery';
@@ -20,27 +20,35 @@ import {isLContainer, isRootView} from './interfaces/type_checks';
 import {HEADER_OFFSET, LView, NghDom, NghView, TView, TVIEW} from './interfaces/view';
 import {getNativeByTNode, unwrapRNode} from './util/view_utils';
 
+export const IS_HYDRATION_ENABLED = new InjectionToken<boolean>('IS_HYDRATION_ENABLED');
+
 /**
  * @publicApi
  * @developerPreview
  */
-export function withHydrationSupport() {
+export function provideHydrationSupport() {
   // Note: this function can also bring more functionality in a tree-shakable way.
   // For example, by providing hydration-aware implementation of finding nodes vs
   // creating them.
-  return [{
-    provide: ENVIRONMENT_INITIALIZER,
-    useValue: () => {
-      const appRef = inject(ApplicationRef);
-      // FIXME: there is no need to use a timeout, we need to
-      // use a lifecycle hook to start the cleanup after an app
-      // becomes stable (similar to how this is handled at SSR time).
-      setTimeout(() => {
-        cleanupDehydratedViews(appRef);
-      }, 0);
+  return [
+    {
+      provide: ENVIRONMENT_INITIALIZER,
+      useValue: () => {
+        const appRef = inject(ApplicationRef);
+        // FIXME: there is no need to use a timeout, we need to
+        // use a lifecycle hook to start the cleanup after an app
+        // becomes stable (similar to how this is handled at SSR time).
+        setTimeout(() => {
+          cleanupDehydratedViews(appRef);
+        }, 0);
+      },
+      multi: true,
     },
-    multi: true,
-  }];
+    {
+      provide: IS_HYDRATION_ENABLED,
+      useValue: true,
+    }
+  ];
 }
 
 export function getLViewFromRootElement(element: Element): LView|null {
@@ -152,9 +160,14 @@ export function findExistingNode(host: Node, path: string[]): RNode {
 function locateRNodeByPath(path: string, lView: LView): RNode {
   const pathParts = path.split('.');
   // First element is a parent node id: `12.nextSibling...`.
-  const parentElementId = Number(pathParts.shift()!);
-  const parentRNode = unwrapRNode((lView as any)[parentElementId + HEADER_OFFSET]);
-  return findExistingNode(parentRNode as Element, pathParts);
+  const firstPathPart = pathParts.shift();
+  if (firstPathPart === 'host') {
+    return findExistingNode(lView[0] as unknown as Element, pathParts);
+  } else {
+    const parentElementId = Number(firstPathPart!);
+    const parentRNode = unwrapRNode((lView as any)[parentElementId + HEADER_OFFSET]);
+    return findExistingNode(parentRNode as Element, pathParts);
+  }
 }
 
 export function locateNextRNode<T extends RNode>(

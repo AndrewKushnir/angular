@@ -217,11 +217,24 @@ export {
   LContext as ɵLContext,
 } from './render3/interfaces/context';
 export {
+  CONTAINER_HEADER_OFFSET as ɵCONTAINER_HEADER_OFFSET,
+  LContainer as ɵLContainer,
+  TYPE as ɵTYPE,
+} from './render3/interfaces/container';
+export {
   setDocument as ɵsetDocument
 } from './render3/interfaces/document';
 export {
   getLViewById as ɵgetLViewById
 } from './render3/interfaces/lview_tracking';
+export {
+  TContainerNode as ɵTContainerNode,
+  TNode as ɵTNode,
+  TNodeType as ɵTNodeType,
+} from './render3/interfaces/node';
+export {RNode as ɵRNode} from './render3/interfaces/renderer_dom';
+export {isRootView as ɵisRootView} from './render3/interfaces/type_checks';
+export {CONTEXT as ɵCONTEXT, HEADER_OFFSET as ɵHEADER_OFFSET, HOST as ɵHOST, LView as ɵLView, TVIEW as ɵTVIEW, TView as ɵTView, TViewType as ɵTViewType} from './render3/interfaces/view';
 export {
   compileComponent as ɵcompileComponent,
   compileDirective as ɵcompileDirective,
@@ -256,6 +269,9 @@ export {
   publishDefaultGlobalUtils as ɵpublishDefaultGlobalUtils
 ,
   publishGlobalUtil as ɵpublishGlobalUtil} from './render3/util/global_utils';
+export {
+  unwrapRNode as ɵunwrapRNode} from './render3/util/view_utils';
+export {collectNativeNodes as ɵcollectNativeNodes} from './render3/collect_native_nodes';
 export {ViewRef as ɵViewRef} from './render3/view_ref';
 export {
   bypassSanitizationTrustHtml as ɵbypassSanitizationTrustHtml,
