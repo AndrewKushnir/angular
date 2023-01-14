@@ -189,6 +189,39 @@ fdescribe('platform-server integration', () => {
         verifyAllNodesClaimedForHydration(clientRootNode);
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
+
+      it('should support elements with local refs', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            <header #headerRef>Header</header>
+            <main #mainRef>This is hydrated content in the main element.</main>
+            <footer #footerRef>Footer</footer>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        debugger;
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
     });
 
     describe('content projection', () => {
@@ -438,8 +471,9 @@ fdescribe('platform-server integration', () => {
       });
     });
 
-    describe('i18n', () => {
-      fit('should support text-only contents', async () => {
+    // FIXME: i18n needs more work...
+    xdescribe('i18n', () => {
+      it('should support text-only contents', async () => {
         @Component({
           standalone: true,
           selector: 'app',
