@@ -9,7 +9,7 @@ import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert'
 import {assertHasParent, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
-import {locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
+import {calcViewContainerSize, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
 import {TAttributes, TElementContainerNode, TNodeType} from '../interfaces/node';
 import {RComment} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
@@ -86,18 +86,23 @@ export function ɵɵelementContainerStart(
   let native: RComment;
   const ngh = lView[HYDRATION_INFO];
   if (ngh !== null) {
-    const sContainer = ngh.containers[index] as any;
+    const serializedContainer = ngh.containers[index] as any;
     ngDevMode &&
         assertDefined(
-            sContainer, 'There is no hydration info available for this element container');
+            serializedContainer, 'There is no hydration info available for this element container');
     const currentRNode =
         locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
 
     // Store a reference to the first node in a container,
     // so it can be referenced while invoking further instructions.
-    sContainer.firstChild = currentRNode;
+    serializedContainer.firstChild = currentRNode;
 
-    native = siblingAfter<RComment>(sContainer.numRootNodes, currentRNode!)!;
+    // TODO: Add docs to explain why we need to use calcViewContainerSize here
+    // TL;DR: It's because of ng-template and ng-container comment nodes
+    const numRootNodes =
+        serializedContainer.numRootNodes ?? calcViewContainerSize(serializedContainer.views);
+
+    native = siblingAfter<RComment>(numRootNodes, currentRNode!)!;
     ngDevMode && assertRComment(native, 'Expecting a comment node in elementContainer instruction');
     ngDevMode && markRNodeAsClaimedForHydration(native);
   } else {
