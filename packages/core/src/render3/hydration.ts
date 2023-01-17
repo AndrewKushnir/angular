@@ -224,7 +224,7 @@ export function locateNextRNode<T extends RNode>(
   return native as T;
 }
 
-function calcViewContainerSize(views: NghView[]): number {
+export function calcViewContainerSize(views: NghView[]): number {
   let numNodes = 0;
   for (let view of views) {
     numNodes += view.numRootNodes;
