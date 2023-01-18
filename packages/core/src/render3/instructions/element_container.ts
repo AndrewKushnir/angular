@@ -9,11 +9,11 @@ import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert'
 import {assertHasParent, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
-import {calcViewContainerSize, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
+import {locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
 import {TAttributes, TElementContainerNode, TNodeType} from '../interfaces/node';
-import {RComment} from '../interfaces/renderer_dom';
+import {RComment, RElement} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
-import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
+import {HEADER_OFFSET, HYDRATION_INFO, LView, NghView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
 import {appendChild} from '../node_manipulation';
 import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
@@ -86,23 +86,38 @@ export function ɵɵelementContainerStart(
   let native: RComment;
   const ngh = lView[HYDRATION_INFO];
   if (ngh !== null) {
-    const serializedContainer = ngh.containers[index] as any;
+    const nghContainer = ngh.containers[index];
     ngDevMode &&
         assertDefined(
-            serializedContainer, 'There is no hydration info available for this element container');
+            nghContainer, 'There is no hydration info available for this element container');
+
     const currentRNode =
         locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
 
-    // Store a reference to the first node in a container,
-    // so it can be referenced while invoking further instructions.
-    serializedContainer.firstChild = currentRNode;
+    if (nghContainer.views) {
+      // This <ng-container> is also annotated as a view container.
+      // Extract all dehydrated views following instructions from ngh
+      // and store this info for later reuse in `createContainerRef`.
+      const [anchorRNode, views] = locateDehydratedViewsInContainer(currentRNode!, nghContainer);
 
-    // TODO: Add docs to explain why we need to use calcViewContainerSize here
-    // TL;DR: It's because of ng-template and ng-container comment nodes
-    const numRootNodes =
-        serializedContainer.numRootNodes ?? calcViewContainerSize(serializedContainer.views);
+      native = anchorRNode as RComment;
 
-    native = siblingAfter<RComment>(numRootNodes, currentRNode!)!;
+      if (views.length > 0) {
+        // Store dehydrated views info in ngh data structure for later reuse
+        // while creating a ViewContainerRef instance, see `createContainerRef`.
+        nghContainer.dehydratedViews = views;
+      }
+    } else {
+      // This is a plain `<ng-container>`, which is *not* used
+      // as the ViewContainerRef anchor, so we can rely on `numRootNodes`.
+      //
+      // Store a reference to the first node in a container,
+      // so it can be referenced while invoking further instructions.
+      nghContainer.firstChild = currentRNode as HTMLElement;
+
+      native = siblingAfter<RComment>(nghContainer.numRootNodes!, currentRNode!)!;
+    }
+
     ngDevMode && assertRComment(native, 'Expecting a comment node in elementContainer instruction');
     ngDevMode && markRNodeAsClaimedForHydration(native);
   } else {
