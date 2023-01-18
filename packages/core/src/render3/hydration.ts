@@ -139,7 +139,6 @@ export function findExistingNode(host: Node, path: string[]): RNode {
   for (const op of path) {
     if (!node) {
       // TODO: add a dev-mode assertion here.
-      debugger;
       throw new Error(`findExistingNode: failed to find node at ${path}.`);
     }
     switch (op) {
@@ -153,7 +152,6 @@ export function findExistingNode(host: Node, path: string[]): RNode {
   }
   if (!node) {
     // TODO: add a dev-mode assertion here.
-    debugger;
     throw new Error(`findExistingNode: failed to find node at ${path}.`);
   }
   return node as unknown as RNode;
