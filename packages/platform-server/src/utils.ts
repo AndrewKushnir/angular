@@ -149,8 +149,18 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
         }
         ngh.templates![i - HEADER_OFFSET] = getTViewSsrId(embeddedTView);
       }
-
-      targetNode = unwrapRNode(lView[i][HOST]!) as Node;
+      const hostNode = lView[i][HOST]!;
+      // LView[i][HOST] can be 2 different types: Either a DOM Node
+      //  or an LView Array that represents a component
+      // We only handle the DOM Node case here
+      if (Array.isArray(hostNode)) {
+        // this is a component
+        targetNode = unwrapRNode(hostNode as LView) as Element;
+        annotateForHydration(targetNode as Element, hostNode as LView);
+      } else {
+        // this is a regular node
+        targetNode = unwrapRNode(hostNode) as Node;
+      }
       const container = serializeLContainer(lView[i], hostNode, adjustedIndex);
       ngh.containers![adjustedIndex] = container;
     } else if (Array.isArray(lView[i])) {
@@ -173,7 +183,6 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
         // }
       }
     } else if (tNode.insertBeforeIndex) {
-      debugger;
       if (Array.isArray(tNode.insertBeforeIndex) && tNode.insertBeforeIndex[0] !== null) {
         // A root node within i18n block.
         // TODO: add a comment on *why* we need a path here.
@@ -213,6 +222,13 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
         // ... otherwise, this is a DOM element, for which we may need to
         // serialize in some cases.
         targetNode = lView[i] as Node;
+        if (!isConnected(targetNode)) {
+          debugger;
+          console.log('INDEX: ', i - HEADER_OFFSET)
+          console.log('TAGNAME: ', (targetNode as HTMLElement).tagName)
+          ngh.nodes[i - HEADER_OFFSET] = '-';
+          continue;
+        }
 
         // Check if projection next is not the same as next, in which case
         // the node would not be found at creation time at runtime and we
@@ -227,6 +243,21 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
     }
   }
   return ngh;
+}
+
+function isConnected(originalNode: Node): boolean {
+  let node: Node|ParentNode|null = originalNode;
+  while (node != null) {
+    if (node.nodeType === Node.DOCUMENT_NODE) {
+      return true;
+    }
+
+    node = node.parentNode;
+    if (node != null && node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+      node = (node as any).host;
+    }
+  }
+  return false;
 }
 
 function calcPathForNode(
@@ -257,7 +288,6 @@ function calcPathForNode(
       rNode = firstRNode;
     }
   }
-  debugger;
   const path: string[] = navigateBetween(parentRNode as Node, rNode as Node).map(op => {
     switch (op) {
       case NodeNavigationStep.FirstChild:
@@ -339,7 +369,6 @@ export function annotateForHydration(element: Element, lView: LView): void {
   const rawNgh = serializeLView(lView, element);
   const serializedNgh = JSON.stringify(rawNgh);
   element.setAttribute('ngh', serializedNgh);
-  debugger;
 }
 
 function _render<T>(
