@@ -13,12 +13,13 @@ import {ApplicationRef} from '../application_ref';
 import {InjectionToken} from '../di/injection_token';
 import {assertDefined} from '../util/assert';
 
+import {assertRComment} from './assert';
 import {readPatchedLView} from './context_discovery';
 import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer} from './interfaces/container';
 import {TNode, TNodeType} from './interfaces/node';
 import {RElement, RNode} from './interfaces/renderer_dom';
 import {isLContainer, isRootView} from './interfaces/type_checks';
-import {HEADER_OFFSET, LView, NghDom, NghView, TView, TVIEW} from './interfaces/view';
+import {HEADER_OFFSET, LView, NghContainer, NghDom, NghView, TView, TVIEW} from './interfaces/view';
 import {getNativeByTNode, unwrapRNode} from './util/view_utils';
 
 export const IS_HYDRATION_ENABLED = new InjectionToken<boolean>('IS_HYDRATION_ENABLED');
@@ -193,11 +194,12 @@ export function locateNextRNode<T extends RNode>(
       // Previous node was an `<ng-container>`, so this node is a first child
       // within an element container, so we can locate the container in ngh data
       // structure and use its first child.
-      const sContainer = hydrationInfo.containers[previousTNode!.index - HEADER_OFFSET];
-      if (ngDevMode && !sContainer) {
+      const nghContainer = hydrationInfo.containers[previousTNode!.index - HEADER_OFFSET];
+      if (ngDevMode && !nghContainer) {
+        // TODO: add better error message.
         throw new Error('Invalid state.');
       }
-      native = sContainer.firstChild!;
+      native = nghContainer.firstChild!;
     } else {
       // FIXME: this doesn't work for i18n :(
       // In i18n case, previous tNode is a parent element,
@@ -239,4 +241,35 @@ export function siblingAfter<T extends RNode>(skip: number, from: RNode): T|null
     ngDevMode && assertDefined(currentNode, 'Expected more siblings to be present');
   }
   return currentNode as T;
+}
+
+/**
+ * Given a current DOM node and an ngh container definition,
+ * walks over the DOM structure, collecting the list of dehydrated views.
+ *
+ * @param currentRNode
+ * @param nghContainer
+ */
+export function locateDehydratedViewsInContainer(
+    currentRNode: RNode, nghContainer: NghContainer): [RNode, NghView[]] {
+  const dehydratedViews: NghView[] = [];
+  for (const nghView of nghContainer.views) {
+    const view = {...nghView};
+    if (view.numRootNodes > 0) {
+      // Keep reference to the first node in this view,
+      // so it can be accessed while invoking template instructions.
+      view.firstChild = currentRNode as HTMLElement;
+
+      // Move over to the first node after this view, which can
+      // either be a first node of the next view or an anchor comment
+      // node after the last view in a container.
+      currentRNode = siblingAfter(view.numRootNodes, currentRNode as RElement)!;
+    }
+
+    dehydratedViews.push(view);
+  }
+
+  ngDevMode && assertRComment(currentRNode, 'Expecting a comment node as a view container anchor');
+
+  return [currentRNode, dehydratedViews];
 }

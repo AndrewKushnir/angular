@@ -9,7 +9,7 @@ import {assertDefined} from '../../util/assert';
 import {assertFirstCreatePass, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
-import {locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
+import {locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
 import {DEHYDRATED_VIEWS} from '../interfaces/container';
 import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNodeType} from '../interfaces/node';
@@ -88,37 +88,20 @@ export function ɵɵtemplate(
       tView.data[adjustedIndex] as TContainerNode;
 
   let comment: RComment;
-  const dehydratedViews: NghView[] = [];
+  let dehydratedViews: NghView[] = [];
   const ngh = lView[HYDRATION_INFO];
   if (ngh) {
-    debugger;
     let currentRNode =
         locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
 
-    const sContainer = ngh.containers[index];
+    const nghContainer = ngh.containers[index];
     ngDevMode &&
-        assertDefined(sContainer, 'There is no hydration info available for this template');
+        assertDefined(nghContainer, 'There is no hydration info available for this template');
 
-    const sViews = sContainer.views as any;
-    for (const sView of sViews) {
-      const view = {...sView};
-      if (view.numRootNodes > 0) {
-        debugger;
-        // Keep reference to the first node in this view,
-        // so it can be accessed while invoking template instructions.
-        view.firstChild = currentRNode;
+    const [anchorRNode, views] = locateDehydratedViewsInContainer(currentRNode!, nghContainer);
 
-        // Move over to the first node after this view, which can
-        // either be a first node of the next view or an anchor comment
-        // node after the last view in a container.
-        currentRNode = siblingAfter(view.numRootNodes, currentRNode as RElement);
-      }
-      dehydratedViews.push(view);
-    }
-    // After processing of all views, the `currentRNode` points
-    // to the first node *after* the last view, which must be a
-    // comment node which acts as an anchor.
-    comment = currentRNode as RComment;
+    comment = anchorRNode as RComment;
+    dehydratedViews = views;
 
     ngDevMode && assertRComment(comment, 'Expecting a comment node in template instruction');
     ngDevMode && markRNodeAsClaimedForHydration(comment);
