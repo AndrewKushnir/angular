@@ -861,6 +861,7 @@ export interface NghDom {
 
 export interface NghContainer {
   views: NghView[];
+
   // Describes the number of top level nodes in this container.
   // Only applicable to <ng-container>s.
   //
@@ -868,6 +869,7 @@ export interface NghContainer {
   // between view containers (<div *ngIf>) and element containers
   // (<ng-container>s).
   numRootNodes?: number;
+
   // First node in this container. This is applicable to
   // <ng-container> only.
   //
@@ -875,6 +877,11 @@ export interface NghContainer {
   // between view containers (<div *ngIf>) and element containers
   // (<ng-container>s).
   firstChild?: HTMLElement;
+
+  // In some situations (see `createContainerRef`), dehydrated views
+  // are discovered early in the process, so we need to store them
+  // temporarily here and access later when creating a ViewContainerRef.
+  dehydratedViews?: NghView[];
 }
 
 export interface NghView extends NghDom {
