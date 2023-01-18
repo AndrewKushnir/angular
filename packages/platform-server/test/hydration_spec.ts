@@ -7,7 +7,7 @@
  */
 import '@angular/localize/init';
 
-import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, PlatformLocation, ɵgetDOM as getDOM,} from '@angular/common';
+import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet, PlatformLocation, ɵgetDOM as getDOM,} from '@angular/common';
 import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, destroyPlatform, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, Type, ViewChild, ViewContainerRef, ViewEncapsulation, ɵprovideHydrationSupport, ɵsetDocument,} from '@angular/core';
 import {TestBed, waitForAsync} from '@angular/core/testing';
 import {bootstrapApplication, makeStateKey, TransferState} from '@angular/platform-browser';
@@ -425,6 +425,8 @@ fdescribe('platform-server integration', () => {
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
 
+      // TODO: this test fails when invoked with other tests,
+      // find and fix test state leakage.
       it('should project contents with *ngIf\'s', async () => {
         @Component({
           standalone: true,
@@ -488,7 +490,6 @@ fdescribe('platform-server integration', () => {
 
         const html = await ssr(SimpleComponent);
         const ssrContents = getAppContents(html);
-        debugger;
 
         // TODO: properly assert `ngh` attribute value once the `ngh`
         // format stabilizes, for now we just check that it's present.
@@ -499,8 +500,6 @@ fdescribe('platform-server integration', () => {
         const appRef = await hydrate(html, SimpleComponent);
         const compRef = getComponentRef<SimpleComponent>(appRef);
         appRef.tick();
-
-        debugger;
 
         const clientRootNode = compRef.location.nativeElement;
         verifyAllNodesClaimedForHydration(clientRootNode);
@@ -562,6 +561,46 @@ fdescribe('platform-server integration', () => {
           const a = appRef;
           debugger;
         }, 0);
+      });
+    });
+
+    describe('NgTemplateOutlet', () => {
+      // TODO: this test fails when invoked with other tests,
+      // find and fix test state leakage.
+      it('should work with <ng-container>', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [NgTemplateOutlet],
+          template: `
+            <ng-template #tmpl>
+              This is a content of the template!
+            </ng-template>
+            <ng-container [ngTemplateOutlet]="tmpl"></ng-container>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+        debugger;
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+        debugger;
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        debugger;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
     });
 
