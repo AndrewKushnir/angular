@@ -18,7 +18,7 @@ import {addToViewTree, createLContainer} from '../render3/instructions/shared';
 import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer, NATIVE, VIEW_REFS} from '../render3/interfaces/container';
 import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNodeType} from '../render3/interfaces/node';
-import {RComment, RElement} from '../render3/interfaces/renderer_dom';
+import {RComment, RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
 import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, NghContainer, NghView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
@@ -635,8 +635,8 @@ export function createContainerRef(
         // in an LView slot. This node is:
         // - either an anchor comment node of this container if it's empty
         // - or a first element of the first view in this container
-        let currentRNode = slotValue.nextSibling;
-
+        let currentRNode = (unwrapRNode(slotValue) as RNode).nextSibling;
+        // TODO: Add assert that the currentRNode exists
         const [anchorRNode, views] = locateDehydratedViewsInContainer(currentRNode!, nghContainer!);
 
         commentNode = anchorRNode as RComment;
