@@ -172,11 +172,15 @@ interface InstructionState {
    * ```
    */
   bindingsEnabled: boolean;
+
+  // TODO: Add Comments
+  nonHydratableRootTNode: TNode|null;
 }
 
 const instructionState: InstructionState = {
   lFrame: createLFrame(null),
   bindingsEnabled: true,
+  nonHydratableRootTNode: null,
 };
 
 /**
@@ -215,6 +219,13 @@ export function getBindingsEnabled(): boolean {
   return instructionState.bindingsEnabled;
 }
 
+export function isInNonHydratableBlock(): boolean {
+  return instructionState.nonHydratableRootTNode !== null;
+}
+
+export function isNonHydratableRootTNode(tNode: TNode): boolean {
+  return instructionState.nonHydratableRootTNode === tNode;
+}
 
 /**
  * Enables directive matching on elements.
@@ -239,6 +250,11 @@ export function ɵɵenableBindings(): void {
   instructionState.bindingsEnabled = true;
 }
 
+// TODO: Add Comments
+export function enterNonHydrableBlock(tNode: TNode): void {
+  instructionState.nonHydratableRootTNode = tNode;
+}
+
 /**
  * Disables directive matching on element.
  *
@@ -260,6 +276,11 @@ export function ɵɵenableBindings(): void {
  */
 export function ɵɵdisableBindings(): void {
   instructionState.bindingsEnabled = false;
+}
+
+// TODO: Add Comments
+export function leaveNonHydratableBlock(): void {
+  instructionState.nonHydratableRootTNode = null;
 }
 
 /**
