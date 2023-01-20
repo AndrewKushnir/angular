@@ -62,6 +62,18 @@ export abstract class TemplateRef<C> {
 
   /**
    * @internal
+   * Instantiates an unattached embedded view based on this template.
+   * @param context The data-binding context of the embedded view, as declared
+   * in the `<ng-template>` usage.
+   * @param injector Injector to be used within the embedded view.
+   * @param hydrationInfo The hydration information for server side rendering
+   * @returns The new embedded view object.
+   */
+  abstract createEmbeddedViewWithHydration(
+      context: C, injector?: Injector, hydrationInfo?: NghView|null): EmbeddedViewRef<C>;
+
+  /**
+   * @internal
    * @nocollapse
    */
   static __NG_ELEMENT_ID__: () => TemplateRef<any>| null = injectTemplateRef;
@@ -84,6 +96,13 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
   }
 
   override createEmbeddedView(context: T, injector?: Injector): EmbeddedViewRef<T> {
+    return this.createEmbeddedViewWithHydration(context, injector, null);
+  }
+
+  /* @internal
+   */
+  createEmbeddedViewWithHydration(context: T, injector?: Injector, hydrationInfo?: NghView|null):
+      EmbeddedViewRef<T> {
     const embeddedTView = this._declarationTContainer.tViews as TView;
     const embeddedLView = createLView(
         this._declarationLView, embeddedTView, context, LViewFlags.CheckAlways, null,
@@ -128,12 +147,4 @@ export function createTemplateRef<T>(hostTNode: TNode, hostLView: LView): Templa
         hostLView, hostTNode as TContainerNode, createElementRef(hostTNode, hostLView));
   }
   return null;
-}
-
-let hydrationInfo: NghView|null = null;
-
-export function setCurrentHydrationInfo(info: NghView|null): NghView|null {
-  const origHydrationInfo = info;
-  hydrationInfo = info;
-  return origHydrationInfo;
 }

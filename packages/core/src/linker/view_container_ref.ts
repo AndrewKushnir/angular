@@ -10,17 +10,17 @@ import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {isType, Type} from '../interface/type';
 import {assertNodeInjector, assertRComment} from '../render3/assert';
-import {ComponentFactory as R3ComponentFactory, setCurrentHydrationInfo as setCurrentHydrationInfoForComponentRef} from '../render3/component_ref';
+import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
 import {getComponentDef} from '../render3/definition';
 import {getParentInjectorLocation, NodeInjector} from '../render3/di';
 import {findExistingNode, locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../render3/hydration';
-import {addToViewTree, createLContainer} from '../render3/instructions/shared';
+import {addToViewTree, createLContainer, navigateParentTNodes} from '../render3/instructions/shared';
 import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer, NATIVE, VIEW_REFS} from '../render3/interfaces/container';
 import {NodeInjectorOffset} from '../render3/interfaces/injector';
-import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNodeType} from '../render3/interfaces/node';
+import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
 import {RComment, RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
-import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, NghContainer, NghView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, NghContainer, NghDom, NghView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
 import {addViewToContainer, destroyLView, detachView, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
@@ -33,7 +33,7 @@ import {assertDefined, assertEqual, assertGreaterThan, assertLessThan, throwErro
 import {ComponentFactory, ComponentRef} from './component_factory';
 import {createElementRef, ElementRef} from './element_ref';
 import {NgModuleRef} from './ng_module_factory';
-import {setCurrentHydrationInfo as setCurrentHydrationInfoForTemplateRef, TemplateRef} from './template_ref';
+import {TemplateRef} from './template_ref';
 import {EmbeddedViewRef, ViewRef} from './view_ref';
 
 /**
@@ -305,21 +305,15 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       injector = indexOrOptions.injector;
     }
 
-    let origHydrationInfo: NghView|null = null;
+    let hydrationInfo: NghView|null = null;
     const ssrId = (templateRef as unknown as {ssrId: string | null}).ssrId;
     if (ssrId) {
-      const newHydrationInfo = findMatchingDehydratedView(this._lContainer, ssrId);
-      origHydrationInfo = setCurrentHydrationInfoForTemplateRef(newHydrationInfo);
+      hydrationInfo = findMatchingDehydratedView(this._lContainer, ssrId);
     }
 
-    debugger;
+    const viewRef =
+        templateRef.createEmbeddedViewWithHydration(context || <any>{}, injector, hydrationInfo);
 
-    const viewRef = templateRef.createEmbeddedView(context || <any>{}, injector);
-
-    if (ssrId) {
-      // Reset hydration info...
-      setCurrentHydrationInfoForTemplateRef(origHydrationInfo);
-    }
     this.insert(viewRef, index);
     return viewRef;
   }
@@ -437,7 +431,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     const elementName = componentFactory.selector;
     const dehydratedView = findMatchingDehydratedView(this._lContainer, elementName);
     let rNode;
-    let origHydrationInfo: NghView|null = null;
+    let hydrationDomInfo: NghDom|null = null;
 
     if (dehydratedView) {
       // Pointer to a host DOM element.
@@ -446,18 +440,15 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       // Read hydration info and pass it over to the component view.
       const ngh = (rNode as HTMLElement).getAttribute('ngh');
       if (ngh) {
-        const hydrationInfo = JSON.parse(ngh) as NghView;
-        hydrationInfo.firstChild = rNode.firstChild as HTMLElement;
+        hydrationDomInfo = JSON.parse(ngh) as NghDom;
+        hydrationDomInfo.firstChild = rNode.firstChild as HTMLElement;
         (rNode as HTMLElement).removeAttribute('ngh');
-        origHydrationInfo = setCurrentHydrationInfoForComponentRef(hydrationInfo);
         ngDevMode && markRNodeAsClaimedForHydration(rNode!);
       }
     }
 
-    const componentRef =
-        componentFactory.create(contextInjector, projectableNodes, rNode, environmentInjector);
-
-    setCurrentHydrationInfoForComponentRef(null);
+    const componentRef = componentFactory.createWithHydration(
+        contextInjector, projectableNodes, rNode, environmentInjector, hydrationDomInfo);
 
     this.insert(componentRef.hostView, index);
     return componentRef;
@@ -577,6 +568,19 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
   }
 };
 
+function hasNgNonHydratableAttr(tNode: TNode): boolean {
+  // TODO: we need to iterate over `tNode.mergedAttrs` better
+  // to avoid cases when `ngNonHydratable` is an attribute value,
+  // e.g. `<div title="ngNonHydratable"></div>`.
+  return !!tNode.mergedAttrs?.includes('ngNonHydratable');
+}
+
+function isInNonHydratableBlock(tNode: TNode, lView: LView): boolean {
+  const foundTNode = navigateParentTNodes(tNode as TNode, lView, hasNgNonHydratableAttr);
+  // in a block when we have a TNode and it's different than the root node
+  return foundTNode !== null && foundTNode !== tNode;
+}
+
 function getViewRefs(lContainer: LContainer): ViewRef[]|null {
   return lContainer[VIEW_REFS] as ViewRef[];
 }
@@ -603,7 +607,8 @@ export function createContainerRef(
   let nghContainer: NghContainer;
   let dehydratedViews: NghView[] = [];
   const ngh = hostLView[HYDRATION_INFO];
-  if (ngh) {
+  const isCreating = !ngh || isInNonHydratableBlock(hostTNode, hostLView);
+  if (!isCreating) {
     const index = hostTNode.index - HEADER_OFFSET;
     nghContainer = ngh.containers[index];
     ngDevMode &&
@@ -622,7 +627,7 @@ export function createContainerRef(
     // it again.
     if (hostTNode.type & TNodeType.ElementContainer) {
       commentNode = unwrapRNode(slotValue) as RComment;
-      if (ngh && nghContainer! && Array.isArray(nghContainer.dehydratedViews)) {
+      if (!isCreating && nghContainer! && Array.isArray(nghContainer.dehydratedViews)) {
         // When we create an LContainer based on `<ng-container>`, the container
         // is already processed, including dehydrated views info. Reuse this info
         // and erase it in the ngh data to avoid memory leaks.
@@ -630,7 +635,7 @@ export function createContainerRef(
         nghContainer.dehydratedViews = [];
       }
     } else {
-      if (ngh) {
+      if (!isCreating) {
         // Start with a node that immediately follows the DOM node found
         // in an LView slot. This node is:
         // - either an anchor comment node of this container if it's empty
