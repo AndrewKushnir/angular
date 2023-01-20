@@ -17,7 +17,7 @@ import {RComment, RElement} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, NghView, RENDERER, TView, TViewType} from '../interfaces/view';
 import {appendChild} from '../node_manipulation';
-import {getCurrentTNode, getLView, getTView, isCurrentTNodeParent, setCurrentTNode} from '../state';
+import {getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInNonHydratableBlock, setCurrentTNode} from '../state';
 import {getConstant} from '../util/view_utils';
 
 import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
@@ -90,7 +90,10 @@ export function ɵɵtemplate(
   let comment: RComment;
   let dehydratedViews: NghView[] = [];
   const ngh = lView[HYDRATION_INFO];
-  if (ngh) {
+  const isCreating = !ngh || isInNonHydratableBlock();
+  if (isCreating) {
+    comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
+  } else {
     let currentRNode =
         locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
 
@@ -105,11 +108,9 @@ export function ɵɵtemplate(
 
     ngDevMode && assertRComment(comment, 'Expecting a comment node in template instruction');
     ngDevMode && markRNodeAsClaimedForHydration(comment);
-  } else {
-    comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
   }
   setCurrentTNode(tNode, false);
-  !ngh && appendChild(tView, lView, comment, tNode);
+  isCreating && appendChild(tView, lView, comment, tNode);
   attachPatchData(comment, lView);
 
   const lContainer = createLContainer(comment, lView, comment, tNode);

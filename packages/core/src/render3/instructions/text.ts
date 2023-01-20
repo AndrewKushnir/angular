@@ -12,7 +12,7 @@ import {TElementNode, TNodeType} from '../interfaces/node';
 import {RText} from '../interfaces/renderer_dom';
 import {HEADER_OFFSET, HYDRATION_INFO, RENDERER} from '../interfaces/view';
 import {appendChild, createTextNode} from '../node_manipulation';
-import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, setCurrentTNode} from '../state';
+import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInNonHydratableBlock, setCurrentTNode} from '../state';
 
 import {getOrCreateTNode} from './shared';
 
@@ -46,7 +46,11 @@ export function ɵɵtext(index: number, value: string = ''): void {
 
   let textNative: RText;
   const ngh = lView[HYDRATION_INFO];
-  if (ngh) {
+  const isCreating = !ngh || isInNonHydratableBlock();
+  if (isCreating) {
+    textNative = createTextNode(lView[RENDERER], value);
+  } else {
+    // hydrating
     textNative =
         locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent) as RText;
     ngDevMode &&
@@ -54,12 +58,10 @@ export function ɵɵtext(index: number, value: string = ''): void {
             textNative,
             `Expecting a text node (with the '${value}' value) in the text instruction`);
     ngDevMode && markRNodeAsClaimedForHydration(textNative);
-  } else {
-    textNative = createTextNode(lView[RENDERER], value);
   }
 
   lView[adjustedIndex] = textNative;
-  !ngh && appendChild(tView, lView, textNative, tNode);
+  isCreating && appendChild(tView, lView, textNative, tNode);
 
   // Text nodes are self closing.
   setCurrentTNode(tNode, false);

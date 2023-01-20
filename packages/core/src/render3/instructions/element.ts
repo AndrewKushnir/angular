@@ -17,7 +17,7 @@ import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
 import {appendChild, createElementNode, setupStaticAttributes} from '../node_manipulation';
-import {decreaseElementDepthCount, getBindingIndex, getCurrentTNode, getElementDepthCount, getLView, getNamespace, getTView, increaseElementDepthCount, isCurrentTNodeParent, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
+import {decreaseElementDepthCount, enterNonHydrableBlock, getBindingIndex, getCurrentTNode, getElementDepthCount, getLView, getNamespace, getTView, increaseElementDepthCount, isCurrentTNodeParent, isInNonHydratableBlock, isNonHydratableRootTNode, leaveNonHydratableBlock, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {computeStaticStyling} from '../styling/static_styling';
 import {getConstant} from '../util/view_utils';
 
@@ -99,8 +99,11 @@ export function ɵɵelementStart(
       tView.data[adjustedIndex] as TElementNode;
 
   let native: RElement;
-  if (ngh !== null) {
-    debugger;
+  const isCreating = !ngh || isInNonHydratableBlock();
+  if (isCreating) {
+    native = createElementNode(renderer, name, getNamespace());
+  } else {
+    // hydrating
     native =
         locateNextRNode<RElement>(ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
     ngDevMode &&
@@ -108,15 +111,22 @@ export function ɵɵelementStart(
             native, name,
             `Expecting an element node with ${name} tag name in the elementStart instruction`);
     ngDevMode && markRNodeAsClaimedForHydration(native);
-  } else {
-    native = createElementNode(renderer, name, getNamespace());
   }
   lView[adjustedIndex] = native;
+  if (ngh && (native as HTMLElement).hasAttribute('ngNonHydratable')) {
+    enterNonHydrableBlock(tNode);
+
+    // Since this isn't hydratable, we need to empty the node
+    // so there's no duplicate content after render
+    while ((native as HTMLElement).firstChild) {
+      native.removeChild((native as HTMLElement).firstChild!);
+    }
+  }
 
   setCurrentTNode(tNode, true);
   setupStaticAttributes(renderer, native, tNode);
 
-  if ((tNode.flags & TNodeFlags.isDetached) !== TNodeFlags.isDetached && !ngh) {
+  if ((tNode.flags & TNodeFlags.isDetached) !== TNodeFlags.isDetached && isCreating) {
     // In the i18n case, the translation may have removed this element, so only add it if it is not
     // detached. See `TNodeType.Placeholder` and `LFrame.inI18n` for more context.
     appendChild(tView, lView, native, tNode);
@@ -161,6 +171,9 @@ export function ɵɵelementEnd(): typeof ɵɵelementEnd {
   const tNode = currentTNode;
   ngDevMode && assertTNodeType(tNode, TNodeType.AnyRNode);
 
+  if (isNonHydratableRootTNode(tNode)) {
+    leaveNonHydratableBlock();
+  }
 
   decreaseElementDepthCount();
 
