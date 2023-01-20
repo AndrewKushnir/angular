@@ -120,7 +120,9 @@ function hasNgNonHydratableAttr(tNode: TNode): boolean {
 }
 
 function isInNonHydratableBlock(tNode: TNode, lView: LView): boolean {
-  return navigateParentTNodes(tNode as TNode, lView, hasNgNonHydratableAttr);
+  const foundTNode = navigateParentTNodes(tNode as TNode, lView, hasNgNonHydratableAttr);
+  // in a block when we have a TNode and it's different than the root node
+  return foundTNode !== null && foundTNode !== tNode;
 }
 
 function serializeLView(lView: LView, hostNode: Element): LiveDom {

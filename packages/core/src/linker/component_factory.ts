@@ -10,6 +10,7 @@ import {ChangeDetectorRef} from '../change_detection/change_detection';
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {Type} from '../interface/type';
+import {NghDom} from '../render3/interfaces/view';
 
 import {ElementRef} from './element_ref';
 import {NgModuleRef} from './ng_module_factory';
@@ -117,4 +118,13 @@ export abstract class ComponentFactory<C> {
   abstract create(
       injector: Injector, projectableNodes?: any[][], rootSelectorOrNode?: string|any,
       environmentInjector?: EnvironmentInjector|NgModuleRef<any>): ComponentRef<C>;
+
+  /**
+   * @internal
+   * Creates a new component with hydration.
+   */
+  abstract createWithHydration(
+      injector: Injector, projectableNodes?: any[][], rootSelectorOrNode?: string|any,
+      environmentInjector?: EnvironmentInjector|NgModuleRef<any>,
+      hydrationDomInfo?: NghDom|null): ComponentRef<C>;
 }
