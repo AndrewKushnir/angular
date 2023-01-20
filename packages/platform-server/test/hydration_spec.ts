@@ -584,7 +584,69 @@ fdescribe('platform-server integration', () => {
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
 
-      fit('should skip hydrating elements with ngNonHydratable attribute in VCR', async () => {
+      fit('should skip hydrating elements with ngNonHydratable host binding', async () => {
+        @Directive({standalone: true, selector: 'button'})
+        class MyButtonDirective {
+          el = inject(ElementRef);
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'projector-cmp',
+          host: {ngNonHydratable: 'true'},
+          template: `
+            <main>
+              <ng-content></ng-content>
+            </main>
+          `,
+        })
+        class ProjectorCmp {
+          @ContentChildren(MyButtonDirective) buttons!: QueryList<MyButtonDirective>;
+
+          ngAfterContentInit() {
+            this.buttons.forEach((button) => {
+              button.el.nativeElement.remove();
+            });
+          }
+        }
+
+        @Component({
+          standalone: true,
+          imports: [ProjectorCmp, MyButtonDirective],
+          selector: 'app',
+          template: `
+            <projector-cmp>
+              <button type="button">Click Me</button>
+              <button type="button">Click Also</button>
+              <button type="button">No, Click Me Instead</button>
+            </projector-cmp>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        debugger;
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent, ProjectorCmp);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        debugger;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+
+      it('should skip hydrating elements with ngNonHydratable attribute in VCR', async () => {
         @Component({
           standalone: true,
           selector: 'nested-cmp',
