@@ -76,7 +76,6 @@ export function matchingProjectionSlotIndex(tNode: TNode, projectionSlots: Proje
 export function ɵɵprojectionDef(projectionSlots?: ProjectionSlots): void {
   const componentNode = getLView()[DECLARATION_COMPONENT_VIEW][T_HOST] as TElementNode;
 
-  debugger;
   if (!componentNode.projection) {
     // If no explicit projection slots are defined, fall back to a single
     // projection slot with the wildcard selector.
