@@ -21,6 +21,8 @@ interface PlatformOptions {
   platformProviders?: Provider[];
 }
 
+const NG_NON_HYDRATABLE = 'ngNonHydratable';
+
 function _getPlatform(
     platformFactory: (extraProviders: StaticProvider[]) => PlatformRef,
     options: PlatformOptions): PlatformRef {
@@ -145,7 +147,9 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
         // since all DOM nodes in this projection were handled while processing
         // a parent lView, which contains those nodes.
         if (headTNode && !isProjectionTNode(headTNode)) {
-          ngh.nodes[headTNode.index - HEADER_OFFSET] = calcPathForNode(tView, lView, headTNode);
+          if (!isInNonHydratableBlock(headTNode, lView)) {
+            ngh.nodes[headTNode.index - HEADER_OFFSET] = calcPathForNode(tView, lView, headTNode);
+          }
         }
       }
     }
@@ -165,8 +169,11 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
       // We only handle the DOM Node case here
       if (Array.isArray(hostNode)) {
         // this is a component
+        // Check to see if it has ngNonHydratable
         targetNode = unwrapRNode(hostNode as LView) as Element;
-        annotateForHydration(targetNode as Element, hostNode as LView);
+        if (!(targetNode as HTMLElement).hasAttribute(NG_NON_HYDRATABLE)) {
+          annotateForHydration(targetNode as Element, hostNode as LView);
+        }
       } else {
         // this is a regular node
         targetNode = unwrapRNode(hostNode) as Node;
@@ -175,8 +182,11 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
       ngh.containers![adjustedIndex] = container;
     } else if (Array.isArray(lView[i])) {
       // this is a component
+      // Check to see if it has ngNonHydratable
       targetNode = unwrapRNode(lView[i][HOST]!) as Element;
-      annotateForHydration(targetNode as Element, lView[i]);
+      if (!(targetNode as HTMLElement).hasAttribute('ngNonHydratable')) {
+        annotateForHydration(targetNode as Element, lView[i]);
+      }
     } else if (isTI18nNode(tNode)) {
       // Process i18n text nodes...
       const createOpCodes = (tNode as any).create;
@@ -186,18 +196,22 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
             (opCode & I18nCreateOpCode.APPEND_EAGERLY) === I18nCreateOpCode.APPEND_EAGERLY;
         const index = opCode >>> I18nCreateOpCode.SHIFT;
         const tNode = tView.data[index] as TNode;
-        // if (appendNow) {
-        const parentTNode = findClosestElementTNode(tNode);
-        const path = calcPathForNode(tView, lView, tNode, parentTNode);
-        ngh.nodes[tNode.index - HEADER_OFFSET] = path;
+        if (!isInNonHydratableBlock(tNode, lView)) {
+          // if (appendNow) {
+          const parentTNode = findClosestElementTNode(tNode);
+          const path = calcPathForNode(tView, lView, tNode, parentTNode);
+          ngh.nodes[tNode.index - HEADER_OFFSET] = path;
+        }
         // }
       }
     } else if (tNode.insertBeforeIndex) {
       if (Array.isArray(tNode.insertBeforeIndex) && tNode.insertBeforeIndex[0] !== null) {
         // A root node within i18n block.
         // TODO: add a comment on *why* we need a path here.
-        const path = calcPathForNode(tView, lView, tNode);
-        ngh.nodes[tNode.index - HEADER_OFFSET] = path;
+        if (!isInNonHydratableBlock(tNode, lView)) {
+          const path = calcPathForNode(tView, lView, tNode);
+          ngh.nodes[tNode.index - HEADER_OFFSET] = path;
+        }
       }
     } else {
       const tNodeType = tNode.type;
@@ -225,53 +239,27 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
         }
         if (nextTNode) {
           const index = nextTNode.index - HEADER_OFFSET;
-          const path = calcPathForNode(tView, lView, nextTNode);
-          ngh.nodes[index] = path;
+          if (!isInNonHydratableBlock(nextTNode, lView)) {
+            const path = calcPathForNode(tView, lView, nextTNode);
+            ngh.nodes[index] = path;
+          }
         }
       } else {
-        // ... otherwise, this is a DOM element, for which we may need to
-        // serialize in some cases.
-        targetNode = lView[i] as Node;
-        if (!isConnected(targetNode)) {
-          debugger;
-          console.log('INDEX: ', i - HEADER_OFFSET)
-          console.log('TAGNAME: ', (targetNode as HTMLElement).tagName)
-          ngh.nodes[i - HEADER_OFFSET] = '-';
-          continue;
-        }
-
-        // FIXME: use the function below to detect if we are in
-        // a non-hydratable section.
-        // const isNonHydratable = isInNonHydratableBlock(tNode, lView);
-
         // Check if projection next is not the same as next, in which case
         // the node would not be found at creation time at runtime and we
         // need to provide a location to that node.
         if (tNode.projectionNext && tNode.projectionNext !== tNode.next) {
           const nextProjectedTNode = tNode.projectionNext;
           const index = nextProjectedTNode.index - HEADER_OFFSET;
-          const path = calcPathForNode(tView, lView, nextProjectedTNode);
-          ngh.nodes[index] = path;
+          if (!isInNonHydratableBlock(nextProjectedTNode, lView)) {
+            const path = calcPathForNode(tView, lView, nextProjectedTNode);
+            ngh.nodes[index] = path;
+          }
         }
       }
     }
   }
   return ngh;
-}
-
-function isConnected(originalNode: Node): boolean {
-  let node: Node|ParentNode|null = originalNode;
-  while (node != null) {
-    if (node.nodeType === Node.DOCUMENT_NODE) {
-      return true;
-    }
-
-    node = node.parentNode;
-    if (node != null && node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
-      node = (node as any).host;
-    }
-  }
-  return false;
 }
 
 function calcPathForNode(

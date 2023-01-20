@@ -16,7 +16,7 @@ import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, NghView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
 import {appendChild} from '../node_manipulation';
-import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
+import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInNonHydratableBlock, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {computeStaticStyling} from '../styling/static_styling';
 import {getConstant} from '../util/view_utils';
 
@@ -85,7 +85,11 @@ export function ɵɵelementContainerStart(
 
   let native: RComment;
   const ngh = lView[HYDRATION_INFO];
-  if (ngh !== null) {
+  const isCreating = !ngh || isInNonHydratableBlock();
+  if (isCreating) {
+    ngDevMode && ngDevMode.rendererCreateComment++;
+    native = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
+  } else {
     const nghContainer = ngh.containers[index];
     ngDevMode &&
         assertDefined(
@@ -120,15 +124,12 @@ export function ɵɵelementContainerStart(
 
     ngDevMode && assertRComment(native, 'Expecting a comment node in elementContainer instruction');
     ngDevMode && markRNodeAsClaimedForHydration(native);
-  } else {
-    ngDevMode && ngDevMode.rendererCreateComment++;
-    native = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
   }
   lView[adjustedIndex] = native;
 
   setCurrentTNode(tNode, true);
 
-  !ngh && appendChild(tView, lView, native, tNode);
+  isCreating && appendChild(tView, lView, native, tNode);
   attachPatchData(native, lView);
 
   if (isDirectiveHost(tNode)) {
