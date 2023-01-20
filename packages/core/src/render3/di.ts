@@ -824,7 +824,7 @@ function lookupTokenUsingEmbeddedInjector<T>(
 }
 
 /** Gets the TNode associated with an LView inside of the declaration view. */
-function getTNodeFromLView(lView: LView): TElementNode|TElementContainerNode|null {
+export function getTNodeFromLView(lView: LView): TElementNode|TElementContainerNode|null {
   const tView = lView[TVIEW];
   const tViewType = tView.type;
 

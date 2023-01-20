@@ -21,7 +21,7 @@ import {stringify} from '../../util/stringify';
 import {assertFirstCreatePass, assertFirstUpdatePass, assertLContainer, assertLView, assertTNodeForLView, assertTNodeForTView} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {getFactoryDef} from '../definition_factory';
-import {diPublicInInjector, getNodeInjectable, getOrCreateNodeInjectorForNode} from '../di';
+import {diPublicInInjector, getNodeInjectable, getOrCreateNodeInjectorForNode, getTNodeFromLView} from '../di';
 import {throwMultipleComponentError} from '../errors';
 import {executeCheckHooks, executeInitAndCheckHooks, incrementInitPhaseFlags} from '../hooks';
 import {CONTAINER_HEADER_OFFSET, HAS_TRANSPLANTED_VIEWS, LContainer, MOVED_VIEWS} from '../interfaces/container';
@@ -1934,4 +1934,45 @@ export function textBindingInternal(lView: LView, index: number, value: string):
   const element = getNativeByIndex(index, lView) as any as RText;
   ngDevMode && assertDefined(element, 'native element should exist');
   updateTextNode(lView[RENDERER], element, value);
+}
+
+/**
+ * Helper function to walk up parent nodes using TNode data structure, crossing
+ * view boundaries if needed, calling `predicateFn` at each level (with the current
+ * TNode as an argument). The process stops when predicate return `true` for
+ * the first time. If `predicateFn` never returned `true` after reaching the root
+ * view, the function returns `false`.
+ *
+ * @param tNode
+ * @param lView
+ * @param predicateFn
+ * @returns
+ */
+export function navigateParentTNodes(
+    tNode: TNode, lView: LView, predicateFn: (tNode: TNode) => boolean): boolean {
+  let currentTNode: TNode|null = tNode;
+  let currentLView: LView|null = lView;
+
+  while (currentTNode !== null && currentLView !== null) {
+    ngDevMode && assertTNodeForLView(currentTNode, currentLView);
+
+    if (predicateFn(currentTNode)) {
+      return true;
+    }
+
+    // Has an explicit type due to a TS bug: https://github.com/microsoft/TypeScript/issues/33191
+    let parentTNode: TElementNode|TContainerNode|null = currentTNode.parent;
+
+    // `TNode.parent` includes the parent within the current view only. If it doesn't exist,
+    // it means that we've hit the view boundary and we need to go up to the next view.
+    if (!parentTNode) {
+      // Keep going up the tree.
+      parentTNode = getTNodeFromLView(currentLView);
+      currentLView = currentLView[DECLARATION_VIEW];
+    }
+
+    currentTNode = parentTNode;
+  }
+
+  return false;
 }
