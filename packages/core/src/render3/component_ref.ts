@@ -139,6 +139,24 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
       injector: Injector, projectableNodes?: any[][]|undefined, rootSelectorOrNode?: any,
       environmentInjector?: NgModuleRef<any>|EnvironmentInjector|
       undefined): AbstractComponentRef<T> {
+    return this.createWithHydration(
+        injector, projectableNodes, rootSelectorOrNode, environmentInjector, null);
+  }
+
+  /**
+   * @internal
+   *
+   * @param injector
+   * @param projectableNodes
+   * @param rootSelectorOrNode
+   * @param environmentInjector
+   * @param hydrationInfo
+   * @returns
+   */
+  createWithHydration(
+      injector: Injector, projectableNodes?: any[][]|undefined, rootSelectorOrNode?: any,
+      environmentInjector?: NgModuleRef<any>|EnvironmentInjector|undefined,
+      hydrationDomInfo?: NghDom|null): AbstractComponentRef<T> {
     environmentInjector = environmentInjector || this.ngModule;
 
     let realEnvironmentInjector = environmentInjector instanceof EnvironmentInjector ?
@@ -210,7 +228,7 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
       const hostTNode = createRootComponentTNode(rootLView, hostRNode);
       const componentView = createRootComponentView(
           hostTNode, hostRNode, rootComponentDef, rootDirectives, rootLView, rendererFactory,
-          hostRenderer, null, hydrationInfo ?? undefined);
+          hostRenderer, null, hydrationDomInfo);
 
       tElementNode = getTNode(rootTView, HEADER_OFFSET) as TElementNode;
 
@@ -335,7 +353,7 @@ function createRootComponentTNode(lView: LView, rNode: RNode): TElementNode {
 function createRootComponentView(
     tNode: TElementNode, rNode: RElement|null, rootComponentDef: ComponentDef<any>,
     rootDirectives: DirectiveDef<any>[], rootView: LView, rendererFactory: RendererFactory,
-    hostRenderer: Renderer, sanitizer?: Sanitizer|null, hydrationInfo?: NghView): LView {
+    hostRenderer: Renderer, sanitizer?: Sanitizer|null, hydrationInfo?: NghDom|null): LView {
   const tView = rootView[TVIEW];
   applyRootComponentStyling(rootDirectives, tNode, rNode, hostRenderer);
 
@@ -485,12 +503,4 @@ export function LifecycleHooksFeature(): void {
   const tNode = getCurrentTNode()!;
   ngDevMode && assertDefined(tNode, 'TNode is required');
   registerPostOrderHooks(getLView()[TVIEW], tNode);
-}
-
-let hydrationInfo: NghView|null = null;
-
-export function setCurrentHydrationInfo(info: NghView|null): NghView|null {
-  const origHydrationInfo = info;
-  hydrationInfo = info;
-  return origHydrationInfo;
 }

@@ -1946,7 +1946,7 @@ export function textBindingInternal(lView: LView, index: number, value: string):
  * @returns
  */
 export function navigateParentTNodes(
-    tNode: TNode, lView: LView, predicateFn: (tNode: TNode) => boolean): boolean {
+    tNode: TNode, lView: LView, predicateFn: (tNode: TNode) => boolean): TNode|null {
   let currentTNode: TNode|null = tNode;
   let currentLView: LView|null = lView;
 
@@ -1954,7 +1954,7 @@ export function navigateParentTNodes(
     ngDevMode && assertTNodeForLView(currentTNode, currentLView);
 
     if (predicateFn(currentTNode)) {
-      return true;
+      return currentTNode;
     }
 
     // Has an explicit type due to a TS bug: https://github.com/microsoft/TypeScript/issues/33191
@@ -1971,5 +1971,5 @@ export function navigateParentTNodes(
     currentTNode = parentTNode;
   }
 
-  return false;
+  return null;
 }
