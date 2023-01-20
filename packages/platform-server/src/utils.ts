@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵcollectNativeNodes as collectNativeNodes, ɵCONTAINER_HEADER_OFFSET as CONTAINER_HEADER_OFFSET, ɵCONTEXT as CONTEXT, ɵgetLViewById as getLViewById, ɵHEADER_OFFSET as HEADER_OFFSET, ɵHOST as HOST, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise, ɵisRootView as isRootView, ɵLContainer as LContainer, ɵLView as LView, ɵRNode as RNode, ɵTContainerNode as TContainerNode, ɵTNode as TNode, ɵTNodeType as TNodeType, ɵTVIEW as TVIEW, ɵTView as TView, ɵTViewType as TViewType, ɵTYPE as TYPE, ɵunwrapRNode as unwrapRNode,} from '@angular/core';
+import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵcollectNativeNodes as collectNativeNodes, ɵCONTAINER_HEADER_OFFSET as CONTAINER_HEADER_OFFSET, ɵCONTEXT as CONTEXT, ɵgetLViewById as getLViewById, ɵHEADER_OFFSET as HEADER_OFFSET, ɵHOST as HOST, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise, ɵisRootView as isRootView, ɵLContainer as LContainer, ɵLView as LView, ɵnavigateParentTNodes as navigateParentTNodes, ɵRNode as RNode, ɵTContainerNode as TContainerNode, ɵTNode as TNode, ɵTNodeType as TNodeType, ɵTVIEW as TVIEW, ɵTView as TView, ɵTViewType as TViewType, ɵTYPE as TYPE, ɵunwrapRNode as unwrapRNode} from '@angular/core';
 import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
@@ -110,6 +110,16 @@ export function findClosestElementTNode(tNode: TNode|null): TNode|null {
   return parentTNode;
 }
 
+function hasNgNonHydratableAttr(tNode: TNode): boolean {
+  // TODO: we need to iterate over `tNode.mergedAttrs` better
+  // to avoid cases when `ngNonHydratable` is an attribute value,
+  // e.g. `<div title="ngNonHydratable"></div>`.
+  return !!tNode.mergedAttrs?.includes('ngNonHydratable');
+}
+
+function isInNonHydratableBlock(tNode: TNode, lView: LView): boolean {
+  return navigateParentTNodes(tNode as TNode, lView, hasNgNonHydratableAttr);
+}
 
 function serializeLView(lView: LView, hostNode: Element): LiveDom {
   const ngh: LiveDom = {
@@ -230,6 +240,10 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
           ngh.nodes[i - HEADER_OFFSET] = '-';
           continue;
         }
+
+        // FIXME: use the function below to detect if we are in
+        // a non-hydratable section.
+        // const isNonHydratable = isInNonHydratableBlock(tNode, lView);
 
         // Check if projection next is not the same as next, in which case
         // the node would not be found at creation time at runtime and we
