@@ -6,11 +6,11 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵcollectNativeNodes as collectNativeNodes, ɵCONTAINER_HEADER_OFFSET as CONTAINER_HEADER_OFFSET, ɵCONTEXT as CONTEXT, ɵgetLViewById as getLViewById, ɵHEADER_OFFSET as HEADER_OFFSET, ɵHOST as HOST, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise, ɵisRootView as isRootView, ɵLContainer as LContainer, ɵLView as LView, ɵnavigateParentTNodes as navigateParentTNodes, ɵRNode as RNode, ɵTContainerNode as TContainerNode, ɵTNode as TNode, ɵTNodeType as TNodeType, ɵTVIEW as TVIEW, ɵTView as TView, ɵTViewType as TViewType, ɵTYPE as TYPE, ɵunwrapRNode as unwrapRNode} from '@angular/core';
+import {ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ViewRef, ɵcollectNativeNodes as collectNativeNodes, ɵCONTAINER_HEADER_OFFSET as CONTAINER_HEADER_OFFSET, ɵCONTEXT as CONTEXT, ɵgetLViewById as getLViewById, ɵHEADER_OFFSET as HEADER_OFFSET, ɵHOST as HOST, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise, ɵisRootView as isRootView, ɵLContainer as LContainer, ɵLView as LView, ɵnavigateParentTNodes as navigateParentTNodes, ɵretrieveViewsFromApplicationRef as retrieveViewsFromApplicationRef, ɵRNode as RNode, ɵTContainerNode as TContainerNode, ɵTNode as TNode, ɵTNodeType as TNodeType, ɵTVIEW as TVIEW, ɵTView as TView, ɵTViewType as TViewType, ɵTYPE as TYPE, ɵunwrapRNode as unwrapRNode} from '@angular/core';
 import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
-import {navigateBetween, NodeNavigationStep} from './node_nav';
+import {navigateBetween, NodeNavigationStep, NoPathFoundError} from './node_nav';
 import {PlatformState} from './platform_state';
 import {platformDynamicServer, platformServer, ServerModule} from './server';
 import {BEFORE_APP_SERIALIZED, INITIAL_CONFIG} from './tokens';
@@ -265,6 +265,26 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
   return ngh;
 }
 
+function calcPathBetween(from: Node, to: Node, parent: string): string[] {
+  let path: string[] = [];
+  try {
+    path = navigateBetween(from, to).map(op => {
+      switch (op) {
+        case NodeNavigationStep.FirstChild:
+          return 'firstChild';
+        case NodeNavigationStep.NextSibling:
+          return 'nextSibling';
+      }
+    });
+  } catch (e: unknown) {
+    if (e instanceof NoPathFoundError) {
+      return [];
+    }
+  }
+  path.unshift(parent);
+  return path;
+}
+
 function calcPathForNode(
     tView: TView, lView: LView, tNode: TNode, parentTNode?: TNode|null): string {
   const index = tNode.index;
@@ -293,19 +313,20 @@ function calcPathForNode(
       rNode = firstRNode;
     }
   }
-  const path: string[] = navigateBetween(parentRNode as Node, rNode as Node).map(op => {
-    switch (op) {
-      case NodeNavigationStep.FirstChild:
-        return 'firstChild';
-      case NodeNavigationStep.NextSibling:
-        return 'nextSibling';
+  const parentId = parentIndex === 'host' ? parentIndex : '' + (parentIndex - HEADER_OFFSET);
+  let path: string[] = calcPathBetween(parentRNode as Node, rNode as Node, parentId);
+  if (path.length === 0 && parentRNode !== rNode) {
+    // Searching for a path between elements within a host node failed.
+    // Trying to find a path to an element starting from the `document.body` instead.
+    path =
+        calcPathBetween((parentRNode as Node).ownerDocument!.body as Node, rNode as Node, 'body');
+
+    if (path.length === 0) {
+      // If path is still empty, it's likely that this node is detached and
+      // won't be find during hydration.
+      // TODO: add a better error message, potentially suggesting `ngNonHydratable`.
+      throw new Error('Unable to locate element on a page.');
     }
-  });
-  if (parentIndex === 'host') {
-    // TODO: add support for `host` to the `locateNextRNode` fn.
-    path.unshift(parentIndex);
-  } else {
-    path.unshift('' + (parentIndex - HEADER_OFFSET));
   }
   return path.join('.');
 }
@@ -358,22 +379,18 @@ function serializeLContainer(lContainer: LContainer, hostNode: Element, anchor: 
   return container;
 }
 
-export function getLViewFromRootElement(element: Element): LView {
-  const MONKEY_PATCH_KEY_NAME = '__ngContext__';
-  const data = (element as any)[MONKEY_PATCH_KEY_NAME];
-  let lView = typeof data === 'number' ? getLViewById(data) : data || null;
-  if (!lView) throw new Error('not found');  // TODO: is it possible?
-
-  if (isRootView(lView)) {
-    lView = lView[HEADER_OFFSET];
-  }
-  return lView;
-}
-
 export function annotateForHydration(element: Element, lView: LView): void {
   const rawNgh = serializeLView(lView, element);
   const serializedNgh = JSON.stringify(rawNgh);
   element.setAttribute('ngh', serializedNgh);
+}
+
+function getComponentLView(viewRef: ViewRef) {
+  let lView = (viewRef as any)._lView;
+  if (isRootView(lView)) {
+    lView = lView[HEADER_OFFSET];
+  }
+  return lView;
 }
 
 function _render<T>(
@@ -420,12 +437,16 @@ the server-rendered app can be properly bootstrapped into a client app.`);
           }
 
           const complete = () => {
-            applicationRef.components.forEach((componentRef) => {
-              const element = componentRef.location.nativeElement;
-              if (element) {
-                annotateForHydration(element, getLViewFromRootElement(element));
+            const viewRefs = retrieveViewsFromApplicationRef(applicationRef);
+            for (const viewRef of viewRefs) {
+              const lView = getComponentLView(viewRef);
+              // TODO: make sure that this lView represents
+              // a component instance.
+              const hostElement = lView[HOST];
+              if (hostElement) {
+                annotateForHydration(hostElement, lView);
               }
-            });
+            }
 
             const output = platformState.renderToString();
             platform.destroy();
