@@ -8,19 +8,26 @@
 import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet, PlatformLocation, ɵgetDOM as getDOM,} from '@angular/common';
-import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, ContentChildren, destroyPlatform, Directive, ElementRef, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, QueryList, Type, ViewChild, ViewContainerRef, ViewEncapsulation, ɵprovideHydrationSupport, ɵsetDocument,} from '@angular/core';
+import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵprovideHydrationSupport, ɵsetDocument,} from '@angular/core';
 import {TestBed, waitForAsync} from '@angular/core/testing';
 import {bootstrapApplication, makeStateKey, TransferState} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
 import {renderApplication} from '../src/utils';
 
-function getAppContents(html: string): string {
-  // Drop `ng-version` and `ng-server-context` attrs,
-  // so that it's easier to make assertions in tests.
+// Drop utility attributes such as `ng-version`, `ng-server-context` and `ngh`,
+// so that it's easier to make assertions in tests.
+function stripUtilAttributes(html: string, keepNgh: boolean): string {
   html = html.replace(/ ng-version=".*?"/g, '')  //
              .replace(/ ng-server-context=".*?"/g, '');
-  const result = html.match(/<body>(.*?)<\/body>/s);
+  if (!keepNgh) {
+    html = html.replace(/ ngh=".*?"/g, '');
+  }
+  return html;
+}
+
+function getAppContents(html: string): string {
+  const result = stripUtilAttributes(html, true).match(/<body>(.*?)<\/body>/s);
   if (!result) {
     throw new Error('App not found!');
   }
@@ -53,8 +60,8 @@ function getComponentRef<T>(appRef: ApplicationRef): ComponentRef<T> {
 }
 
 function verifyClientAndSSRContentsMatch(ssrContents: string, clientAppRootElement: HTMLElement) {
-  const clientContents = clientAppRootElement.outerHTML.replace(/ ng-version=".*?"/g, '');
-  ssrContents = ssrContents.replace(/ ngh=".*?"/g, '');
+  const clientContents = stripUtilAttributes(clientAppRootElement.outerHTML, false);
+  ssrContents = stripUtilAttributes(ssrContents, false);
   expect(clientContents).toBe(ssrContents, 'Client and server contents mismatch');
 }
 
@@ -106,15 +113,7 @@ fdescribe('platform-server integration', () => {
 
       // Get HTML contents of the `<app>`, create a DOM element and append it into the body.
       const container = getAppDOM(html, doc);
-      const app = container.querySelector('app')!;
-      doc.body.appendChild(app);
-
-      // Also bring the serialized state.
-      // Domino doesn't support complex selectors like `[id="simple-cmp-state"]` :(
-      const serializedStateScript = container.querySelector('script');
-      if (serializedStateScript) {
-        doc.body.appendChild(serializedStateScript);
-      }
+      Array.from(container.children).forEach(node => doc.body.appendChild(node));
 
       function _document(): any {
         ɵsetDocument(doc);
@@ -216,8 +215,6 @@ fdescribe('platform-server integration', () => {
         const appRef = await hydrate(html, SimpleComponent);
         const compRef = getComponentRef<SimpleComponent>(appRef);
         appRef.tick();
-
-        debugger;
 
         const clientRootNode = compRef.location.nativeElement;
         verifyAllNodesClaimedForHydration(clientRootNode);
@@ -520,6 +517,94 @@ fdescribe('platform-server integration', () => {
         verifyAllNodesClaimedForHydration(clientRootNode);
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
+
+      it('should support projecting contents outside of a current host element', async () => {
+        @Component({
+          standalone: true,
+          selector: 'dynamic-cmp',
+          template: `<div #target></div>`,
+        })
+        class DynamicComponent {
+          @ViewChild('target', {read: ViewContainerRef}) vcRef!: ViewContainerRef;
+
+          createView(tmplRef: TemplateRef<unknown>) {
+            this.vcRef.createEmbeddedView(tmplRef);
+          }
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'projector-cmp',
+          template: `
+            <ng-template #ref>
+              <ng-content></ng-content>
+            </ng-template>
+          `,
+        })
+        class ProjectorCmp {
+          @ViewChild('ref', {read: TemplateRef}) tmplRef!: TemplateRef<unknown>;
+
+          appRef = inject(ApplicationRef);
+          environmentInjector = inject(EnvironmentInjector);
+          doc = inject(DOCUMENT) as Document;
+          isServer = isPlatformServer(inject(PLATFORM_ID));
+
+          ngAfterViewInit() {
+            // Create a host DOM node outside of the main app's host node
+            // to emulate a situation where a host node already exists
+            // on a page.
+            let hostElement: Element;
+            if (this.isServer) {
+              hostElement = this.doc.createElement('portal-app');
+              this.doc.body.insertBefore(hostElement, this.doc.body.firstChild);
+            } else {
+              hostElement = this.doc.querySelector('portal-app')!;
+            }
+
+            const cmp = createComponent(
+                DynamicComponent, {hostElement, environmentInjector: this.environmentInjector});
+            cmp.changeDetectorRef.detectChanges();
+            cmp.instance.createView(this.tmplRef);
+            this.appRef.attachView(cmp.hostView);
+          }
+        }
+
+        @Component({
+          standalone: true,
+          imports: [ProjectorCmp, CommonModule],
+          selector: 'app',
+          template: `
+            <projector-cmp>
+              <header>Header</header>
+            </projector-cmp>
+          `,
+        })
+        class SimpleComponent {
+          visible = true;
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent, ProjectorCmp);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        const portalRootNode = clientRootNode.ownerDocument.body.firstChild;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyAllNodesClaimedForHydration(portalRootNode.firstChild);
+        const clientContents = stripUtilAttributes(portalRootNode.outerHTML, false) +
+            stripUtilAttributes(clientRootNode.outerHTML, false);
+        expect(clientContents)
+            .toBe(stripUtilAttributes(ssrContents, false), 'Client and server contents mismatch');
+      });
     });
 
     describe('ngNonHydratable', () => {
@@ -566,8 +651,6 @@ fdescribe('platform-server integration', () => {
         const html = await ssr(SimpleComponent);
         const ssrContents = getAppContents(html);
 
-        debugger;
-
         // TODO: properly assert `ngh` attribute value once the `ngh`
         // format stabilizes, for now we just check that it's present.
         expect(ssrContents).toContain('<app ngh');
@@ -579,12 +662,11 @@ fdescribe('platform-server integration', () => {
         appRef.tick();
 
         const clientRootNode = compRef.location.nativeElement;
-        debugger;
         verifyAllNodesClaimedForHydration(clientRootNode);
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
 
-      fit('should skip hydrating elements with ngNonHydratable host binding', async () => {
+      it('should skip hydrating elements with ngNonHydratable host binding', async () => {
         @Directive({standalone: true, selector: 'button'})
         class MyButtonDirective {
           el = inject(ElementRef);
@@ -628,8 +710,6 @@ fdescribe('platform-server integration', () => {
         const html = await ssr(SimpleComponent);
         const ssrContents = getAppContents(html);
 
-        debugger;
-
         // TODO: properly assert `ngh` attribute value once the `ngh`
         // format stabilizes, for now we just check that it's present.
         expect(ssrContents).toContain('<app ngh');
@@ -641,7 +721,6 @@ fdescribe('platform-server integration', () => {
         appRef.tick();
 
         const clientRootNode = compRef.location.nativeElement;
-        debugger;
         verifyAllNodesClaimedForHydration(clientRootNode);
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
@@ -683,7 +762,7 @@ fdescribe('platform-server integration', () => {
 
         const html = await ssr(SimpleComponent);
         const ssrContents = getAppContents(html);
-        debugger;
+
         // TODO: properly assert `ngh` attribute value once the `ngh`
         // format stabilizes, for now we just check that it's present.
         expect(ssrContents).toContain('<app ngh');
@@ -693,7 +772,6 @@ fdescribe('platform-server integration', () => {
         const appRef = await hydrate(html, SimpleComponent);
         const compRef = getComponentRef<SimpleComponent>(appRef);
         appRef.tick();
-        debugger;
 
         const clientRootNode = compRef.location.nativeElement;
         verifyAllNodesClaimedForHydration(clientRootNode);
@@ -762,7 +840,6 @@ fdescribe('platform-server integration', () => {
         const appContents = getAppContents(html);
 
         expect(appContents).toBe('.....');
-        debugger;
 
         // Reset TView, so that we re-enter the first create pass as
         // we would normally do when we hydrate on the client.
