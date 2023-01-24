@@ -384,6 +384,7 @@ export function annotateForHydration(element: Element, lView: LView): void {
   element.setAttribute('ngh', serializedNgh);
 }
 
+// TODO: avoid duplication with a similar fn in `core`.
 function getComponentLView(viewRef: ViewRef) {
   let lView = (viewRef as any)._lView;
   if (isRootView(lView)) {
