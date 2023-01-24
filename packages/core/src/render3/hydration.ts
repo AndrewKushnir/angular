@@ -20,6 +20,7 @@ import {TNode, TNodeType} from './interfaces/node';
 import {RElement, RNode} from './interfaces/renderer_dom';
 import {isLContainer, isRootView} from './interfaces/type_checks';
 import {HEADER_OFFSET, LView, NghContainer, NghDom, NghView, TView, TVIEW} from './interfaces/view';
+import {ɵɵresolveBody} from './util/misc_utils';
 import {getNativeByTNode, unwrapRNode} from './util/view_utils';
 
 export const IS_HYDRATION_ENABLED = new InjectionToken<boolean>('IS_HYDRATION_ENABLED');
@@ -165,6 +166,9 @@ function locateRNodeByPath(path: string, lView: LView): RNode {
   const firstPathPart = pathParts.shift();
   if (firstPathPart === 'host') {
     return findExistingNode(lView[0] as unknown as Element, pathParts);
+  } else if (firstPathPart === 'body') {
+    const body = ɵɵresolveBody(lView[0] as unknown as RElement & {ownerDocument: Document});
+    return findExistingNode(body, pathParts);
   } else {
     const parentElementId = Number(firstPathPart!);
     const parentRNode = unwrapRNode((lView as any)[parentElementId + HEADER_OFFSET]);
