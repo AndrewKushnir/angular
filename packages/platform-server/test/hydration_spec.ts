@@ -26,12 +26,20 @@ function stripUtilAttributes(html: string, keepNgh: boolean): string {
   return html;
 }
 
+function stripExcessiveSpaces(html: string): string {
+  return html.replace(/\s+/g, ' ');
+}
+
 function getAppContents(html: string): string {
   const result = stripUtilAttributes(html, true).match(/<body>(.*?)<\/body>/s);
   if (!result) {
     throw new Error('App not found!');
   }
   return result[1];
+}
+
+function whenStable(appRef: ApplicationRef): Promise<boolean> {
+  return appRef.isStable.pipe(first((isStable: boolean) => isStable)).toPromise();
 }
 
 /**
@@ -471,8 +479,6 @@ fdescribe('platform-server integration', () => {
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
 
-      // TODO: this test fails when invoked with other tests,
-      // find and fix test state leakage.
       it('should project contents with *ngIf\'s', async () => {
         @Component({
           standalone: true,
@@ -813,8 +819,7 @@ fdescribe('platform-server integration', () => {
       });
     });
 
-    // FIXME: this test needs additional work...
-    xdescribe('*ngFor', () => {
+    describe('*ngFor', () => {
       it('should work with *ngFor', async () => {
         @Component({
           standalone: true,
@@ -837,41 +842,46 @@ fdescribe('platform-server integration', () => {
         }
 
         const html = await ssr(SimpleComponent);
-        const appContents = getAppContents(html);
+        const ssrContents = getAppContents(html);
 
-        expect(appContents).toBe('.....');
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
 
-        // Reset TView, so that we re-enter the first create pass as
-        // we would normally do when we hydrate on the client.
-        // TODO: find a better way to do that in tests, because there
-        // might be nested components that would require the same.
-        (SimpleComponent as any).ɵcmp.tView = null;
+        resetTViewsFor(SimpleComponent);
 
         const appRef = await hydrate(html, SimpleComponent);
         const compRef = getComponentRef<SimpleComponent>(appRef);
         appRef.tick();
-        const rootNode = compRef.location.nativeElement;
 
-        // Pre-cleanup
-        expect(rootNode.outerHTML).toBe('...');
-        debugger;
+        const clientRootNode = compRef.location.nativeElement;
 
-        await appRef.isStable.pipe(first((isStable: boolean) => isStable)).toPromise();
-        debugger;
+        // Pre-cleanup state would contain "dehydrated" views
+        // (note the "5 <b>is bigger than 15!</b>" part).
+        const preCleanupContents = stripExcessiveSpaces(clientRootNode.outerHTML);
+        expect(preCleanupContents)
+            .toContain(
+                '<span> 5 <b>is bigger than 15!</b><!--bindings={ "ng-reflect-ng-if": "false" }--></span>');
 
-        // Post-cleanup
-        expect(rootNode.outerHTML).toBe('...');
+        await whenStable(appRef);
 
-        setTimeout(() => {
-          const a = appRef;
-          debugger;
-        }, 0);
+        // Post-cleanup should *not* contain dehydrated views.
+        const postCleanupContents = stripExcessiveSpaces(clientRootNode.outerHTML);
+        expect(postCleanupContents)
+            .not.toContain(
+                '<span> 5 <b>is bigger than 15!</b><!--bindings={ "ng-reflect-ng-if": "false" }--></span>');
+        expect(postCleanupContents)
+            .toContain(
+                '<span> 30 <b>is bigger than 15!</b><!--bindings={ "ng-reflect-ng-if": "true" }--></span>');
+        expect(postCleanupContents)
+            .toContain('<span> 5 <!--bindings={ "ng-reflect-ng-if": "false" }--></span>');
+        expect(postCleanupContents)
+            .toContain(
+                '<span> 50 <b>is bigger than 15!</b><!--bindings={ "ng-reflect-ng-if": "true" }--></span>');
       });
     });
 
     describe('NgTemplateOutlet', () => {
-      // TODO: this test fails when invoked with other tests,
-      // find and fix test state leakage.
       it('should work with <ng-container>', async () => {
         @Component({
           standalone: true,
@@ -889,12 +899,10 @@ fdescribe('platform-server integration', () => {
 
         const html = await ssr(SimpleComponent);
         const ssrContents = getAppContents(html);
-        debugger;
 
         // TODO: properly assert `ngh` attribute value once the `ngh`
         // format stabilizes, for now we just check that it's present.
         expect(ssrContents).toContain('<app ngh');
-        debugger;
 
         resetTViewsFor(SimpleComponent);
 
@@ -903,7 +911,6 @@ fdescribe('platform-server integration', () => {
         appRef.tick();
 
         const clientRootNode = compRef.location.nativeElement;
-        debugger;
         verifyAllNodesClaimedForHydration(clientRootNode);
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });

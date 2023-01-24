@@ -6,20 +6,21 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ENVIRONMENT_INITIALIZER, inject} from '@angular/core';
+import {inject} from '@angular/core';
 import {first} from 'rxjs/operators';
 
-import {ApplicationRef} from '../application_ref';
+import {ApplicationRef, retrieveViewsFromApplicationRef} from '../application_ref';
+import {APP_BOOTSTRAP_LISTENER} from '../application_tokens';
 import {InjectionToken} from '../di/injection_token';
+import {ViewRef} from '../linker/view_ref';
 import {assertDefined} from '../util/assert';
 
 import {assertRComment} from './assert';
-import {readPatchedLView} from './context_discovery';
 import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer} from './interfaces/container';
 import {TNode, TNodeType} from './interfaces/node';
 import {RElement, RNode} from './interfaces/renderer_dom';
 import {isLContainer, isRootView} from './interfaces/type_checks';
-import {HEADER_OFFSET, LView, NghContainer, NghDom, NghView, TView, TVIEW} from './interfaces/view';
+import {HEADER_OFFSET, HOST, LView, NghContainer, NghDom, NghView, TView, TVIEW} from './interfaces/view';
 import {ɵɵresolveBody} from './util/misc_utils';
 import {getNativeByTNode, unwrapRNode} from './util/view_utils';
 
@@ -35,15 +36,10 @@ export function provideHydrationSupport() {
   // creating them.
   return [
     {
-      provide: ENVIRONMENT_INITIALIZER,
-      useValue: () => {
+      provide: APP_BOOTSTRAP_LISTENER,
+      useFactory: () => {
         const appRef = inject(ApplicationRef);
-        // FIXME: there is no need to use a timeout, we need to
-        // use a lifecycle hook to start the cleanup after an app
-        // becomes stable (similar to how this is handled at SSR time).
-        setTimeout(() => {
-          cleanupDehydratedViews(appRef);
-        }, 0);
+        return () => cleanupDehydratedViews(appRef);
       },
       multi: true,
     },
@@ -52,14 +48,6 @@ export function provideHydrationSupport() {
       useValue: true,
     }
   ];
-}
-
-export function getLViewFromRootElement(element: Element): LView|null {
-  let lView = readPatchedLView(element);
-  if (lView && isRootView(lView)) {
-    lView = lView[HEADER_OFFSET];
-  }
-  return lView;
 }
 
 function cleanupLContainer(lContainer: LContainer) {
@@ -79,26 +67,35 @@ function cleanupLView(lView: LView) {
   const tView = lView[TVIEW];
   for (let i = HEADER_OFFSET; i < tView.bindingStartIndex; i++) {
     if (isLContainer(lView[i])) {
-      // this is a container
       const lContainer = lView[i];
       cleanupLContainer(lContainer);
     }
   }
 }
 
+// TODO: avoid duplication with a similar fn in `platform-server`.
+function getComponentLView(viewRef: ViewRef) {
+  let lView = (viewRef as any)._lView;
+  if (isRootView(lView)) {
+    lView = lView[HEADER_OFFSET];
+  }
+  return lView;
+}
+
 function cleanupDehydratedViews(appRef: ApplicationRef) {
   // Wait once an app becomes stable and cleanup all views that
   // were not claimed during the application bootstrap process.
   return appRef.isStable.pipe(first((isStable: boolean) => isStable)).toPromise().then(() => {
-    appRef.components.forEach((componentRef) => {
-      const element = componentRef.location.nativeElement;
-      if (element) {
-        const lView = getLViewFromRootElement(element);
-        if (lView !== null) {
-          cleanupLView(lView);
-        }
+    const viewRefs = retrieveViewsFromApplicationRef(appRef);
+    for (const viewRef of viewRefs) {
+      const lView = getComponentLView(viewRef);
+      // TODO: make sure that this lView represents
+      // a component instance.
+      const hostElement = lView[HOST];
+      if (hostElement) {
+        cleanupLView(lView);
       }
-    });
+    }
   });
 }
 
