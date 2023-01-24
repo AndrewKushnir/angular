@@ -14,6 +14,7 @@ import {ComponentRef} from '../linker/component_factory';
 import {ComponentFactory} from './component_ref';
 import {getComponentDef} from './definition';
 import {assertComponentDef} from './errors';
+import {NghDom} from './interfaces/view';
 
 /**
  * Creates a `ComponentRef` instance based on provided component type and a set of options.
