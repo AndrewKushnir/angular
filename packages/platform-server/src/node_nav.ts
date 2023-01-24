@@ -1,6 +1,22 @@
+/**
+ * @license
+ * Copyright Google LLC All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+
 export enum NodeNavigationStep {
   FirstChild,
   NextSibling,
+}
+
+export class NoPathFoundError extends Error {}
+
+function describeNode(node: Node): string {
+  // TODO: if it's a text node - output `#text(CONTENT)`,
+  // if it's a comment node - output `#comment(CONTENT)`.
+  return (node as Element).tagName ?? node.nodeType;
 }
 
 /**
@@ -14,11 +30,11 @@ export function navigateBetween(start: Node, finish: Node): NodeNavigationStep[]
   if (start === finish) {
     return [];
   } else if (start.parentElement == null || finish.parentElement == null) {
-    // throw new Error(`Ran off the top of the document when navigating between nodes`);
-    console.log(
-        'Ran off the top of the document when navigating between nodes',
-        (start as any).tagName ?? start.nodeType, (finish as any).tagName ?? finish.nodeType);
-    return [];
+    const startNodeInfo = describeNode(start);
+    const finishNodeInfo = describeNode(finish);
+    throw new NoPathFoundError(
+        `Ran off the top of the document when navigating between nodes: ` +
+        `'${startNodeInfo}' and '${finishNodeInfo}'.`);
   } else if (start.parentElement === finish.parentElement) {
     return navigateBetweenSiblings(start, finish);
   } else {

@@ -637,6 +637,14 @@ function optionsReducer<T extends Object>(dst: any, objs: T|T[]): T {
 }
 
 /**
+ * Internal function to retrieve all views registered with a given instance
+ * of the `ApplicationRef`.
+ */
+export function retrieveViewsFromApplicationRef(appRef: ApplicationRef): ViewRef[] {
+  return appRef._views;
+}
+
+/**
  * A reference to an Angular application running on a page.
  *
  * @usageNotes
@@ -733,12 +741,13 @@ function optionsReducer<T extends Object>(dst: any, objs: T|T[]): T {
 export class ApplicationRef {
   /** @internal */
   private _bootstrapListeners: ((compRef: ComponentRef<any>) => void)[] = [];
-  private _views: InternalViewRef[] = [];
   private _runningTick: boolean = false;
   private _stable = true;
   private _onMicrotaskEmptySubscription: Subscription;
   private _destroyed = false;
   private _destroyListeners: Array<() => void> = [];
+  /** @internal */
+  _views: InternalViewRef[] = [];
 
   /**
    * Indicates whether this instance was destroyed.
