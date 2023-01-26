@@ -24,6 +24,13 @@ interface PlatformOptions {
 
 const NG_NON_HYDRATABLE = 'ngNonHydratable';
 
+/**
+ * Special marker that indicates that this node was dropped
+ * during content projection. We need to re-create this node
+ * from scratch during hydration.
+ */
+const DROPPED_PROJECTED_NODE = '-';
+
 function _getPlatform(
     platformFactory: (extraProviders: StaticProvider[]) => PlatformRef,
     options: PlatformOptions): PlatformRef {
@@ -78,6 +85,20 @@ export interface View extends LiveDom {
   numRootNodes: number;
 }
 
+/**
+ * Corresponds to the TNode.flags property.
+ * TODO: this is a copy from `core`, avoid copying this.
+ */
+export const enum TNodeFlags {
+  isDirectiveHost = 0x1,
+  isProjected = 0x2,
+  hasContentQuery = 0x4,
+  hasClassInput = 0x8,
+  hasStyleInput = 0x10,
+  isDetached = 0x20,
+  hasHostBindings = 0x40,
+}
+
 export function isLContainer(value: RNode|LView|LContainer|{}|null): value is LContainer {
   return Array.isArray(value) && value[TYPE] === true;
 }
@@ -116,7 +137,7 @@ function hasNgNonHydratableAttr(tNode: TNode): boolean {
   // TODO: we need to iterate over `tNode.mergedAttrs` better
   // to avoid cases when `ngNonHydratable` is an attribute value,
   // e.g. `<div title="ngNonHydratable"></div>`.
-  return !!tNode.mergedAttrs?.includes('ngNonHydratable');
+  return !!tNode.mergedAttrs?.includes(NG_NON_HYDRATABLE);
 }
 
 function isInNonHydratableBlock(tNode: TNode, lView: LView): boolean {
@@ -187,7 +208,7 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
       // this is a component
       // Check to see if it has ngNonHydratable
       targetNode = unwrapRNode(lView[i][HOST]!) as Element;
-      if (!(targetNode as HTMLElement).hasAttribute('ngNonHydratable')) {
+      if (!(targetNode as HTMLElement).hasAttribute(NG_NON_HYDRATABLE)) {
         annotateForHydration(targetNode as Element, lView[i]);
       }
     } else if (isTI18nNode(tNode)) {
@@ -248,10 +269,16 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
           }
         }
       } else {
-        // Check if projection next is not the same as next, in which case
-        // the node would not be found at creation time at runtime and we
-        // need to provide a location to that node.
-        if (tNode.projectionNext && tNode.projectionNext !== tNode.next) {
+        if (isDroppedProjectedNode(tNode)) {
+          // This is a case where a node used in content projection
+          // doesn't make it into one of the content projection slots
+          // (for example, when there is no default <ng-content /> slot
+          // in projector component's template).
+          ngh.nodes[adjustedIndex] = DROPPED_PROJECTED_NODE;
+        } else if (tNode.projectionNext && tNode.projectionNext !== tNode.next) {
+          // Check if projection next is not the same as next, in which case
+          // the node would not be found at creation time at runtime and we
+          // need to provide a location to that node.
           const nextProjectedTNode = tNode.projectionNext;
           const index = nextProjectedTNode.index - HEADER_OFFSET;
           if (!isInNonHydratableBlock(nextProjectedTNode, lView)) {
@@ -263,6 +290,39 @@ function serializeLView(lView: LView, hostNode: Element): LiveDom {
     }
   }
   return ngh;
+}
+
+function isComponentHost(tNode: TNode): boolean {
+  return tNode.componentOffset > -1;
+}
+
+function isRootLevelProjectionNode(tNode: TNode): boolean {
+  return (tNode.flags & TNodeFlags.isProjected) === TNodeFlags.isProjected;
+}
+
+/**
+ * Detect a case where a node used in content projection,
+ * but doesn't make it into one of the content projection slots
+ * (for example, when there is no default <ng-content /> slot
+ * in projector component's template).
+ */
+function isDroppedProjectedNode(tNode: TNode): boolean {
+  let currentTNode = tNode;
+  let seenComponentHost = false;
+  while (currentTNode !== null) {
+    if (isComponentHost(currentTNode)) {
+      seenComponentHost = true;
+      break;
+    }
+    // If we come across a root projected node, return true.
+    if (isRootLevelProjectionNode(currentTNode)) {
+      return false;
+    }
+    currentTNode = currentTNode.parent as TNode;
+  }
+  // If we've seen a component host, but there was no root level
+  // projection node, this indicates that this not was not projected.
+  return seenComponentHost;
 }
 
 function calcPathBetween(from: Node, to: Node, parent: string): string[] {
@@ -323,7 +383,7 @@ function calcPathForNode(
 
     if (path.length === 0) {
       // If path is still empty, it's likely that this node is detached and
-      // won't be find during hydration.
+      // won't be found during hydration.
       // TODO: add a better error message, potentially suggesting `ngNonHydratable`.
       throw new Error('Unable to locate element on a page.');
     }

@@ -272,3 +272,18 @@ export function locateDehydratedViewsInContainer(
 
   return [currentRNode, dehydratedViews];
 }
+
+/**
+ * Special marker that indicates that this node was dropped
+ * during content projection. We need to re-create this node
+ * from scratch during hydration.
+ */
+const DROPPED_PROJECTED_NODE = '-';
+
+/**
+ * Checks whether a node is annotated as "disconnected", i.e. not present
+ * in live DOM at serialization time.
+ */
+export function isNodeDisconnected(hydrationInfo: NghDom, index: number): boolean {
+  return hydrationInfo.nodes[index] === DROPPED_PROJECTED_NODE;
+}
