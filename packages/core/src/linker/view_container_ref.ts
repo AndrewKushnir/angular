@@ -314,7 +314,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     const viewRef =
         templateRef.createEmbeddedViewWithHydration(context || <any>{}, injector, hydrationInfo);
 
-    this.insert(viewRef, index);
+    this.insertInternal(viewRef, index, !!hydrationInfo);
     return viewRef;
   }
 
@@ -449,12 +449,15 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
 
     const componentRef = componentFactory.createWithHydration(
         contextInjector, projectableNodes, rNode, environmentInjector, hydrationDomInfo);
-
-    this.insert(componentRef.hostView, index);
+    this.insertInternal(componentRef.hostView, index, !!hydrationDomInfo);
     return componentRef;
   }
 
   override insert(viewRef: ViewRef, index?: number): ViewRef {
+    return this.insertInternal(viewRef, index, false);
+  }
+
+  private insertInternal(viewRef: ViewRef, index?: number, preventDOMInsertion?: boolean): ViewRef {
     const lView = (viewRef as R3ViewRef<any>)._lView!;
     const tView = lView[TVIEW];
 
@@ -496,21 +499,14 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     insertView(tView, lView, lContainer, adjustedIdx);
 
     // Physical operation of adding the DOM nodes.
-    //
-    // If an LView has hydration info, avoid inserting elements
-    // elements into the DOM as they are already attached.
-    //
-    // TODO: should we reset the `HYDRATION_INFO` afterwards?
-    //       Without that there might be a problem later on when
-    //       we'd try to insert/move the view again?
-    // if (!lView[HYDRATION_INFO]) {
-    const beforeNode = getBeforeNodeForView(adjustedIdx, lContainer);
-    const renderer = lView[RENDERER];
-    const parentRNode = nativeParentNode(renderer, lContainer[NATIVE] as RElement | RComment);
-    if (parentRNode !== null) {
-      addViewToContainer(tView, lContainer[T_HOST], renderer, lView, parentRNode, beforeNode);
+    if (!preventDOMInsertion) {
+      const beforeNode = getBeforeNodeForView(adjustedIdx, lContainer);
+      const renderer = lView[RENDERER];
+      const parentRNode = nativeParentNode(renderer, lContainer[NATIVE] as RElement | RComment);
+      if (parentRNode !== null) {
+        addViewToContainer(tView, lContainer[T_HOST], renderer, lView, parentRNode, beforeNode);
+      }
     }
-    // }
 
     (viewRef as R3ViewRef<any>).attachToViewContainerRef();
     addToArray(getOrCreateViewRefs(lContainer), adjustedIdx, viewRef);
