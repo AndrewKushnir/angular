@@ -479,6 +479,58 @@ fdescribe('platform-server integration', () => {
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
 
+      it('should support partial projection (when some nodes are not projected)', async () => {
+        @Component({
+          standalone: true,
+          selector: 'projector-cmp',
+          template: `
+            <div>
+              Header slot: <ng-content select="header"></ng-content>
+              Main slot: <ng-content select="main"></ng-content>
+              Footer slot: <ng-content select="footer"></ng-content>
+              <!-- no "default" projection bucket -->
+            </div>
+          `,
+        })
+        class ProjectorCmp {
+        }
+
+        @Component({
+          standalone: true,
+          imports: [ProjectorCmp],
+          selector: 'app',
+          template: `
+            <projector-cmp>
+              <!-- contents is intentionally randomly ordered -->
+              <h1>This node is not projected.</h1>
+              <footer>Footer</footer>
+              <header>Header</header>
+              <main>Main</main>
+              <h2>This node is not projected as well.</h2>
+            </projector-cmp>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent, ProjectorCmp);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+
       it('should project contents with *ngIf\'s', async () => {
         @Component({
           standalone: true,

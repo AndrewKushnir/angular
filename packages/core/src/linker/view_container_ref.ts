@@ -13,14 +13,14 @@ import {assertNodeInjector, assertRComment} from '../render3/assert';
 import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
 import {getComponentDef} from '../render3/definition';
 import {getParentInjectorLocation, NodeInjector} from '../render3/di';
-import {findExistingNode, locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../render3/hydration';
+import {isNodeDisconnected, locateDehydratedViewsInContainer, markRNodeAsClaimedForHydration, siblingAfter} from '../render3/hydration';
 import {addToViewTree, createLContainer, navigateParentTNodes} from '../render3/instructions/shared';
 import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer, NATIVE, VIEW_REFS} from '../render3/interfaces/container';
 import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
 import {RComment, RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
-import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, HOST, HYDRATION_INFO, LView, NghContainer, NghDom, NghView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
+import {HEADER_OFFSET, HYDRATION_INFO, LView, NghContainer, NghDom, NghView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
 import {addViewToContainer, destroyLView, detachView, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
@@ -607,7 +607,8 @@ export function createContainerRef(
   let nghContainer: NghContainer;
   let dehydratedViews: NghView[] = [];
   const ngh = hostLView[HYDRATION_INFO];
-  const isCreating = !ngh || isInNonHydratableBlock(hostTNode, hostLView);
+  const isCreating = !ngh || isInNonHydratableBlock(hostTNode, hostLView) ||
+      isNodeDisconnected(ngh, hostTNode.index - HEADER_OFFSET);
   if (!isCreating) {
     const index = hostTNode.index - HEADER_OFFSET;
     nghContainer = ngh.containers[index];

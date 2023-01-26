@@ -10,7 +10,7 @@ import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert'
 import {assertFirstCreatePass, assertHasParent, assertRElement} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
-import {locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
+import {isNodeDisconnected, locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
 import {hasClassInput, hasStyleInput, TAttributes, TElementNode, TNodeFlags, TNodeType} from '../interfaces/node';
 import {RElement} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
@@ -99,7 +99,7 @@ export function ɵɵelementStart(
       tView.data[adjustedIndex] as TElementNode;
 
   let native: RElement;
-  const isCreating = !ngh || isInNonHydratableBlock();
+  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
   if (isCreating) {
     native = createElementNode(renderer, name, getNamespace());
   } else {
