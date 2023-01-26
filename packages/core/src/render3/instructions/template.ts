@@ -9,7 +9,7 @@ import {assertDefined} from '../../util/assert';
 import {assertFirstCreatePass, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
-import {locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
+import {isNodeDisconnected, locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
 import {DEHYDRATED_VIEWS} from '../interfaces/container';
 import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNodeType} from '../interfaces/node';
@@ -90,7 +90,7 @@ export function ɵɵtemplate(
   let comment: RComment;
   let dehydratedViews: NghView[] = [];
   const ngh = lView[HYDRATION_INFO];
-  const isCreating = !ngh || isInNonHydratableBlock();
+  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
   if (isCreating) {
     comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
   } else {

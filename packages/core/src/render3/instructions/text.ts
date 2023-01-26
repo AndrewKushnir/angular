@@ -7,7 +7,7 @@
  */
 import {assertEqual, assertIndexInRange} from '../../util/assert';
 import {assertRText} from '../assert';
-import {locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
+import {isNodeDisconnected, locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
 import {TElementNode, TNodeType} from '../interfaces/node';
 import {RText} from '../interfaces/renderer_dom';
 import {HEADER_OFFSET, HYDRATION_INFO, RENDERER} from '../interfaces/view';
@@ -46,7 +46,7 @@ export function ɵɵtext(index: number, value: string = ''): void {
 
   let textNative: RText;
   const ngh = lView[HYDRATION_INFO];
-  const isCreating = !ngh || isInNonHydratableBlock();
+  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
   if (isCreating) {
     textNative = createTextNode(lView[RENDERER], value);
   } else {
