@@ -503,14 +503,14 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     // TODO: should we reset the `HYDRATION_INFO` afterwards?
     //       Without that there might be a problem later on when
     //       we'd try to insert/move the view again?
-    if (!lView[HYDRATION_INFO]) {
-      const beforeNode = getBeforeNodeForView(adjustedIdx, lContainer);
-      const renderer = lView[RENDERER];
-      const parentRNode = nativeParentNode(renderer, lContainer[NATIVE] as RElement | RComment);
-      if (parentRNode !== null) {
-        addViewToContainer(tView, lContainer[T_HOST], renderer, lView, parentRNode, beforeNode);
-      }
+    // if (!lView[HYDRATION_INFO]) {
+    const beforeNode = getBeforeNodeForView(adjustedIdx, lContainer);
+    const renderer = lView[RENDERER];
+    const parentRNode = nativeParentNode(renderer, lContainer[NATIVE] as RElement | RComment);
+    if (parentRNode !== null) {
+      addViewToContainer(tView, lContainer[T_HOST], renderer, lView, parentRNode, beforeNode);
     }
+    // }
 
     (viewRef as R3ViewRef<any>).attachToViewContainerRef();
     addToArray(getOrCreateViewRefs(lContainer), adjustedIdx, viewRef);
