@@ -415,22 +415,29 @@ function serializeLContainer(lContainer: LContainer, hostNode: Element, anchor: 
     const childTView = childLView[TVIEW];
 
     let template;
+    let numRootNodes = 0;
     if (childTView.type === TViewType.Component) {
       const ctx = childLView[CONTEXT];
       // TODO: this is a hack (we capture a component host element name),
       // we need a more stable solution here, for ex. a way to generate
       // a component id.
       template = (ctx!.constructor as any)['ɵcmp'].selectors[0][0];
+
+      // This is a component view, which has only 1 root node: the component
+      // host node itself (other nodes would be inside that host node).
+      numRootNodes = 1;
     } else {
-      template = getTViewSsrId(childTView);
+      template = getTViewSsrId(childTView);  // from which template did this lView originate?
+
+      // Collect root nodes within this view.
+      const rootNodes: any[] = [];
+      collectNativeNodes(childTView, childLView, childTView.firstChild, rootNodes);
+      numRootNodes = rootNodes.length;
     }
 
-    const rootNodes: any[] = [];
-    collectNativeNodes(childTView, childLView, childTView.firstChild, rootNodes);
-
     container.views.push({
-      template,  // from which template did this lView originate?
-      numRootNodes: rootNodes.length,
+      template,
+      numRootNodes,
       ...serializeLView(lContainer[i] as LView, hostNode),
     });
   }
