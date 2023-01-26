@@ -9,7 +9,7 @@ import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert'
 import {assertHasParent, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
-import {locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
+import {isNodeDisconnected, locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
 import {TAttributes, TElementContainerNode, TNodeType} from '../interfaces/node';
 import {RComment, RElement} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
@@ -85,7 +85,7 @@ export function ɵɵelementContainerStart(
 
   let native: RComment;
   const ngh = lView[HYDRATION_INFO];
-  const isCreating = !ngh || isInNonHydratableBlock();
+  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
   if (isCreating) {
     ngDevMode && ngDevMode.rendererCreateComment++;
     native = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
