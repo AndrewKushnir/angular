@@ -374,6 +374,7 @@ function createRootComponentView(
     componentView[HYDRATION_INFO] = ngh;
     hostRNode.removeAttribute('ngh');
     ngDevMode && markRNodeAsClaimedForHydration(rNode!);
+    ngDevMode && ngDevMode.hydratedComponents++;
   }
 
   if (tView.firstCreatePass) {
