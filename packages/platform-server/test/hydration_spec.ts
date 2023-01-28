@@ -974,14 +974,17 @@ fdescribe('platform-server integration', () => {
 
     // TODO: also add a test where `ViewContainerRef.createComponent`
     // is used inside a component that is created dynamically.
+    // TODO: add a test where `ViewContainerRef.createComponent` and
+    // `ViewContainerRef.createEmbeddedView` are called *after*
+    // hydration cleanup
     describe('ViewContainerRef.createComponent', () => {
       it('should work with ViewContainerRef.createComponent', async () => {
         @Component({
           standalone: true,
           selector: 'dynamic',
           template: `
-          <span>This is a content of a dynamic component.</span>
-        `,
+            <span>This is a content of a dynamic component.</span>
+          `,
         })
         class DynamicComponent {
         }
@@ -991,9 +994,9 @@ fdescribe('platform-server integration', () => {
           selector: 'app',
           imports: [NgIf, NgFor],
           template: `
-          <div #target></div>
-          <main>Hi! This is the main content.</main>
-        `,
+            <div #target></div>
+            <main>Hi! This is the main content.</main>
+          `,
         })
         class SimpleComponent {
           @ViewChild('target', {read: ViewContainerRef}) vcr!: ViewContainerRef;

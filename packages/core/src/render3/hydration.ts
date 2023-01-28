@@ -51,11 +51,22 @@ export function provideHydrationSupport() {
 }
 
 function cleanupLContainer(lContainer: LContainer) {
-  // TODO: we may consider doing it an error instead?
+  // TODO: should we consider logging a warning here for cases
+  // where there is something to cleanup, i.e. there was a delta
+  // between a server and a client?
   if (lContainer[DEHYDRATED_VIEWS]) {
+    const retainedViews = [];
     for (const view of lContainer[DEHYDRATED_VIEWS]) {
-      removeDehydratedView(view);
+      // FIXME: this is a temporary check to keep "lazy" components
+      // from being removed. This code is **only** needed for testing
+      // purposes and must be removed.
+      if (view.firstChild && !view.firstChild.hasAttribute('lazy')) {
+        removeDehydratedView(view);
+      } else {
+        retainedViews.push(view);
+      }
     }
+    lContainer[DEHYDRATED_VIEWS] = retainedViews.length > 0 ? retainedViews : null;
   }
   for (let i = CONTAINER_HEADER_OFFSET; i < lContainer.length; i++) {
     const childView = lContainer[i] as LView;
@@ -129,6 +140,7 @@ export function markRNodeAsClaimedForHydration(node: RNode) {
     throw new Error('Trying to claim a node, which was claimed already.');
   }
   (node as ClaimedNode).__claimed = true;
+  ngDevMode.hydratedNodes++;
 }
 
 export function isRNodeClaimedForHydration(node: RNode): boolean {
