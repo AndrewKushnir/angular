@@ -444,6 +444,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
         hydrationDomInfo.firstChild = rNode.firstChild as HTMLElement;
         (rNode as HTMLElement).removeAttribute('ngh');
         ngDevMode && markRNodeAsClaimedForHydration(rNode!);
+        ngDevMode && ngDevMode.hydratedComponents++;
       }
     }
 

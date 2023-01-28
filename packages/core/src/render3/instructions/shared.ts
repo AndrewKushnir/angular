@@ -1678,7 +1678,6 @@ function renderComponent(hostLView: LView, componentHostIdx: number) {
   const componentTView = componentView[TVIEW];
   syncViewWithBlueprint(componentTView, componentView);
 
-  // TODO: populate componentView with ngh data from component element.
   const hostRNode = componentView[HOST] as unknown as HTMLElement;
   if (hostRNode !== null) {
     const rawNgh = hostRNode.getAttribute('ngh');
@@ -1687,6 +1686,7 @@ function renderComponent(hostLView: LView, componentHostIdx: number) {
       ngh.firstChild = hostRNode.firstChild as HTMLElement;
       hostRNode.removeAttribute('ngh');
       componentView[HYDRATION_INFO] = ngh;
+      ngDevMode && ngDevMode.hydratedComponents++;
     }
   }
 
