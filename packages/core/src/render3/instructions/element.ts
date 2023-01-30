@@ -6,18 +6,20 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {hasNgNonHydratableAttr} from '../../hydration/non_hydratable';
 import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert';
 import {assertFirstCreatePass, assertHasParent, assertRElement} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {isNodeDisconnected, locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
-import {hasClassInput, hasStyleInput, TAttributes, TElementNode, TNodeFlags, TNodeType} from '../interfaces/node';
+import {hasClassInput, hasStyleInput, TAttributes, TElementNode, TNode, TNodeFlags, TNodeType} from '../interfaces/node';
+import {Renderer} from '../interfaces/renderer';
 import {RElement} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
 import {appendChild, createElementNode, setupStaticAttributes} from '../node_manipulation';
-import {decreaseElementDepthCount, enterNonHydrableBlock, getBindingIndex, getCurrentTNode, getElementDepthCount, getLView, getNamespace, getTView, increaseElementDepthCount, isCurrentTNodeParent, isInNonHydratableBlock, isNonHydratableRootTNode, leaveNonHydratableBlock, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
+import {decreaseElementDepthCount, enterNonHydratableBlock, getBindingIndex, getCurrentTNode, getElementDepthCount, getLView, getNamespace, getTView, increaseElementDepthCount, isCurrentTNodeParent, isInNonHydratableBlock, isNonHydratableRootTNode, leaveNonHydratableBlock, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {computeStaticStyling} from '../styling/static_styling';
 import {getConstant} from '../util/view_utils';
 
@@ -88,8 +90,6 @@ export function ɵɵelementStart(
   ngDevMode && assertIndexInRange(lView, adjustedIndex);
 
   const renderer = lView[RENDERER];
-  const ngh = lView[HYDRATION_INFO];
-
   const previousTNode = getCurrentTNode();
   const previousTNodeParent = isCurrentTNodeParent();
 
@@ -98,35 +98,14 @@ export function ɵɵelementStart(
           adjustedIndex, tView, lView, /* native */ null, name, attrsIndex, localRefsIndex) :
       tView.data[adjustedIndex] as TElementNode;
 
-  let native: RElement;
-  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
-  if (isCreating) {
-    native = createElementNode(renderer, name, getNamespace());
-  } else {
-    // hydrating
-    native =
-        locateNextRNode<RElement>(ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
-    ngDevMode &&
-        assertRElement(
-            native, name,
-            `Expecting an element node with ${name} tag name in the elementStart instruction`);
-    ngDevMode && markRNodeAsClaimedForHydration(native);
-  }
-  lView[adjustedIndex] = native;
-  if (ngh && (native as HTMLElement).hasAttribute('ngNonHydratable')) {
-    enterNonHydrableBlock(tNode);
-
-    // Since this isn't hydratable, we need to empty the node
-    // so there's no duplicate content after render
-    while ((native as HTMLElement).firstChild) {
-      native.removeChild((native as HTMLElement).firstChild!);
-    }
-  }
+  const isNewlyCreatedNode = _locateOrCreateElementNode(
+      tView, lView, tNode, renderer, adjustedIndex, name, previousTNode!, previousTNodeParent);
+  const native: RElement = lView[adjustedIndex];
 
   setCurrentTNode(tNode, true);
   setupStaticAttributes(renderer, native, tNode);
 
-  if ((tNode.flags & TNodeFlags.isDetached) !== TNodeFlags.isDetached && isCreating) {
+  if ((tNode.flags & TNodeFlags.isDetached) !== TNodeFlags.isDetached && isNewlyCreatedNode) {
     // In the i18n case, the translation may have removed this element, so only add it if it is not
     // detached. See `TNodeType.Placeholder` and `LFrame.inI18n` for more context.
     appendChild(tView, lView, native, tNode);
@@ -212,4 +191,49 @@ export function ɵɵelement(
   ɵɵelementStart(index, name, attrsIndex, localRefsIndex);
   ɵɵelementEnd();
   return ɵɵelement;
+}
+
+let _locateOrCreateElementNode: typeof locateOrCreateElementNodeImpl =
+    (tView: TView, lView: LView, tNode: TNode, renderer: Renderer, adjustedIndex: number,
+     name: string, previousTNode: TNode, previousTNodeParent: boolean) => {
+      const native = createElementNode(renderer, name, getNamespace());
+      lView[adjustedIndex] = native;
+      return true;
+    }
+
+function locateOrCreateElementNodeImpl(
+    tView: TView, lView: LView, tNode: TNode, renderer: Renderer, adjustedIndex: number,
+    name: string, previousTNode: TNode, previousTNodeParent: boolean):
+    boolean {
+      const ngh = lView[HYDRATION_INFO];
+      const index = adjustedIndex - HEADER_OFFSET;
+      const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
+      let native: RElement;
+      if (isCreating) {
+        native = createElementNode(renderer, name, getNamespace());
+      } else {
+        // hydrating
+        native = locateNextRNode<RElement>(
+            ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
+        ngDevMode &&
+            assertRElement(
+                native, name,
+                `Expecting an element node with ${name} tag name in the elementStart instruction`);
+        ngDevMode && markRNodeAsClaimedForHydration(native);
+      }
+      lView[adjustedIndex] = native;
+      if (ngh && hasNgNonHydratableAttr(tNode)) {
+        enterNonHydratableBlock(tNode);
+
+        // Since this isn't hydratable, we need to empty the node
+        // so there's no duplicate content after render
+        while ((native as HTMLElement).firstChild) {
+          native.removeChild((native as HTMLElement).firstChild!);
+        }
+      }
+      return isCreating;
+    }
+
+export function enableLocateOrCreateElementNodeImpl() {
+  _locateOrCreateElementNode = locateOrCreateElementNodeImpl;
 }
