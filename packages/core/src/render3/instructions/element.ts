@@ -98,9 +98,9 @@ export function ɵɵelementStart(
           adjustedIndex, tView, lView, /* native */ null, name, attrsIndex, localRefsIndex) :
       tView.data[adjustedIndex] as TElementNode;
 
-  const isNewlyCreatedNode = _locateOrCreateElementNode(
+  const [isNewlyCreatedNode, native] = _locateOrCreateElementNode(
       tView, lView, tNode, renderer, adjustedIndex, name, previousTNode!, previousTNodeParent);
-  const native: RElement = lView[adjustedIndex];
+  lView[adjustedIndex] = native;
 
   setCurrentTNode(tNode, true);
   setupStaticAttributes(renderer, native, tNode);
@@ -196,43 +196,39 @@ export function ɵɵelement(
 let _locateOrCreateElementNode: typeof locateOrCreateElementNodeImpl =
     (tView: TView, lView: LView, tNode: TNode, renderer: Renderer, adjustedIndex: number,
      name: string, previousTNode: TNode, previousTNodeParent: boolean) => {
-      const native = createElementNode(renderer, name, getNamespace());
-      lView[adjustedIndex] = native;
-      return true;
+      return [true, createElementNode(renderer, name, getNamespace())];
     }
 
 function locateOrCreateElementNodeImpl(
     tView: TView, lView: LView, tNode: TNode, renderer: Renderer, adjustedIndex: number,
-    name: string, previousTNode: TNode, previousTNodeParent: boolean):
-    boolean {
-      const ngh = lView[HYDRATION_INFO];
-      const index = adjustedIndex - HEADER_OFFSET;
-      const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
-      let native: RElement;
-      if (isCreating) {
-        native = createElementNode(renderer, name, getNamespace());
-      } else {
-        // hydrating
-        native = locateNextRNode<RElement>(
-            ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
-        ngDevMode &&
-            assertRElement(
-                native, name,
-                `Expecting an element node with ${name} tag name in the elementStart instruction`);
-        ngDevMode && markRNodeAsClaimedForHydration(native);
-      }
-      lView[adjustedIndex] = native;
-      if (ngh && hasNgNonHydratableAttr(tNode)) {
-        enterNonHydratableBlock(tNode);
+    name: string, previousTNode: TNode, previousTNodeParent: boolean): [boolean, RElement] {
+  const ngh = lView[HYDRATION_INFO];
+  const index = adjustedIndex - HEADER_OFFSET;
+  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
+  let native: RElement;
+  if (isCreating) {
+    native = createElementNode(renderer, name, getNamespace());
+  } else {
+    // hydrating
+    native =
+        locateNextRNode<RElement>(ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
+    ngDevMode &&
+        assertRElement(
+            native, name,
+            `Expecting an element node with ${name} tag name in the elementStart instruction`);
+    ngDevMode && markRNodeAsClaimedForHydration(native);
+  }
+  if (ngh && hasNgNonHydratableAttr(tNode)) {
+    enterNonHydratableBlock(tNode);
 
-        // Since this isn't hydratable, we need to empty the node
-        // so there's no duplicate content after render
-        while ((native as HTMLElement).firstChild) {
-          native.removeChild((native as HTMLElement).firstChild!);
-        }
-      }
-      return isCreating;
+    // Since this isn't hydratable, we need to empty the node
+    // so there's no duplicate content after render
+    while ((native as HTMLElement).firstChild) {
+      native.removeChild((native as HTMLElement).firstChild!);
     }
+  }
+  return [isCreating, native];
+}
 
 export function enableLocateOrCreateElementNodeImpl() {
   _locateOrCreateElementNode = locateOrCreateElementNodeImpl;

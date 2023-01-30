@@ -8,9 +8,9 @@
 import {assertEqual, assertIndexInRange} from '../../util/assert';
 import {assertRText} from '../assert';
 import {isNodeDisconnected, locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
-import {TElementNode, TNodeType} from '../interfaces/node';
+import {TElementNode, TNode, TNodeType} from '../interfaces/node';
 import {RText} from '../interfaces/renderer_dom';
-import {HEADER_OFFSET, HYDRATION_INFO, RENDERER} from '../interfaces/view';
+import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
 import {appendChild, createTextNode} from '../node_manipulation';
 import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInNonHydratableBlock, setCurrentTNode} from '../state';
 
@@ -44,9 +44,29 @@ export function ɵɵtext(index: number, value: string = ''): void {
       getOrCreateTNode(tView, adjustedIndex, TNodeType.Text, value, null) :
       tView.data[adjustedIndex] as TElementNode;
 
-  let textNative: RText;
+  const [isNewlyCreatedNode, textNative] = _locateOrCreateTextNode(
+      tView, lView, tNode, adjustedIndex, value, previousTNode!, previousTNodeParent);
+
+  lView[adjustedIndex] = textNative;
+  isNewlyCreatedNode && appendChild(tView, lView, textNative, tNode);
+
+  // Text nodes are self closing.
+  setCurrentTNode(tNode, false);
+}
+
+let _locateOrCreateTextNode: typeof locateOrCreateTextNodeImpl =
+    (tView: TView, lView: LView, tNode: TNode, adjustedIndex: number, value: string,
+     previousTNode: TNode, previousTNodeParent: boolean) => {
+      return [true, createTextNode(lView[RENDERER], value)];
+    }
+
+function locateOrCreateTextNodeImpl(
+    tView: TView, lView: LView, tNode: TNode, adjustedIndex: number, value: string,
+    previousTNode: TNode, previousTNodeParent: boolean): [boolean, RText] {
   const ngh = lView[HYDRATION_INFO];
+  const index = adjustedIndex - HEADER_OFFSET;
   const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
+  let textNative: RText;
   if (isCreating) {
     textNative = createTextNode(lView[RENDERER], value);
   } else {
@@ -59,10 +79,9 @@ export function ɵɵtext(index: number, value: string = ''): void {
             `Expecting a text node (with the '${value}' value) in the text instruction`);
     ngDevMode && markRNodeAsClaimedForHydration(textNative);
   }
+  return [isCreating, textNative];
+}
 
-  lView[adjustedIndex] = textNative;
-  isCreating && appendChild(tView, lView, textNative, tNode);
-
-  // Text nodes are self closing.
-  setCurrentTNode(tNode, false);
+export function enableLocateOrCreateTextNodeImpl() {
+  _locateOrCreateTextNode = locateOrCreateTextNodeImpl;
 }
