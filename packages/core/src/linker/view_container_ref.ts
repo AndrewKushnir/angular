@@ -8,6 +8,7 @@
 
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
+import {retrieveNghInfo} from '../hydration/utils';
 import {isType, Type} from '../interface/type';
 import {assertNodeInjector, assertRComment} from '../render3/assert';
 import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
@@ -438,14 +439,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       rNode = dehydratedView.firstChild;
 
       // Read hydration info and pass it over to the component view.
-      const ngh = (rNode as HTMLElement).getAttribute('ngh');
-      if (ngh) {
-        hydrationDomInfo = JSON.parse(ngh) as NghDom;
-        hydrationDomInfo.firstChild = rNode.firstChild as HTMLElement;
-        (rNode as HTMLElement).removeAttribute('ngh');
-        ngDevMode && markRNodeAsClaimedForHydration(rNode!);
-        ngDevMode && ngDevMode.hydratedComponents++;
-      }
+      hydrationDomInfo = retrieveNghInfo(rNode);
     }
 
     const componentRef = componentFactory.createWithHydration(
