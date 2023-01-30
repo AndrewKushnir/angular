@@ -8,6 +8,7 @@
 
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
+import {isInNonHydratableBlock} from '../hydration/non_hydratable';
 import {retrieveNghInfo} from '../hydration/utils';
 import {findMatchingDehydratedView} from '../hydration/views';
 import {isType, Type} from '../interface/type';
@@ -16,7 +17,7 @@ import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
 import {getComponentDef} from '../render3/definition';
 import {getParentInjectorLocation, NodeInjector} from '../render3/di';
 import {isNodeDisconnected, locateDehydratedViewsInContainer, markRNodeAsClaimedForHydration, siblingAfter} from '../render3/hydration';
-import {addToViewTree, createLContainer, navigateParentTNodes} from '../render3/instructions/shared';
+import {addToViewTree, createLContainer} from '../render3/instructions/shared';
 import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer, NATIVE, VIEW_REFS} from '../render3/interfaces/container';
 import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
@@ -560,19 +561,6 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     return index;
   }
 };
-
-function hasNgNonHydratableAttr(tNode: TNode): boolean {
-  // TODO: we need to iterate over `tNode.mergedAttrs` better
-  // to avoid cases when `ngNonHydratable` is an attribute value,
-  // e.g. `<div title="ngNonHydratable"></div>`.
-  return !!tNode.mergedAttrs?.includes('ngNonHydratable');
-}
-
-function isInNonHydratableBlock(tNode: TNode, lView: LView): boolean {
-  const foundTNode = navigateParentTNodes(tNode as TNode, lView, hasNgNonHydratableAttr);
-  // in a block when we have a TNode and it's different than the root node
-  return foundTNode !== null && foundTNode !== tNode;
-}
 
 function getViewRefs(lContainer: LContainer): ViewRef[]|null {
   return lContainer[VIEW_REFS] as ViewRef[];

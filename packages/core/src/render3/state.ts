@@ -251,7 +251,7 @@ export function ɵɵenableBindings(): void {
 }
 
 // TODO: Add Comments
-export function enterNonHydrableBlock(tNode: TNode): void {
+export function enterNonHydratableBlock(tNode: TNode): void {
   instructionState.nonHydratableRootTNode = tNode;
 }
 
