@@ -10,6 +10,7 @@ import {ApplicationRef, retrieveViewsFromApplicationRef} from '../application_re
 import {collectNativeNodes} from '../render3/collect_native_nodes';
 import {CONTAINER_HEADER_OFFSET, LContainer} from '../render3/interfaces/container';
 import {TContainerNode, TNode, TNodeFlags, TNodeType} from '../render3/interfaces/node';
+import {RNode, RText} from '../render3/interfaces/renderer_dom';
 import {isComponentHost, isLContainer, isProjectionTNode, isRootView} from '../render3/interfaces/type_checks';
 import {CONTEXT, HEADER_OFFSET, HOST, LView, TView, TVIEW, TViewType} from '../render3/interfaces/view';
 import {getFirstNativeNode} from '../render3/node_manipulation';
@@ -19,7 +20,7 @@ import {compressNghInfo} from './compression';
 import {NghContainer, NghDom} from './interfaces';
 import {calcPathBetween} from './node_lookup_utils';
 import {isInNonHydratableBlock, NON_HYDRATABLE_ATTR_NAME} from './non_hydratable';
-import {getComponentLView, NGH_ATTR_NAME} from './utils';
+import {EMPTY_TEXT_NODE_COMMENT, getComponentLView, NGH_ATTR_NAME, TEXT_NODE_SEPARATOR_COMMENT} from './utils';
 
 /**
  * Registry that keeps track of unique TView ids throughout
@@ -45,8 +46,9 @@ class TViewSsrIdRegistry {
  *
  * @param appRef A current instance of an ApplicationRef.
  */
-export function annotateForHydration(appRef: ApplicationRef) {
+export function annotateForHydration(appRef: ApplicationRef, document: Document) {
   const ssrIdRegistry = new TViewSsrIdRegistry();
+  const domNodes = new Map<string, HTMLElement>();
   const viewRefs = retrieveViewsFromApplicationRef(appRef);
   for (const viewRef of viewRefs) {
     const lView = getComponentLView(viewRef);
@@ -54,7 +56,8 @@ export function annotateForHydration(appRef: ApplicationRef) {
     // a component instance.
     const hostElement = lView[HOST];
     if (hostElement) {
-      annotateHostElementForHydration(hostElement, lView, ssrIdRegistry);
+      annotateHostElementForHydration(hostElement, lView, {ssrIdRegistry, domNodes});
+      addTextNodeCommentNodes(domNodes, document);
     }
   }
 }
@@ -64,7 +67,9 @@ function isTI18nNode(obj: any): boolean {
   return obj.hasOwnProperty('create') && obj.hasOwnProperty('update');
 }
 
-function serializeLView(lView: LView, ssrIdRegistry: TViewSsrIdRegistry): NghDom {
+function serializeLView(
+    lView: LView,
+    metaData: {ssrIdRegistry: TViewSsrIdRegistry, domNodes: Map<string, HTMLElement>}): NghDom {
   const ngh: NghDom = {
     containers: {},
     templates: {},
@@ -103,7 +108,7 @@ function serializeLView(lView: LView, ssrIdRegistry: TViewSsrIdRegistry): NghDom
         if (Array.isArray(embeddedTView)) {
           throw new Error(`Expecting tNode.tViews to be an object, but it's an array.`);
         }
-        ngh.templates![i - HEADER_OFFSET] = ssrIdRegistry.get(embeddedTView);
+        ngh.templates![i - HEADER_OFFSET] = metaData.ssrIdRegistry.get(embeddedTView);
       }
       const hostNode = lView[i][HOST]!;
       // LView[i][HOST] can be 2 different types:
@@ -116,13 +121,10 @@ function serializeLView(lView: LView, ssrIdRegistry: TViewSsrIdRegistry): NghDom
         // TODO: should we check `NON_HYDRATABLE_ATTR_NAME` in tNode.mergedAttrs?
         targetNode = unwrapRNode(hostNode as LView) as Element;
         if (!(targetNode as HTMLElement).hasAttribute(NON_HYDRATABLE_ATTR_NAME)) {
-          annotateHostElementForHydration(targetNode as Element, hostNode as LView, ssrIdRegistry);
+          annotateHostElementForHydration(targetNode as Element, hostNode as LView, metaData);
         }
-      } else {
-        // this is a regular node
-        targetNode = unwrapRNode(hostNode) as Node;
       }
-      const container = serializeLContainer(lView[i], ssrIdRegistry);
+      const container = serializeLContainer(lView[i], metaData);
       ngh.containers![adjustedIndex] = container;
     } else if (Array.isArray(lView[i])) {
       // This is a component
@@ -130,7 +132,7 @@ function serializeLView(lView: LView, ssrIdRegistry: TViewSsrIdRegistry): NghDom
       // TODO: should we check `NON_HYDRATABLE_ATTR_NAME` in tNode.mergedAttrs?
       targetNode = unwrapRNode(lView[i][HOST]!) as Element;
       if (!(targetNode as HTMLElement).hasAttribute(NON_HYDRATABLE_ATTR_NAME)) {
-        annotateHostElementForHydration(targetNode as Element, lView[i], ssrIdRegistry);
+        annotateHostElementForHydration(targetNode as Element, lView[i], metaData);
       }
     } else if (isTI18nNode(tNode) || tNode.insertBeforeIndex) {
       // TODO: implement hydration for i18n nodes
@@ -173,15 +175,27 @@ function serializeLView(lView: LView, ssrIdRegistry: TViewSsrIdRegistry): NghDom
           // (for example, when there is no default <ng-content /> slot
           // in projector component's template).
           ngh.nodes[adjustedIndex] = DROPPED_PROJECTED_NODE;
-        } else if (tNode.projectionNext && tNode.projectionNext !== tNode.next) {
-          // Check if projection next is not the same as next, in which case
-          // the node would not be found at creation time at runtime and we
-          // need to provide a location to that node.
-          const nextProjectedTNode = tNode.projectionNext;
-          const index = nextProjectedTNode.index - HEADER_OFFSET;
-          if (!isInNonHydratableBlock(nextProjectedTNode, lView)) {
-            const path = calcPathForNode(lView, nextProjectedTNode);
-            ngh.nodes[index] = path;
+        } else {
+          // empty text node case
+          if (tNodeType & TNodeType.Text) {
+            let rNode = unwrapRNode(lView[i]) as HTMLElement;
+            if (rNode.textContent === '') {
+              metaData.domNodes.set(EMPTY_TEXT_NODE_COMMENT, rNode);
+            } else if (rNode.nextSibling?.nodeType === Node.TEXT_NODE) {
+              metaData.domNodes.set(TEXT_NODE_SEPARATOR_COMMENT, rNode);
+            }
+          }
+
+          if (tNode.projectionNext && tNode.projectionNext !== tNode.next) {
+            // Check if projection next is not the same as next, in which case
+            // the node would not be found at creation time at runtime and we
+            // need to provide a location to that node.
+            const nextProjectedTNode = tNode.projectionNext;
+            const index = nextProjectedTNode.index - HEADER_OFFSET;
+            if (!isInNonHydratableBlock(nextProjectedTNode, lView)) {
+              const path = calcPathForNode(lView, nextProjectedTNode);
+              ngh.nodes[index] = path;
+            }
           }
         }
       }
@@ -268,7 +282,9 @@ function calcPathForNode(lView: LView, tNode: TNode, parentTNode?: TNode|null): 
 }
 
 function serializeLContainer(
-    lContainer: LContainer, ssrIdRegistry: TViewSsrIdRegistry): NghContainer {
+    lContainer: LContainer,
+    metaData: {ssrIdRegistry: TViewSsrIdRegistry, domNodes: Map<string, HTMLElement>}):
+    NghContainer {
   const container: NghContainer = {
     views: [],
   };
@@ -295,7 +311,8 @@ function serializeLContainer(
       // host node itself (other nodes would be inside that host node).
       numRootNodes = 1;
     } else {
-      template = ssrIdRegistry.get(childTView);  // from which template did this lView originate?
+      template =
+          metaData.ssrIdRegistry.get(childTView);  // from which template did this lView originate?
 
       // Collect root nodes within this view.
       const rootNodes: any[] = [];
@@ -306,7 +323,7 @@ function serializeLContainer(
     container.views.push({
       template,
       numRootNodes,
-      ...serializeLView(lContainer[i] as LView, ssrIdRegistry),
+      ...serializeLView(lContainer[i] as LView, metaData),
     });
   }
 
@@ -314,8 +331,15 @@ function serializeLContainer(
 }
 
 export function annotateHostElementForHydration(
-    element: Element, lView: LView, ssrIdRegistry: TViewSsrIdRegistry): void {
-  const rawNgh = serializeLView(lView, ssrIdRegistry);
+    element: Element, lView: LView,
+    metaData: {ssrIdRegistry: TViewSsrIdRegistry, domNodes: Map<string, HTMLElement>}): void {
+  const rawNgh = serializeLView(lView, metaData);
   const serializedNgh = compressNghInfo(rawNgh);
   element.setAttribute(NGH_ATTR_NAME, serializedNgh);
+}
+
+function addTextNodeCommentNodes(domNodes: Map<string, HTMLElement>, document: Document) {
+  for (let [nodeType, el] of domNodes) {
+    el.after(document.createComment(nodeType));
+  }
 }

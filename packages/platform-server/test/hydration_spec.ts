@@ -22,7 +22,8 @@ function stripUtilAttributes(html: string, keepNgh: boolean): string {
   html = html.replace(/ ng-version=".*?"/g, '')  //
              .replace(/ ng-server-context=".*?"/g, '');
   if (!keepNgh) {
-    html = html.replace(/ ngh=".*?"/g, '');
+    html =
+        html.replace(/ ngh=".*?"/g, '').replace(/<!--ngetn-->/g, '').replace(/<!--ngtns-->/g, '');
   }
   return html;
 }
@@ -277,6 +278,98 @@ fdescribe('platform-server integration', () => {
            verifyAllNodesClaimedForHydration(clientRootNode);
            verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
          });
+    });
+
+    describe('text nodes', () => {
+      it('should support empty text nodes', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            This is hydrated content.<span>{{spanText}}</span>.
+          `,
+        })
+        class SimpleComponent {
+          spanText = ''
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+
+      it('should support empty text nodes with subsequent content', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            This is hydrated content.<span>{{emptyText}}{{moreText}}</span>.
+          `,
+        })
+        class SimpleComponent {
+          emptyText = ''
+          moreText = ''
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+
+      it('should support projected text node content with plain text nodes', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [NgIf],
+          template: `
+            <div>Hello <ng-container *ngIf="true">World</ng-container></div>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
     });
 
     describe('content projection', () => {
@@ -1114,7 +1207,6 @@ fdescribe('platform-server integration', () => {
 
            const html = await ssr(SimpleComponent);
            let ssrContents = getAppContents(html);
-           debugger;
 
            // TODO: properly assert `ngh` attribute value once the `ngh`
            // format stabilizes, for now we just check that it's present.
