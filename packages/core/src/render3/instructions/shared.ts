@@ -9,7 +9,7 @@
 import {Injector} from '../../di/injector';
 import {ErrorHandler} from '../../error_handler';
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
-import {retrieveNghInfo} from '../../hydration/utils';
+import {handleTextNodesBeforeHydration, retrieveNghInfo} from '../../hydration/utils';
 import {DoCheck, OnChanges, OnInit} from '../../interface/lifecycle_hooks';
 import {SchemaMetadata} from '../../metadata/schema';
 import {ViewEncapsulation} from '../../metadata/view';
@@ -674,7 +674,11 @@ export function locateHostElement(
     isHydrationEnabled: boolean): RElement {
   // When using native Shadow DOM, do not clear host element to allow native slot projection
   const preserveContent = isHydrationEnabled || encapsulation === ViewEncapsulation.ShadowDom;
-  return renderer.selectRootElement(elementOrSelector, preserveContent);
+  const rootElement = renderer.selectRootElement(elementOrSelector, preserveContent);
+  if (isHydrationEnabled) {
+    handleTextNodesBeforeHydration(rootElement as any);
+  }
+  return rootElement;
 }
 
 /**
