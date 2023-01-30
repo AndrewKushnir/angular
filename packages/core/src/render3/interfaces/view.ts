@@ -323,6 +323,9 @@ export interface LView<T = unknown> extends Array<any> {
   /** Unique ID of the view. Used for `__ngContext__` lookups in the `LView` registry. */
   [ID]: number;
 
+  /**
+   * TODO: add docs!
+   */
   [HYDRATION_INFO]: NghDom|null;
 
   /**
