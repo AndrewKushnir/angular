@@ -9,6 +9,7 @@
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {retrieveNghInfo} from '../hydration/utils';
+import {findMatchingDehydratedView} from '../hydration/views';
 import {isType, Type} from '../interface/type';
 import {assertNodeInjector, assertRComment} from '../render3/assert';
 import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
@@ -428,7 +429,8 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     }
 
     // TODO: this is not correct for selectors like `app[param]`,
-    // we need to rely on some other info (like component id).
+    // we need to rely on some other info (like component id),
+    // see https://github.com/angular/angular/pull/48253.
     const elementName = componentFactory.selector;
     const dehydratedView = findMatchingDehydratedView(this._lContainer, elementName);
     let rNode;
@@ -669,25 +671,4 @@ export function createContainerRef(
   }
 
   return new R3ViewContainerRef(lContainer, hostTNode, hostLView);
-}
-
-function findMatchingDehydratedView(lContainer: LContainer, template: string): NghView|null {
-  let hydrationInfo: NghView|null = null;
-  if (lContainer !== null && lContainer[DEHYDRATED_VIEWS]) {
-    // Does the target container have a view?
-    const dehydratedViews = lContainer[DEHYDRATED_VIEWS];
-    if (dehydratedViews.length > 0) {
-      // TODO: take into account an index of a view within ViewContainerRef,
-      // otherwise, we may end up reusing wrong nodes from live DOM?
-      const dehydratedViewIndex = dehydratedViews.findIndex(view => view.template === template);
-
-      if (dehydratedViewIndex > -1) {
-        hydrationInfo = dehydratedViews[dehydratedViewIndex];
-
-        // Drop this view from the list of de-hydrated ones.
-        dehydratedViews.splice(dehydratedViewIndex, 1);
-      }
-    }
-  }
-  return hydrationInfo;
 }
