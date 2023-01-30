@@ -13,6 +13,7 @@ import {ApplicationRef, retrieveViewsFromApplicationRef} from '../application_re
 import {APP_BOOTSTRAP_LISTENER} from '../application_tokens';
 import {InjectionToken} from '../di/injection_token';
 import {enableRetrieveNghInfoImpl} from '../hydration/utils';
+import {enableFindMatchingDehydratedViewImpl} from '../hydration/views';
 import {ViewRef} from '../linker/view_ref';
 import {assertDefined} from '../util/assert';
 
@@ -37,6 +38,7 @@ export function provideHydrationSupport() {
   if (!isHydrationImplementationEnabled) {
     isHydrationImplementationEnabled = true;
     enableRetrieveNghInfoImpl();
+    enableFindMatchingDehydratedViewImpl();
   }
   return [
     {
