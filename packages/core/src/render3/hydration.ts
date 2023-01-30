@@ -18,6 +18,7 @@ import {ViewRef} from '../linker/view_ref';
 import {assertDefined} from '../util/assert';
 
 import {assertRComment} from './assert';
+import {enableLocateOrCreateElementNodeImpl} from './instructions/element';
 import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer} from './interfaces/container';
 import {TNode, TNodeType} from './interfaces/node';
 import {RElement, RNode} from './interfaces/renderer_dom';
@@ -39,6 +40,7 @@ export function provideHydrationSupport() {
     isHydrationImplementationEnabled = true;
     enableRetrieveNghInfoImpl();
     enableFindMatchingDehydratedViewImpl();
+    enableLocateOrCreateElementNodeImpl();
   }
   return [
     {

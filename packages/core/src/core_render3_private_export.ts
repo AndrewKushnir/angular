@@ -242,7 +242,7 @@ export {
 export {
   resetJitOptions as ɵresetJitOptions,
 } from './render3/jit/jit_options';
-export { navigateParentTNodes as ɵnavigateParentTNodes} from './render3/instructions/shared';
+export { navigateParentTNodes as ɵnavigateParentTNodes} from './hydration/non_hydratable';
 export {
   compileNgModule as ɵcompileNgModule,
   compileNgModuleDefs as ɵcompileNgModuleDefs,
