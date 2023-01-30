@@ -10,7 +10,7 @@ import {assertHasParent, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {isNodeDisconnected, locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
-import {TAttributes, TElementContainerNode, TNodeType} from '../interfaces/node';
+import {TAttributes, TElementContainerNode, TNode, TNodeType} from '../interfaces/node';
 import {RComment, RElement} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, NghView, RENDERER, TView} from '../interfaces/view';
@@ -83,54 +83,14 @@ export function ɵɵelementContainerStart(
           adjustedIndex, tView, lView, attrsIndex, localRefsIndex) :
       tView.data[adjustedIndex] as TElementContainerNode;
 
-  let native: RComment;
-  const ngh = lView[HYDRATION_INFO];
-  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
-  if (isCreating) {
-    ngDevMode && ngDevMode.rendererCreateComment++;
-    native = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
-  } else {
-    const nghContainer = ngh.containers[index];
-    ngDevMode &&
-        assertDefined(
-            nghContainer, 'There is no hydration info available for this element container');
-
-    const currentRNode =
-        locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
-
-    if (nghContainer.views.length > 0) {
-      // This <ng-container> is also annotated as a view container.
-      // Extract all dehydrated views following instructions from ngh
-      // and store this info for later reuse in `createContainerRef`.
-      const [anchorRNode, views] = locateDehydratedViewsInContainer(currentRNode!, nghContainer);
-
-      native = anchorRNode as RComment;
-
-      if (views.length > 0) {
-        // Store dehydrated views info in ngh data structure for later reuse
-        // while creating a ViewContainerRef instance, see `createContainerRef`.
-        nghContainer.dehydratedViews = views;
-      }
-    } else {
-      // This is a plain `<ng-container>`, which is *not* used
-      // as the ViewContainerRef anchor, so we can rely on `numRootNodes`.
-      //
-      // Store a reference to the first node in a container,
-      // so it can be referenced while invoking further instructions.
-      nghContainer.firstChild = currentRNode as HTMLElement;
-
-      native = siblingAfter<RComment>(nghContainer.numRootNodes!, currentRNode!)!;
-    }
-
-    ngDevMode && assertRComment(native, 'Expecting a comment node in elementContainer instruction');
-    ngDevMode && markRNodeAsClaimedForHydration(native);
-  }
-  lView[adjustedIndex] = native;
+  const [isNewlyCreatedNode, comment] = _locateOrCreateElementContainerNode(
+      tView, lView, tNode, adjustedIndex, previousTNode!, previousTNodeParent);
+  lView[adjustedIndex] = comment;
 
   setCurrentTNode(tNode, true);
 
-  isCreating && appendChild(tView, lView, native, tNode);
-  attachPatchData(native, lView);
+  isNewlyCreatedNode && appendChild(tView, lView, comment, tNode);
+  attachPatchData(comment, lView);
 
   if (isDirectiveHost(tNode)) {
     createDirectivesInstances(tView, lView, tNode);
@@ -188,4 +148,65 @@ export function ɵɵelementContainer(
   ɵɵelementContainerStart(index, attrsIndex, localRefsIndex);
   ɵɵelementContainerEnd();
   return ɵɵelementContainer;
+}
+
+let _locateOrCreateElementContainerNode: typeof locateOrCreateElementContainerNode =
+    (tView: TView, lView: LView, tNode: TNode, adjustedIndex: number, previousTNode: TNode,
+     previousTNodeParent: boolean) => {
+      const comment = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
+      return [true, comment];
+    }
+
+function locateOrCreateElementContainerNode(
+    tView: TView, lView: LView, tNode: TNode, adjustedIndex: number, previousTNode: TNode,
+    previousTNodeParent: boolean): [boolean, RComment] {
+  let comment: RComment;
+  const index = adjustedIndex - HEADER_OFFSET;
+  const ngh = lView[HYDRATION_INFO];
+  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
+  if (isCreating) {
+    ngDevMode && ngDevMode.rendererCreateComment++;
+    comment = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
+  } else {
+    const nghContainer = ngh.containers[index];
+    ngDevMode &&
+        assertDefined(
+            nghContainer, 'There is no hydration info available for this element container');
+
+    const currentRNode =
+        locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
+
+    if (nghContainer.views.length > 0) {
+      // This <ng-container> is also annotated as a view container.
+      // Extract all dehydrated views following instructions from ngh
+      // and store this info for later reuse in `createContainerRef`.
+      const [anchorRNode, views] = locateDehydratedViewsInContainer(currentRNode!, nghContainer);
+
+      comment = anchorRNode as RComment;
+
+      if (views.length > 0) {
+        // Store dehydrated views info in ngh data structure for later reuse
+        // while creating a ViewContainerRef instance, see `createContainerRef`.
+        nghContainer.dehydratedViews = views;
+      }
+    } else {
+      // This is a plain `<ng-container>`, which is *not* used
+      // as the ViewContainerRef anchor, so we can rely on `numRootNodes`.
+      //
+      // Store a reference to the first node in a container,
+      // so it can be referenced while invoking further instructions.
+      nghContainer.firstChild = currentRNode as HTMLElement;
+
+      comment = siblingAfter<RComment>(nghContainer.numRootNodes!, currentRNode!)!;
+    }
+
+    ngDevMode &&
+        assertRComment(comment, 'Expecting a comment node in elementContainer instruction');
+    ngDevMode && markRNodeAsClaimedForHydration(comment);
+  }
+  return [isCreating, comment];
+}
+
+export function enableLocateOrCreateElementContainerNodeImpl() {
+  _locateOrCreateElementContainerNode = locateOrCreateElementContainerNode;
 }
