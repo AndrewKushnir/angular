@@ -89,7 +89,7 @@ the server-rendered app can be properly bootstrapped into a client app.`);
 
           const complete = () => {
             if (applicationRef.injector.get(IS_HYDRATION_ENABLED, false)) {
-              annotateForHydration(applicationRef);
+              annotateForHydration(applicationRef, platformState.getDocument());
             }
 
             const output = platformState.renderToString();

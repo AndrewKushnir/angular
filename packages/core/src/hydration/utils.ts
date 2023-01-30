@@ -7,6 +7,7 @@
  */
 
 import {ViewRef} from '../linker';
+import {getDocument} from '../render3/interfaces/document';
 import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isRootView} from '../render3/interfaces/type_checks';
 import {HEADER_OFFSET} from '../render3/interfaces/view';
@@ -15,6 +16,8 @@ import {decompressNghInfo} from './compression';
 import {NghDom} from './interfaces';
 
 export const NGH_ATTR_NAME = 'ngh';
+export const EMPTY_TEXT_NODE_COMMENT = 'ngetn';
+export const TEXT_NODE_SEPARATOR_COMMENT = 'ngtns';
 
 /**
  * Reference to a function that reads `ngh` attribute from
@@ -59,6 +62,26 @@ export function getComponentLView(viewRef: ViewRef) {
 type ClaimedNode = {
   __claimed?: boolean
 };
+
+export function handleTextNodesBeforeHydration(node: Node) {
+  const doc = getDocument();
+  const commentIterator = doc.createNodeIterator(node, NodeFilter.SHOW_COMMENT, {
+    acceptNode(node) {
+      return (node.textContent === EMPTY_TEXT_NODE_COMMENT ||
+              node.textContent === TEXT_NODE_SEPARATOR_COMMENT) ?
+          NodeFilter.FILTER_ACCEPT :
+          NodeFilter.FILTER_REJECT;
+    }
+  });
+  let currentNode;
+  while (currentNode = commentIterator.nextNode()) {
+    if (currentNode.textContent === EMPTY_TEXT_NODE_COMMENT) {
+      (currentNode as any)?.replaceWith(doc.createTextNode(''));
+    } else {
+      (currentNode as any)?.remove();
+    }
+  }
+}
 
 // TODO: consider using WeakMap instead.
 export function markRNodeAsClaimedForHydration(node: RNode, checkIfAlreadyClaimed = true) {
