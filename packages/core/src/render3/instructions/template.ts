@@ -9,11 +9,11 @@ import {assertDefined} from '../../util/assert';
 import {assertFirstCreatePass, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
-import {isNodeDisconnected, locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
-import {DEHYDRATED_VIEWS} from '../interfaces/container';
+import {isNodeDisconnected, locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
+import {DEHYDRATED_VIEWS, LContainer} from '../interfaces/container';
 import {ComponentTemplate} from '../interfaces/definition';
-import {LocalRefExtractor, TAttributes, TContainerNode, TNodeType} from '../interfaces/node';
-import {RComment, RElement} from '../interfaces/renderer_dom';
+import {LocalRefExtractor, TAttributes, TContainerNode, TNode, TNodeType} from '../interfaces/node';
+import {RComment} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, NghView, RENDERER, TView, TViewType} from '../interfaces/view';
 import {appendChild} from '../node_manipulation';
@@ -87,9 +87,41 @@ export function ɵɵtemplate(
           index, tView, lView, templateFn, decls, vars, tagName, attrsIndex, localRefsIndex) :
       tView.data[adjustedIndex] as TContainerNode;
 
+  const [isNewlyCreatedNode, comment, lContainer] = _locateOrCreateLContainerNode(
+      tView, lView, tNode, adjustedIndex, previousTNode!, previousTNodeParent);
+
+  setCurrentTNode(tNode, false);
+  isNewlyCreatedNode && appendChild(tView, lView, comment, tNode);
+  attachPatchData(comment, lView);
+
+  lView[adjustedIndex] = lContainer;
+
+  addToViewTree(lView, lContainer);
+
+  if (isDirectiveHost(tNode)) {
+    createDirectivesInstances(tView, lView, tNode);
+  }
+
+  if (localRefsIndex != null) {
+    saveResolvedLocalsInData(lView, tNode, localRefExtractor);
+  }
+}
+
+let _locateOrCreateLContainerNode: typeof locateOrCreateLContainerNodeImpl =
+    (tView: TView, lView: LView, tNode: TNode, adjustedIndex: number, previousTNode: TNode,
+     previousTNodeParent: boolean) => {
+      const comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
+      const lContainer = createLContainer(comment, lView, comment, tNode);
+      return [true, comment, lContainer];
+    }
+
+function locateOrCreateLContainerNodeImpl(
+    tView: TView, lView: LView, tNode: TNode, adjustedIndex: number, previousTNode: TNode,
+    previousTNodeParent: boolean): [boolean, RComment, LContainer] {
   let comment: RComment;
   let dehydratedViews: NghView[] = [];
   const ngh = lView[HYDRATION_INFO];
+  const index = adjustedIndex - HEADER_OFFSET;
   const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
   if (isCreating) {
     comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
@@ -109,23 +141,13 @@ export function ɵɵtemplate(
     ngDevMode && assertRComment(comment, 'Expecting a comment node in template instruction');
     ngDevMode && markRNodeAsClaimedForHydration(comment);
   }
-  setCurrentTNode(tNode, false);
-  isCreating && appendChild(tView, lView, comment, tNode);
-  attachPatchData(comment, lView);
-
   const lContainer = createLContainer(comment, lView, comment, tNode);
-  lView[adjustedIndex] = lContainer;
-
   if (ngh && dehydratedViews.length > 0) {
     lContainer[DEHYDRATED_VIEWS] = dehydratedViews;
   }
-  addToViewTree(lView, lContainer);
+  return [isCreating, comment, lContainer];
+}
 
-  if (isDirectiveHost(tNode)) {
-    createDirectivesInstances(tView, lView, tNode);
-  }
-
-  if (localRefsIndex != null) {
-    saveResolvedLocalsInData(lView, tNode, localRefExtractor);
-  }
+export function enableLocateOrCreateLContainerNodeImpl() {
+  _locateOrCreateLContainerNode = locateOrCreateLContainerNodeImpl;
 }
