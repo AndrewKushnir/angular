@@ -12,6 +12,7 @@ import {first} from 'rxjs/operators';
 import {ApplicationRef, retrieveViewsFromApplicationRef} from '../application_ref';
 import {APP_BOOTSTRAP_LISTENER} from '../application_tokens';
 import {InjectionToken} from '../di/injection_token';
+import {enableRetrieveNghInfoImpl} from '../hydration/utils';
 import {ViewRef} from '../linker/view_ref';
 import {assertDefined} from '../util/assert';
 
@@ -26,14 +27,17 @@ import {getNativeByTNode, unwrapRNode} from './util/view_utils';
 
 export const IS_HYDRATION_ENABLED = new InjectionToken<boolean>('IS_HYDRATION_ENABLED');
 
+let isHydrationImplementationEnabled = false;
+
 /**
  * @publicApi
  * @developerPreview
  */
 export function provideHydrationSupport() {
-  // Note: this function can also bring more functionality in a tree-shakable way.
-  // For example, by providing hydration-aware implementation of finding nodes vs
-  // creating them.
+  if (!isHydrationImplementationEnabled) {
+    isHydrationImplementationEnabled = true;
+    enableRetrieveNghInfoImpl();
+  }
   return [
     {
       provide: APP_BOOTSTRAP_LISTENER,
@@ -132,11 +136,11 @@ type ClaimedNode = {
 };
 
 // TODO: consider using WeakMap instead.
-export function markRNodeAsClaimedForHydration(node: RNode) {
+export function markRNodeAsClaimedForHydration(node: RNode, checkIfAlreadyClaimed = true) {
   if (!ngDevMode) {
     throw new Error('Calling `claimNode` in prod mode is not supported and likely a mistake.');
   }
-  if (isRNodeClaimedForHydration(node)) {
+  if (checkIfAlreadyClaimed && isRNodeClaimedForHydration(node)) {
     throw new Error('Trying to claim a node, which was claimed already.');
   }
   (node as ClaimedNode).__claimed = true;

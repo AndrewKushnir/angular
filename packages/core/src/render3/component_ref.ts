@@ -13,6 +13,7 @@ import {InjectFlags, InjectOptions} from '../di/interface/injector';
 import {ProviderToken} from '../di/provider_token';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {RuntimeError, RuntimeErrorCode} from '../errors';
+import {retrieveNghInfo} from '../hydration/utils';
 import {Type} from '../interface/type';
 import {ComponentFactory as AbstractComponentFactory, ComponentRef as AbstractComponentRef} from '../linker/component_factory';
 import {ComponentFactoryResolver as AbstractComponentFactoryResolver} from '../linker/component_factory_resolver';
@@ -363,18 +364,8 @@ function createRootComponentView(
       rootComponentDef.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways, rootView[tNode.index],
       tNode, rendererFactory, viewRenderer, sanitizer || null, null, null, hydrationInfo);
 
-
-  // TODO: avoid duplication of this code.
-  // (there is similar one in shared.ts and view_container_ref.ts)
-  const hostRNode = rNode as HTMLElement;
-  const rawNgh = hostRNode.getAttribute('ngh');
-  if (rawNgh) {
-    const ngh = JSON.parse(rawNgh) as NghDom;
-    ngh.firstChild = hostRNode.firstChild as HTMLElement;
-    componentView[HYDRATION_INFO] = ngh;
-    hostRNode.removeAttribute('ngh');
-    ngDevMode && markRNodeAsClaimedForHydration(rNode!);
-    ngDevMode && ngDevMode.hydratedComponents++;
+  if (rNode !== null && componentView[HYDRATION_INFO] === null) {
+    componentView[HYDRATION_INFO] = retrieveNghInfo(rNode);
   }
 
   if (tView.firstCreatePass) {
