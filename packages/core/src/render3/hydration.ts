@@ -19,6 +19,7 @@ import {assertDefined} from '../util/assert';
 
 import {assertRComment} from './assert';
 import {enableLocateOrCreateElementNodeImpl} from './instructions/element';
+import {enableLocateOrCreateElementContainerNodeImpl} from './instructions/element_container';
 import {enableLocateOrCreateLContainerNodeImpl} from './instructions/template';
 import {enableLocateOrCreateTextNodeImpl} from './instructions/text';
 import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer} from './interfaces/container';
@@ -45,6 +46,7 @@ export function provideHydrationSupport() {
     enableLocateOrCreateElementNodeImpl();
     enableLocateOrCreateLContainerNodeImpl();
     enableLocateOrCreateTextNodeImpl();
+    enableLocateOrCreateElementContainerNodeImpl();
   }
   return [
     {
