@@ -9,6 +9,7 @@
 import {Injector} from '../../di/injector';
 import {ErrorHandler} from '../../error_handler';
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
+import {retrieveNghInfo} from '../../hydration/utils';
 import {DoCheck, OnChanges, OnInit} from '../../interface/lifecycle_hooks';
 import {SchemaMetadata} from '../../metadata/schema';
 import {ViewEncapsulation} from '../../metadata/view';
@@ -1678,16 +1679,9 @@ function renderComponent(hostLView: LView, componentHostIdx: number) {
   const componentTView = componentView[TVIEW];
   syncViewWithBlueprint(componentTView, componentView);
 
-  const hostRNode = componentView[HOST] as unknown as HTMLElement;
-  if (hostRNode !== null) {
-    const rawNgh = hostRNode.getAttribute('ngh');
-    if (rawNgh !== null) {
-      const ngh = JSON.parse(rawNgh) as NghDom;
-      ngh.firstChild = hostRNode.firstChild as HTMLElement;
-      hostRNode.removeAttribute('ngh');
-      componentView[HYDRATION_INFO] = ngh;
-      ngDevMode && ngDevMode.hydratedComponents++;
-    }
+  const hostRNode = componentView[HOST];
+  if (hostRNode !== null && componentView[HYDRATION_INFO] === null) {
+    componentView[HYDRATION_INFO] = retrieveNghInfo(hostRNode);
   }
 
   renderView(componentTView, componentView, componentView[CONTEXT]);
