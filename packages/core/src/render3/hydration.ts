@@ -14,6 +14,7 @@ import {APP_BOOTSTRAP_LISTENER} from '../application_tokens';
 import {InjectionToken} from '../di/injection_token';
 import {enableRetrieveNghInfoImpl} from '../hydration/utils';
 import {enableFindMatchingDehydratedViewImpl} from '../hydration/views';
+import {enableLocateOrCreateContainerRefImpl} from '../linker/view_container_ref';
 import {ViewRef} from '../linker/view_ref';
 import {assertDefined} from '../util/assert';
 
@@ -47,6 +48,7 @@ export function provideHydrationSupport() {
     enableLocateOrCreateLContainerNodeImpl();
     enableLocateOrCreateTextNodeImpl();
     enableLocateOrCreateElementContainerNodeImpl();
+    enableLocateOrCreateContainerRefImpl();
   }
   return [
     {
