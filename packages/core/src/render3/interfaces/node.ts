@@ -820,6 +820,9 @@ export interface TContainerNode extends TNode {
   projection: null;
   value: null;
 
+  /**
+   * TODO: add docs.
+   */
   ssrId?: string;
 }
 
