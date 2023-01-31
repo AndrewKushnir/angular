@@ -7,11 +7,12 @@
  */
 
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
+import {locateNextRNode} from '../../hydration/node_lookup_utils';
+import {markRNodeAsClaimedForHydration} from '../../hydration/utils';
 import {getPluralCase} from '../../i18n/localization';
 import {assertDefined, assertDomNode, assertEqual, assertGreaterThan, assertIndexInRange, throwError} from '../../util/assert';
 import {assertIndexInExpandoRange, assertTIcu} from '../assert';
 import {attachPatchData} from '../context_discovery';
-import {locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
 import {elementPropertyInternal, setElementAttribute} from '../instructions/shared';
 import {ELEMENT_MARKER, I18nCreateOpCode, I18nCreateOpCodes, I18nUpdateOpCode, I18nUpdateOpCodes, ICU_MARKER, IcuCreateOpCode, IcuCreateOpCodes, IcuType, TI18n, TIcu} from '../interfaces/i18n';
 import {TNode} from '../interfaces/node';

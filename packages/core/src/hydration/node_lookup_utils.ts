@@ -6,37 +6,95 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {NghContainer, NghDom, NghView} from '../hydration/interfaces';
+import {NghDom, NghView} from '../hydration/interfaces';
+import {TNode, TNodeType} from '../render3/interfaces/node';
+import {RElement, RNode} from '../render3/interfaces/renderer_dom';
+import {HEADER_OFFSET, LView, TView} from '../render3/interfaces/view';
+import {ɵɵresolveBody} from '../render3/util/misc_utils';
+import {getNativeByTNode, unwrapRNode} from '../render3/util/view_utils';
 import {assertDefined} from '../util/assert';
 
-import {assertRComment} from './assert';
-import {TNode, TNodeType} from './interfaces/node';
-import {RElement, RNode} from './interfaces/renderer_dom';
-import {HEADER_OFFSET, LView, TView} from './interfaces/view';
-import {ɵɵresolveBody} from './util/misc_utils';
-import {getNativeByTNode, unwrapRNode} from './util/view_utils';
 
-type ClaimedNode = {
-  __claimed?: boolean
-};
-
-// TODO: consider using WeakMap instead.
-export function markRNodeAsClaimedForHydration(node: RNode, checkIfAlreadyClaimed = true) {
-  if (!ngDevMode) {
-    throw new Error('Calling `claimNode` in prod mode is not supported and likely a mistake.');
-  }
-  if (checkIfAlreadyClaimed && isRNodeClaimedForHydration(node)) {
-    throw new Error('Trying to claim a node, which was claimed already.');
-  }
-  (node as ClaimedNode).__claimed = true;
-  ngDevMode.hydratedNodes++;
+export enum NodeNavigationStep {
+  FirstChild,
+  NextSibling,
 }
 
-export function isRNodeClaimedForHydration(node: RNode): boolean {
-  return !!(node as ClaimedNode).__claimed;
+export class NoPathFoundError extends Error {}
+
+function describeNode(node: Node): string {
+  // TODO: if it's a text node - output `#text(CONTENT)`,
+  // if it's a comment node - output `#comment(CONTENT)`.
+  return (node as Element).tagName ?? node.nodeType;
 }
 
-export function findExistingNode(host: Node, path: string[]): RNode {
+/**
+ * Generate a list of DOM navigation operations to get from node `start` to node `finish`.
+ *
+ * Note: assumes that node `start` occurs before node `finish` in an in-order traversal of the DOM
+ * tree. That is, we should be able to get from `start` to `finish` purely by using `.firstChild`
+ * and `.nextSibling` operations.
+ */
+export function navigateBetween(start: Node, finish: Node): NodeNavigationStep[] {
+  if (start === finish) {
+    return [];
+  } else if (start.parentElement == null || finish.parentElement == null) {
+    const startNodeInfo = describeNode(start);
+    const finishNodeInfo = describeNode(finish);
+    throw new NoPathFoundError(
+        `Ran off the top of the document when navigating between nodes: ` +
+        `'${startNodeInfo}' and '${finishNodeInfo}'.`);
+  } else if (start.parentElement === finish.parentElement) {
+    return navigateBetweenSiblings(start, finish);
+  } else {
+    // `finish` is a child of its parent, so the parent will always have a child.
+    const parent = finish.parentElement!;
+    return [
+      // First navigate to `finish`'s parent.
+      ...navigateBetween(start, parent),
+      // Then to its first child.
+      NodeNavigationStep.FirstChild,
+      // And finally from that node to `finish` (maybe a no-op if we're already there).
+      ...navigateBetween(parent.firstChild!, finish),
+    ];
+  }
+}
+
+function navigateBetweenSiblings(start: Node, finish: Node): NodeNavigationStep[] {
+  const nav: NodeNavigationStep[] = [];
+  let node: Node|null = null;
+  for (node = start; node != null && node !== finish; node = node.nextSibling) {
+    nav.push(NodeNavigationStep.NextSibling);
+  }
+  if (node === null) {
+    // throw new Error(`Is finish before start? Hit end of siblings before finding start`);
+    console.log(`Is finish before start? Hit end of siblings before finding start`);
+    return [];
+  }
+  return nav;
+}
+
+export function calcPathBetween(from: Node, to: Node, parent: string): string[] {
+  let path: string[] = [];
+  try {
+    path = navigateBetween(from, to).map(op => {
+      switch (op) {
+        case NodeNavigationStep.FirstChild:
+          return 'firstChild';
+        case NodeNavigationStep.NextSibling:
+          return 'nextSibling';
+      }
+    });
+  } catch (e: unknown) {
+    if (e instanceof NoPathFoundError) {
+      return [];
+    }
+  }
+  path.unshift(parent);
+  return path;
+}
+
+function findExistingNode(host: Node, path: string[]): RNode {
   let node = host;
   for (const op of path) {
     if (!node) {
@@ -64,6 +122,7 @@ function locateRNodeByPath(path: string, lView: LView): RNode {
   // First element in a path is:
   // - either a parent node id: `12.nextSibling...`
   // - or a 'host' string to indicate that the search should start from the host node
+  // - or a 'body' string, in which case we start the lookup from the <body> node
   const firstPathPart = pathParts.shift();
   if (firstPathPart === 'host') {
     return findExistingNode(lView[0] as unknown as Element, pathParts);
@@ -75,6 +134,14 @@ function locateRNodeByPath(path: string, lView: LView): RNode {
     const parentRNode = unwrapRNode((lView as any)[parentElementId + HEADER_OFFSET]);
     return findExistingNode(parentRNode as Element, pathParts);
   }
+}
+
+function calcViewContainerSize(views: NghView[]): number {
+  let numNodes = 0;
+  for (let view of views) {
+    numNodes += view.numRootNodes;
+  }
+  return numNodes;
 }
 
 export function locateNextRNode<T extends RNode>(
@@ -129,14 +196,6 @@ export function locateNextRNode<T extends RNode>(
   return native as T;
 }
 
-export function calcViewContainerSize(views: NghView[]): number {
-  let numNodes = 0;
-  for (let view of views) {
-    numNodes += view.numRootNodes;
-  }
-  return numNodes;
-}
-
 export function siblingAfter<T extends RNode>(skip: number, from: RNode): T|null {
   let currentNode = from;
   for (let i = 0; i < skip; i++) {
@@ -144,50 +203,4 @@ export function siblingAfter<T extends RNode>(skip: number, from: RNode): T|null
     ngDevMode && assertDefined(currentNode, 'Expected more siblings to be present');
   }
   return currentNode as T;
-}
-
-/**
- * Given a current DOM node and an ngh container definition,
- * walks over the DOM structure, collecting the list of dehydrated views.
- *
- * @param currentRNode
- * @param nghContainer
- */
-export function locateDehydratedViewsInContainer(
-    currentRNode: RNode, nghContainer: NghContainer): [RNode, NghView[]] {
-  const dehydratedViews: NghView[] = [];
-  for (const nghView of nghContainer.views) {
-    const view = {...nghView};
-    if (view.numRootNodes > 0) {
-      // Keep reference to the first node in this view,
-      // so it can be accessed while invoking template instructions.
-      view.firstChild = currentRNode as HTMLElement;
-
-      // Move over to the first node after this view, which can
-      // either be a first node of the next view or an anchor comment
-      // node after the last view in a container.
-      currentRNode = siblingAfter(view.numRootNodes, currentRNode as RElement)!;
-    }
-
-    dehydratedViews.push(view);
-  }
-
-  ngDevMode && assertRComment(currentRNode, 'Expecting a comment node as a view container anchor');
-
-  return [currentRNode, dehydratedViews];
-}
-
-/**
- * Special marker that indicates that this node was dropped
- * during content projection. We need to re-create this node
- * from scratch during hydration.
- */
-const DROPPED_PROJECTED_NODE = '-';
-
-/**
- * Checks whether a node is annotated as "disconnected", i.e. not present
- * in live DOM at serialization time.
- */
-export function isNodeDisconnected(hydrationInfo: NghDom, index: number): boolean {
-  return hydrationInfo.nodes[index] === DROPPED_PROJECTED_NODE;
 }
