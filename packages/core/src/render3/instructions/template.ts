@@ -6,11 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {NghView} from '../../hydration/interfaces';
+import {locateNextRNode} from '../../hydration/node_lookup_utils';
+import {isNodeDisconnected, markRNodeAsClaimedForHydration} from '../../hydration/utils';
+import {locateDehydratedViewsInContainer} from '../../hydration/views';
 import {assertDefined} from '../../util/assert';
 import {assertFirstCreatePass, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
-import {isNodeDisconnected, locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
 import {DEHYDRATED_VIEWS, LContainer} from '../interfaces/container';
 import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNode, TNodeType} from '../interfaces/node';

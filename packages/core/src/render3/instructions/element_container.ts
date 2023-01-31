@@ -5,11 +5,14 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+
+import {locateNextRNode, siblingAfter} from '../../hydration/node_lookup_utils';
+import {isNodeDisconnected, markRNodeAsClaimedForHydration} from '../../hydration/utils';
+import {locateDehydratedViewsInContainer} from '../../hydration/views';
 import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert';
 import {assertHasParent, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
-import {isNodeDisconnected, locateDehydratedViewsInContainer, locateNextRNode, markRNodeAsClaimedForHydration, siblingAfter} from '../hydration';
 import {TAttributes, TElementContainerNode, TNode, TNodeType} from '../interfaces/node';
 import {RComment} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
