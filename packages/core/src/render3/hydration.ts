@@ -6,66 +6,15 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {inject} from '@angular/core';
-import {first} from 'rxjs/operators';
-
-import {APP_BOOTSTRAP_LISTENER, ApplicationRef, retrieveViewsFromApplicationRef} from '../application_ref';
-import {InjectionToken} from '../di/injection_token';
-import {cleanupDehydratedViews} from '../hydration/cleanup';
 import {NghContainer, NghDom, NghView} from '../hydration/interfaces';
-import {enableRetrieveNghInfoImpl} from '../hydration/utils';
-import {enableFindMatchingDehydratedViewImpl} from '../hydration/views';
-import {enableLocateOrCreateContainerRefImpl} from '../linker/view_container_ref';
-import {ViewRef} from '../linker/view_ref';
 import {assertDefined} from '../util/assert';
 
 import {assertRComment} from './assert';
-import {enableLocateOrCreateElementNodeImpl} from './instructions/element';
-import {enableLocateOrCreateElementContainerNodeImpl} from './instructions/element_container';
-import {enableLocateOrCreateLContainerNodeImpl} from './instructions/template';
-import {enableLocateOrCreateTextNodeImpl} from './instructions/text';
-import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer} from './interfaces/container';
 import {TNode, TNodeType} from './interfaces/node';
 import {RElement, RNode} from './interfaces/renderer_dom';
-import {isLContainer, isRootView} from './interfaces/type_checks';
-import {HEADER_OFFSET, HOST, LView, TView, TVIEW} from './interfaces/view';
+import {HEADER_OFFSET, LView, TView} from './interfaces/view';
 import {ɵɵresolveBody} from './util/misc_utils';
 import {getNativeByTNode, unwrapRNode} from './util/view_utils';
-
-export const IS_HYDRATION_ENABLED = new InjectionToken<boolean>('IS_HYDRATION_ENABLED');
-
-let isHydrationImplementationEnabled = false;
-
-/**
- * @publicApi
- * @developerPreview
- */
-export function provideHydrationSupport() {
-  if (!isHydrationImplementationEnabled) {
-    isHydrationImplementationEnabled = true;
-    enableRetrieveNghInfoImpl();
-    enableFindMatchingDehydratedViewImpl();
-    enableLocateOrCreateElementNodeImpl();
-    enableLocateOrCreateLContainerNodeImpl();
-    enableLocateOrCreateTextNodeImpl();
-    enableLocateOrCreateElementContainerNodeImpl();
-    enableLocateOrCreateContainerRefImpl();
-  }
-  return [
-    {
-      provide: APP_BOOTSTRAP_LISTENER,
-      useFactory: () => {
-        const appRef = inject(ApplicationRef);
-        return () => cleanupDehydratedViews(appRef);
-      },
-      multi: true,
-    },
-    {
-      provide: IS_HYDRATION_ENABLED,
-      useValue: true,
-    }
-  ];
-}
 
 type ClaimedNode = {
   __claimed?: boolean
