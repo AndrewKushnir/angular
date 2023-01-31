@@ -585,6 +585,56 @@ export function createContainerRef(
   ngDevMode && assertTNodeType(hostTNode, TNodeType.AnyContainer | TNodeType.AnyRNode);
 
   let lContainer: LContainer;
+  const slotValue = hostLView[hostTNode.index];
+  if (isLContainer(slotValue)) {
+    // If the host is a container, we don't need to create a new LContainer
+    lContainer = slotValue;
+  } else {
+    lContainer = _locateOrCreateContainerRefImpl(hostLView, hostTNode, slotValue);
+    hostLView[hostTNode.index] = lContainer;
+    addToViewTree(hostLView, lContainer);
+  }
+
+  return new R3ViewContainerRef(lContainer, hostTNode, hostLView);
+}
+
+function insertAnchorNode(hostLView: LView, hostTNode: TNode): RComment {
+  // If the host is a regular element, we have to insert a comment node manually which will
+  // be used as an anchor when inserting elements. In this specific case we use low-level DOM
+  // manipulation to insert it.
+  const renderer = hostLView[RENDERER];
+  ngDevMode && ngDevMode.rendererCreateComment++;
+  const commentNode = renderer.createComment(ngDevMode ? 'container' : '');
+
+  const hostNative = getNativeByTNode(hostTNode, hostLView)!;
+  const parentOfHostNative = nativeParentNode(renderer, hostNative);
+  nativeInsertBefore(
+      renderer, parentOfHostNative!, commentNode, nativeNextSibling(renderer, hostNative), false);
+  return commentNode;
+}
+
+/**
+ * Reference to the current implementation of the create container ref function.
+ * If hydration is enabled, this implementation is swapped with a version that
+ * performs lookups in live DOM.
+ */
+let _locateOrCreateContainerRefImpl = (hostLView: LView, hostTNode: TNode, slotValue: any) => {
+  let commentNode: RComment;
+  // If the host is an element container, the native host element is guaranteed to be a
+  // comment and we can reuse that comment as anchor element for the new LContainer.
+  // The comment node in question is already part of the DOM structure so we don't need to append
+  // it again.
+  if (hostTNode.type & TNodeType.ElementContainer) {
+    commentNode = unwrapRNode(slotValue) as RComment;
+  } else {
+    commentNode = insertAnchorNode(hostLView, hostTNode);
+  }
+
+  return createLContainer(slotValue, hostLView, commentNode, hostTNode);
+};
+
+function locateOrCreateContainerRefImpl(
+    hostLView: LView, hostTNode: TNode, slotValue: any): LContainer {
   let nghContainer: NghContainer;
   let dehydratedViews: NghView[] = [];
   const ngh = hostLView[HYDRATION_INFO];
@@ -597,66 +647,46 @@ export function createContainerRef(
         assertDefined(nghContainer, 'There is no hydration info available for this container');
   }
 
-  const slotValue = hostLView[hostTNode.index];
-  if (isLContainer(slotValue)) {
-    // If the host is a container, we don't need to create a new LContainer
-    lContainer = slotValue;
+  let commentNode: RComment;
+  // If the host is an element container, the native host element is guaranteed to be a
+  // comment and we can reuse that comment as anchor element for the new LContainer.
+  // The comment node in question is already part of the DOM structure so we don't need to append
+  // it again.
+  if (hostTNode.type & TNodeType.ElementContainer) {
+    commentNode = unwrapRNode(slotValue) as RComment;
+    if (!isCreating && nghContainer! && Array.isArray(nghContainer.dehydratedViews)) {
+      // When we create an LContainer based on `<ng-container>`, the container
+      // is already processed, including dehydrated views info. Reuse this info
+      // and erase it in the ngh data to avoid memory leaks.
+      dehydratedViews = nghContainer.dehydratedViews!;
+      nghContainer.dehydratedViews = [];
+    }
   } else {
-    let commentNode: RComment;
-    // If the host is an element container, the native host element is guaranteed to be a
-    // comment and we can reuse that comment as anchor element for the new LContainer.
-    // The comment node in question is already part of the DOM structure so we don't need to append
-    // it again.
-    if (hostTNode.type & TNodeType.ElementContainer) {
-      commentNode = unwrapRNode(slotValue) as RComment;
-      if (!isCreating && nghContainer! && Array.isArray(nghContainer.dehydratedViews)) {
-        // When we create an LContainer based on `<ng-container>`, the container
-        // is already processed, including dehydrated views info. Reuse this info
-        // and erase it in the ngh data to avoid memory leaks.
-        dehydratedViews = nghContainer.dehydratedViews!;
-        nghContainer.dehydratedViews = [];
-      }
+    if (isCreating) {
+      commentNode = insertAnchorNode(hostLView, hostTNode);
     } else {
-      if (!isCreating) {
-        // Start with a node that immediately follows the DOM node found
-        // in an LView slot. This node is:
-        // - either an anchor comment node of this container if it's empty
-        // - or a first element of the first view in this container
-        let currentRNode = (unwrapRNode(slotValue) as RNode).nextSibling;
-        // TODO: Add assert that the currentRNode exists
-        const [anchorRNode, views] = locateDehydratedViewsInContainer(currentRNode!, nghContainer!);
+      // Start with a node that immediately follows the DOM node found
+      // in an LView slot. This node is:
+      // - either an anchor comment node of this container if it's empty
+      // - or a first element of the first view in this container
+      let currentRNode = (unwrapRNode(slotValue) as RNode).nextSibling;
+      // TODO: Add assert that the currentRNode exists
+      const [anchorRNode, views] = locateDehydratedViewsInContainer(currentRNode!, nghContainer!);
 
-        commentNode = anchorRNode as RComment;
-        dehydratedViews = views;
+      commentNode = anchorRNode as RComment;
+      dehydratedViews = views;
 
-        ngDevMode &&
-            assertRComment(commentNode, 'Expecting a comment node in template instruction');
-        ngDevMode && markRNodeAsClaimedForHydration(commentNode);
-      } else {
-        // If the host is a regular element, we have to insert a comment node manually which will
-        // be used as an anchor when inserting elements. In this specific case we use low-level DOM
-        // manipulation to insert it.
-        const renderer = hostLView[RENDERER];
-        ngDevMode && ngDevMode.rendererCreateComment++;
-        commentNode = renderer.createComment(ngDevMode ? 'container' : '');
-
-        const hostNative = getNativeByTNode(hostTNode, hostLView)!;
-        const parentOfHostNative = nativeParentNode(renderer, hostNative);
-        nativeInsertBefore(
-            renderer, parentOfHostNative!, commentNode, nativeNextSibling(renderer, hostNative),
-            false);
-      }
+      ngDevMode && assertRComment(commentNode, 'Expecting a comment node in template instruction');
+      ngDevMode && markRNodeAsClaimedForHydration(commentNode);
     }
-
-    hostLView[hostTNode.index] = lContainer =
-        createLContainer(slotValue, hostLView, commentNode, hostTNode);
-
-    if (ngh && dehydratedViews.length > 0) {
-      lContainer[DEHYDRATED_VIEWS] = dehydratedViews;
-    }
-
-    addToViewTree(hostLView, lContainer);
   }
+  const lContainer = createLContainer(slotValue, hostLView, commentNode, hostTNode);
+  if (ngh && dehydratedViews.length > 0) {
+    lContainer[DEHYDRATED_VIEWS] = dehydratedViews;
+  }
+  return lContainer;
+}
 
-  return new R3ViewContainerRef(lContainer, hostTNode, hostLView);
+export function enableLocateOrCreateContainerRefImpl() {
+  _locateOrCreateContainerRefImpl = locateOrCreateContainerRefImpl;
 }
