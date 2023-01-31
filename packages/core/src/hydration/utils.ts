@@ -8,11 +8,11 @@
 
 import {markRNodeAsClaimedForHydration} from '../render3/hydration';
 import {RElement} from '../render3/interfaces/renderer_dom';
-import {NghDom} from '../render3/interfaces/view';
 
 import {decompressNghInfo} from './compression';
+import {NghDom} from './interfaces';
 
-const NGH_ATTR_NAME = 'ngh';
+export const NGH_ATTR_NAME = 'ngh';
 
 /**
  * Reference to a function that reads `ngh` attribute from

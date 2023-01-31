@@ -7,7 +7,8 @@
  */
 
 import {DEHYDRATED_VIEWS, LContainer} from '../render3/interfaces/container';
-import {NghView} from '../render3/interfaces/view';
+
+import {NghView} from './interfaces';
 
 /**
  * Reference to a function that searches for a matching dehydrated views
