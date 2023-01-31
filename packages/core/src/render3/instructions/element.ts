@@ -6,12 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {locateNextRNode} from '../../hydration/node_lookup_utils';
 import {hasNgNonHydratableAttr} from '../../hydration/non_hydratable';
+import {isNodeDisconnected, markRNodeAsClaimedForHydration} from '../../hydration/utils';
 import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert';
 import {assertFirstCreatePass, assertHasParent, assertRElement} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
-import {isNodeDisconnected, locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
 import {hasClassInput, hasStyleInput, TAttributes, TElementNode, TNode, TNodeFlags, TNodeType} from '../interfaces/node';
 import {Renderer} from '../interfaces/renderer';
 import {RElement} from '../interfaces/renderer_dom';

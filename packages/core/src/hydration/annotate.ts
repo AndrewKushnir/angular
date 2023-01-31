@@ -17,7 +17,7 @@ import {unwrapRNode} from '../render3/util/view_utils';
 
 import {compressNghInfo} from './compression';
 import {NghContainer, NghDom} from './interfaces';
-import {calcPathBetween} from './node_navigation';
+import {calcPathBetween} from './node_lookup_utils';
 import {isInNonHydratableBlock, NON_HYDRATABLE_ATTR_NAME} from './non_hydratable';
 import {getComponentLView, NGH_ATTR_NAME} from './utils';
 

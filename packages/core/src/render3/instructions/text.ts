@@ -5,9 +5,10 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+import {locateNextRNode} from '../../hydration/node_lookup_utils';
+import {isNodeDisconnected, markRNodeAsClaimedForHydration} from '../../hydration/utils';
 import {assertEqual, assertIndexInRange} from '../../util/assert';
 import {assertRText} from '../assert';
-import {isNodeDisconnected, locateNextRNode, markRNodeAsClaimedForHydration} from '../hydration';
 import {TElementNode, TNode, TNodeType} from '../interfaces/node';
 import {RText} from '../interfaces/renderer_dom';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
