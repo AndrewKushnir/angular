@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {APP_ID, ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵannotateForHydration as annotateForHydration, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
+import {APP_ID, ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵannotateForHydration as annotateForHydration, ɵinternalCreateApplication as internalCreateApplication, ɵIS_HYDRATION_ENABLED as IS_HYDRATION_ENABLED, ɵisPromise} from '@angular/core';
 import {BrowserModule} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
@@ -88,9 +88,9 @@ the server-rendered app can be properly bootstrapped into a client app.`);
           }
 
           const complete = () => {
-            // TODO: this should be done based on a DI token, provided
-            // via `provideSsrSupport(withHydration())`
-            annotateForHydration(applicationRef);
+            if (applicationRef.injector.get(IS_HYDRATION_ENABLED, false)) {
+              annotateForHydration(applicationRef);
+            }
 
             const output = platformState.renderToString();
             platform.destroy();

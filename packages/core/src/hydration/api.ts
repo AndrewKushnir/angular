@@ -7,6 +7,9 @@
  */
 
 import {APP_BOOTSTRAP_LISTENER, ApplicationRef} from '../application_ref';
+import {APP_ID, PLATFORM_ID} from '../application_tokens';
+import {EnvironmentProviders, makeEnvironmentProviders, Provider} from '../di';
+import {ENVIRONMENT_INITIALIZER} from '../di/initializer_token';
 import {InjectionToken} from '../di/injection_token';
 import {inject} from '../di/injector_compatibility';
 import {enableLocateOrCreateContainerRefImpl} from '../linker/view_container_ref';
@@ -19,17 +22,16 @@ import {cleanupDehydratedViews} from './cleanup';
 import {enableRetrieveNghInfoImpl} from './utils';
 import {enableFindMatchingDehydratedViewImpl} from './views';
 
+/**
+ * Internal token that specifies whether hydration is enabled.
+ */
 export const IS_HYDRATION_ENABLED = new InjectionToken<boolean>('IS_HYDRATION_ENABLED');
 
-let isHydrationImplementationEnabled = false;
+let isHydrationSupportEnabled = false;
 
-/**
- * @publicApi
- * @developerPreview
- */
-export function provideHydrationSupport() {
-  if (!isHydrationImplementationEnabled) {
-    isHydrationImplementationEnabled = true;
+function enableHydrationRuntimeSupport() {
+  if (!isHydrationSupportEnabled) {
+    isHydrationSupportEnabled = true;
     enableRetrieveNghInfoImpl();
     enableFindMatchingDehydratedViewImpl();
     enableLocateOrCreateElementNodeImpl();
@@ -38,12 +40,53 @@ export function provideHydrationSupport() {
     enableLocateOrCreateElementContainerNodeImpl();
     enableLocateOrCreateContainerRefImpl();
   }
+}
+
+function isBrowser() {
+  const platformId = inject(PLATFORM_ID);
+  return platformId === 'browser';
+}
+
+/**
+ * TODO: add more precise typings for features, see `provideRouter`
+ * TODO: add docs
+ *
+ * @publicApi
+ * @developerPreview
+ */
+export function provideSsrSupport(appId: string, ...features: Provider[]): EnvironmentProviders {
+  return makeEnvironmentProviders([
+    {provide: APP_ID, useValue: appId},
+    ...features,
+  ]);
+}
+
+/**
+ * TODO: add more precise typings for features, see `provideRouter`
+ * TODO: add docs
+ *
+ * @publicApi
+ * @developerPreview
+ */
+export function withHydration(): Provider[] {
   return [
+    {
+      provide: ENVIRONMENT_INITIALIZER,
+      useValue: () => {
+        if (isBrowser()) {
+          enableHydrationRuntimeSupport();
+        }
+      },
+      multi: true,
+    },
     {
       provide: APP_BOOTSTRAP_LISTENER,
       useFactory: () => {
-        const appRef = inject(ApplicationRef);
-        return () => cleanupDehydratedViews(appRef);
+        if (isBrowser()) {
+          const appRef = inject(ApplicationRef);
+          return () => cleanupDehydratedViews(appRef);
+        }
+        return () => {};  // noop
       },
       multi: true,
     },
