@@ -21,6 +21,23 @@ import {calcPathBetween} from './node_lookup_utils';
 import {isInNonHydratableBlock, NON_HYDRATABLE_ATTR_NAME} from './non_hydratable';
 import {getComponentLView, NGH_ATTR_NAME} from './utils';
 
+/**
+ * Registry that keeps track of unique TView ids throughout
+ * the serialization process. This is needed to identify
+ * dehydrated views at runtime properly (pick up dehydrated
+ * views created based on a certain TView).
+ */
+class TViewSsrIdRegistry {
+  private registry = new WeakMap<TView, string>();
+  private currentId = 0;
+
+  get(tView: TView): string {
+    if (!this.registry.has(tView)) {
+      this.registry.set(tView, `t${this.currentId++}`);
+    }
+    return this.registry.get(tView)!;
+  }
+}
 
 /**
  * Annotates all components bootstrapped in a given ApplicationRef
@@ -29,6 +46,7 @@ import {getComponentLView, NGH_ATTR_NAME} from './utils';
  * @param appRef A current instance of an ApplicationRef.
  */
 export function annotateForHydration(appRef: ApplicationRef) {
+  const ssrIdRegistry = new TViewSsrIdRegistry();
   const viewRefs = retrieveViewsFromApplicationRef(appRef);
   for (const viewRef of viewRefs) {
     const lView = getComponentLView(viewRef);
@@ -36,7 +54,7 @@ export function annotateForHydration(appRef: ApplicationRef) {
     // a component instance.
     const hostElement = lView[HOST];
     if (hostElement) {
-      annotateHostElementForHydration(hostElement, lView);
+      annotateHostElementForHydration(hostElement, lView, ssrIdRegistry);
     }
   }
 }
@@ -49,25 +67,12 @@ function firstRNodeInElementContainer(tView: TView, lView: LView, tNode: TNode):
   return rootNodes[0];
 }
 
-export function isTI18nNode(obj: any): boolean {
+function isTI18nNode(obj: any): boolean {
   // TODO: consider adding a node type to TI18n?
   return obj.hasOwnProperty('create') && obj.hasOwnProperty('update');
 }
 
-export function findClosestElementTNode(tNode: TNode|null): TNode|null {
-  let parentTNode: TNode|null = tNode;
-  // FIXME: this condition should also take into account whether
-  // resulting tNode is not marked as `insertBeforeIndex`.
-  while (parentTNode !== null &&
-         ((parentTNode.type & TNodeType.Element) !== TNodeType.Element ||
-          parentTNode.insertBeforeIndex !== null)) {
-    tNode = parentTNode;
-    parentTNode = tNode.parent;
-  }
-  return parentTNode;
-}
-
-function serializeLView(lView: LView, hostNode: Element): NghDom {
+function serializeLView(lView: LView, ssrIdRegistry: TViewSsrIdRegistry): NghDom {
   const ngh: NghDom = {
     containers: {},
     templates: {},
@@ -106,7 +111,7 @@ function serializeLView(lView: LView, hostNode: Element): NghDom {
         if (Array.isArray(embeddedTView)) {
           throw new Error(`Expecting tNode.tViews to be an object, but it's an array.`);
         }
-        ngh.templates![i - HEADER_OFFSET] = getTViewSsrId(embeddedTView);
+        ngh.templates![i - HEADER_OFFSET] = ssrIdRegistry.get(embeddedTView);
       }
       const hostNode = lView[i][HOST]!;
       // LView[i][HOST] can be 2 different types:
@@ -119,13 +124,13 @@ function serializeLView(lView: LView, hostNode: Element): NghDom {
         // TODO: should we check `NON_HYDRATABLE_ATTR_NAME` in tNode.mergedAttrs?
         targetNode = unwrapRNode(hostNode as LView) as Element;
         if (!(targetNode as HTMLElement).hasAttribute(NON_HYDRATABLE_ATTR_NAME)) {
-          annotateHostElementForHydration(targetNode as Element, hostNode as LView);
+          annotateHostElementForHydration(targetNode as Element, hostNode as LView, ssrIdRegistry);
         }
       } else {
         // this is a regular node
         targetNode = unwrapRNode(hostNode) as Node;
       }
-      const container = serializeLContainer(lView[i], hostNode);
+      const container = serializeLContainer(lView[i], ssrIdRegistry);
       ngh.containers![adjustedIndex] = container;
     } else if (Array.isArray(lView[i])) {
       // This is a component
@@ -133,7 +138,7 @@ function serializeLView(lView: LView, hostNode: Element): NghDom {
       // TODO: should we check `NON_HYDRATABLE_ATTR_NAME` in tNode.mergedAttrs?
       targetNode = unwrapRNode(lView[i][HOST]!) as Element;
       if (!(targetNode as HTMLElement).hasAttribute(NON_HYDRATABLE_ATTR_NAME)) {
-        annotateHostElementForHydration(targetNode as Element, lView[i]);
+        annotateHostElementForHydration(targetNode as Element, lView[i], ssrIdRegistry);
       }
     } else if (isTI18nNode(tNode) || tNode.insertBeforeIndex) {
       // TODO: implement hydration for i18n nodes
@@ -275,17 +280,8 @@ function calcPathForNode(
   return path.join('.');
 }
 
-let ssrId: number = 0;
-const ssrIdMap = new Map<TView, string>();
-
-function getTViewSsrId(tView: TView): string {
-  if (!ssrIdMap.has(tView)) {
-    ssrIdMap.set(tView, `t${ssrId++}`);
-  }
-  return ssrIdMap.get(tView)!;
-}
-
-function serializeLContainer(lContainer: LContainer, hostNode: Element): NghContainer {
+function serializeLContainer(
+    lContainer: LContainer, ssrIdRegistry: TViewSsrIdRegistry): NghContainer {
   const container: NghContainer = {
     views: [],
   };
@@ -312,7 +308,7 @@ function serializeLContainer(lContainer: LContainer, hostNode: Element): NghCont
       // host node itself (other nodes would be inside that host node).
       numRootNodes = 1;
     } else {
-      template = getTViewSsrId(childTView);  // from which template did this lView originate?
+      template = ssrIdRegistry.get(childTView);  // from which template did this lView originate?
 
       // Collect root nodes within this view.
       const rootNodes: any[] = [];
@@ -323,15 +319,16 @@ function serializeLContainer(lContainer: LContainer, hostNode: Element): NghCont
     container.views.push({
       template,
       numRootNodes,
-      ...serializeLView(lContainer[i] as LView, hostNode),
+      ...serializeLView(lContainer[i] as LView, ssrIdRegistry),
     });
   }
 
   return container;
 }
 
-export function annotateHostElementForHydration(element: Element, lView: LView): void {
-  const rawNgh = serializeLView(lView, element);
+export function annotateHostElementForHydration(
+    element: Element, lView: LView, ssrIdRegistry: TViewSsrIdRegistry): void {
+  const rawNgh = serializeLView(lView, ssrIdRegistry);
   const serializedNgh = compressNghInfo(rawNgh);
   element.setAttribute(NGH_ATTR_NAME, serializedNgh);
 }
