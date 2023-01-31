@@ -18,7 +18,7 @@ export {InternalEnvironmentProviders as ɵInternalEnvironmentProviders, isEnviro
 export {INJECTOR_SCOPE as ɵINJECTOR_SCOPE} from './di/scope';
 export {XSS_SECURITY_URL as ɵXSS_SECURITY_URL} from './error_details_base_url';
 export {formatRuntimeError as ɵformatRuntimeError, RuntimeError as ɵRuntimeError} from './errors';
-export {IS_HYDRATION_ENABLED as ɵIS_HYDRATION_ENABLED, provideSsrSupport as ɵprovideSsrSupport, withHydration as ɵwithHydration} from './hydration/api';
+export {IS_HYDRATION_ENABLED as ɵIS_HYDRATION_ENABLED} from './hydration/api';
 export {CurrencyIndex as ɵCurrencyIndex, ExtraLocaleDataIndex as ɵExtraLocaleDataIndex, findLocaleData as ɵfindLocaleData, getLocaleCurrencyCode as ɵgetLocaleCurrencyCode, getLocalePluralCase as ɵgetLocalePluralCase, LocaleDataIndex as ɵLocaleDataIndex, registerLocaleData as ɵregisterLocaleData, unregisterAllLocaleData as ɵunregisterLocaleData} from './i18n/locale_data_api';
 export {DEFAULT_LOCALE_ID as ɵDEFAULT_LOCALE_ID} from './i18n/localization';
 export {ComponentFactory as ɵComponentFactory} from './linker/component_factory';
