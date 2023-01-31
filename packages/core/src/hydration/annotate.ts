@@ -10,9 +10,9 @@ import {ApplicationRef, retrieveViewsFromApplicationRef} from '../application_re
 import {collectNativeNodes} from '../render3/collect_native_nodes';
 import {CONTAINER_HEADER_OFFSET, LContainer} from '../render3/interfaces/container';
 import {TContainerNode, TNode, TNodeFlags, TNodeType} from '../render3/interfaces/node';
-import {RNode} from '../render3/interfaces/renderer_dom';
 import {isComponentHost, isLContainer, isProjectionTNode, isRootView} from '../render3/interfaces/type_checks';
 import {CONTEXT, HEADER_OFFSET, HOST, LView, TView, TVIEW, TViewType} from '../render3/interfaces/view';
+import {getFirstNativeNode} from '../render3/node_manipulation';
 import {unwrapRNode} from '../render3/util/view_utils';
 
 import {compressNghInfo} from './compression';
@@ -57,14 +57,6 @@ export function annotateForHydration(appRef: ApplicationRef) {
       annotateHostElementForHydration(hostElement, lView, ssrIdRegistry);
     }
   }
-}
-
-function firstRNodeInElementContainer(tView: TView, lView: LView, tNode: TNode): RNode|null {
-  const rootNodes: any[] = [];
-  // TODO: find more efficient way to do this. We don't need to traverse the entire
-  // structure, we can just stop after examining the first node.
-  collectNativeNodes(tView, lView, tNode, rootNodes);
-  return rootNodes[0];
 }
 
 function isTI18nNode(obj: any): boolean {
@@ -250,12 +242,8 @@ function calcPathForNode(
     // DOM element. Paired with the container size (serialized as a part
     // of `ngh.containers`), it should give enough information for runtime
     // to hydrate nodes in this container.
-    //
-    // Note: for ElementContainers (i.e. `<ng-container>` elements), we use
-    // a first child from the tNode data structures, since we want to collect
-    // add root nodes starting from the first child node in a container.
-    const childTNode = tNode.type & TNodeType.ElementContainer ? tNode.child : tNode;
-    const firstRNode = firstRNodeInElementContainer(tView, lView, childTNode!);
+    const firstRNode = getFirstNativeNode(lView, tNode);
+
     // If container is not empty, use a reference to the first element,
     // otherwise, rNode would point to an anchor comment node.
     if (firstRNode) {
