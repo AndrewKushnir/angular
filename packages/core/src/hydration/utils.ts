@@ -25,7 +25,6 @@ function retrieveNghInfoImpl(rNode: RElement): NghDom|null {
   let nghInfo: NghDom|null = null;
   const nghAttrValue = (rNode as HTMLElement).getAttribute(NGH_ATTR_NAME);
   if (nghAttrValue) {
-    debugger;
     nghInfo = decompressNghInfo(nghAttrValue);
     nghInfo.firstChild = (rNode as HTMLElement).firstChild as HTMLElement;
     rNode.removeAttribute(NGH_ATTR_NAME);
