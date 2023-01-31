@@ -9,9 +9,9 @@
 import {inject} from '@angular/core';
 import {first} from 'rxjs/operators';
 
-import {ApplicationRef, retrieveViewsFromApplicationRef} from '../application_ref';
-import {APP_BOOTSTRAP_LISTENER} from '../application_tokens';
+import {APP_BOOTSTRAP_LISTENER, ApplicationRef, retrieveViewsFromApplicationRef} from '../application_ref';
 import {InjectionToken} from '../di/injection_token';
+import {NghContainer, NghDom, NghView} from '../hydration/interfaces';
 import {enableRetrieveNghInfoImpl} from '../hydration/utils';
 import {enableFindMatchingDehydratedViewImpl} from '../hydration/views';
 import {enableLocateOrCreateContainerRefImpl} from '../linker/view_container_ref';
@@ -27,7 +27,7 @@ import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer} from './interface
 import {TNode, TNodeType} from './interfaces/node';
 import {RElement, RNode} from './interfaces/renderer_dom';
 import {isLContainer, isRootView} from './interfaces/type_checks';
-import {HEADER_OFFSET, HOST, LView, NghContainer, NghDom, NghView, TView, TVIEW} from './interfaces/view';
+import {HEADER_OFFSET, HOST, LView, TView, TVIEW} from './interfaces/view';
 import {ɵɵresolveBody} from './util/misc_utils';
 import {getNativeByTNode, unwrapRNode} from './util/view_utils';
 
@@ -104,7 +104,7 @@ function cleanupLView(lView: LView) {
 }
 
 // TODO: avoid duplication with a similar fn in `platform-server`.
-function getComponentLView(viewRef: ViewRef) {
+export function getComponentLView(viewRef: ViewRef) {
   let lView = (viewRef as any)._lView;
   if (isRootView(lView)) {
     lView = lView[HEADER_OFFSET];
@@ -135,11 +135,13 @@ function cleanupDehydratedViews(appRef: ApplicationRef) {
 function removeDehydratedView(dehydratedView: NghView) {
   let nodesRemoved = 0;
   let currentRNode = dehydratedView.firstChild;
-  const numNodes = dehydratedView.numRootNodes;
-  while (nodesRemoved < numNodes) {
-    currentRNode.remove();
-    currentRNode = currentRNode.nextSibling as HTMLElement;
-    nodesRemoved++;
+  if (currentRNode) {
+    const numNodes = dehydratedView.numRootNodes;
+    while (nodesRemoved < numNodes) {
+      currentRNode.remove();
+      currentRNode = currentRNode.nextSibling as HTMLElement;
+      nodesRemoved++;
+    }
   }
 }
 
@@ -214,7 +216,7 @@ export function locateNextRNode<T extends RNode>(
     native = locateRNodeByPath(hydrationInfo.nodes[adjustedIndex], lView);
   } else if (tView.firstChild === tNode) {
     // We create a first node in this view.
-    native = hydrationInfo.firstChild;
+    native = hydrationInfo.firstChild as RNode;
   } else {
     ngDevMode && assertDefined(previousTNode, 'Unexpected state: no current TNode found.');
     let previousRElement = getNativeByTNode(previousTNode!, lView) as RElement;

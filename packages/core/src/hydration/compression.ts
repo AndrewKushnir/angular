@@ -6,7 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {NghDom} from '../render3/interfaces/view';
+import {NghDom} from './interfaces';
+
 
 /**
  * Compresses NGH data collected for a component and serializes
