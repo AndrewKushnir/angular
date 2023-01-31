@@ -5,12 +5,13 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+
 import '@angular/localize/init';
 
-import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet, PlatformLocation, ɵgetDOM as getDOM,} from '@angular/common';
-import {APP_ID, ApplicationRef, CompilerFactory, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, HostBinding, HostListener, importProvidersFrom, Inject, inject, Injectable, Injector, Input, NgModule, NgZone, OnInit, PLATFORM_ID, PlatformRef, Provider, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵprovideHydrationSupport, ɵsetDocument,} from '@angular/core';
-import {TestBed, waitForAsync} from '@angular/core/testing';
-import {bootstrapApplication, makeStateKey, TransferState} from '@angular/platform-browser';
+import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet} from '@angular/common';
+import {APP_ID, ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵprovideHydrationSupport, ɵsetDocument} from '@angular/core';
+import {TestBed} from '@angular/core/testing';
+import {bootstrapApplication} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
 import {renderApplication} from '../src/utils';
