@@ -7,10 +7,11 @@
  */
 
 import {Injector} from '../di/injector';
+import {NghView} from '../hydration/interfaces';
 import {assertLContainer} from '../render3/assert';
 import {createLView, renderView} from '../render3/instructions/shared';
 import {TContainerNode, TNode, TNodeType} from '../render3/interfaces/node';
-import {DECLARATION_LCONTAINER, LView, LViewFlags, NghView, QUERIES, TView} from '../render3/interfaces/view';
+import {DECLARATION_LCONTAINER, LView, LViewFlags, QUERIES, TView} from '../render3/interfaces/view';
 import {getCurrentTNode, getLView} from '../render3/state';
 import {ViewRef as R3_ViewRef} from '../render3/view_ref';
 import {assertDefined} from '../util/assert';
