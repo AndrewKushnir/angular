@@ -8,7 +8,6 @@
 
 import {ApplicationRef, retrieveViewsFromApplicationRef} from '../application_ref';
 import {collectNativeNodes} from '../render3/collect_native_nodes';
-import {getComponentLView} from '../render3/hydration';
 import {CONTAINER_HEADER_OFFSET, LContainer} from '../render3/interfaces/container';
 import {TContainerNode, TNode, TNodeFlags, TNodeType} from '../render3/interfaces/node';
 import {RNode} from '../render3/interfaces/renderer_dom';
@@ -20,7 +19,7 @@ import {compressNghInfo} from './compression';
 import {NghContainer, NghDom} from './interfaces';
 import {calcPathBetween} from './node_navigation';
 import {isInNonHydratableBlock, NON_HYDRATABLE_ATTR_NAME} from './non_hydratable';
-import {NGH_ATTR_NAME} from './utils';
+import {getComponentLView, NGH_ATTR_NAME} from './utils';
 
 
 /**

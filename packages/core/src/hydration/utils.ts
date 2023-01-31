@@ -6,8 +6,11 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {ViewRef} from '../linker';
 import {markRNodeAsClaimedForHydration} from '../render3/hydration';
 import {RElement} from '../render3/interfaces/renderer_dom';
+import {isRootView} from '../render3/interfaces/type_checks';
+import {HEADER_OFFSET} from '../render3/interfaces/view';
 
 import {decompressNghInfo} from './compression';
 import {NghDom} from './interfaces';
@@ -43,4 +46,12 @@ export function enableRetrieveNghInfoImpl() {
 
 export function retrieveNghInfo(rNode: RElement): NghDom|null {
   return _retrieveNghInfoImpl(rNode);
+}
+
+export function getComponentLView(viewRef: ViewRef) {
+  let lView = (viewRef as any)._lView;
+  if (isRootView(lView)) {
+    lView = lView[HEADER_OFFSET];
+  }
+  return lView;
 }
