@@ -9,7 +9,7 @@
 import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet} from '@angular/common';
-import {APP_ID, ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵprovideHydrationSupport, ɵsetDocument} from '@angular/core';
+import {ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵprovideSsrSupport as provideSsrSupport, ɵsetDocument, ɵwithHydration as withHydration} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 import {bootstrapApplication} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
@@ -113,7 +113,8 @@ fdescribe('platform-server integration', () => {
 
     async function ssr(component: Type<unknown>): Promise<string> {
       const document = '<html><head></head><body><app></app></body></html>';
-      return renderApplication(component, {document, appId});
+      const providers = [provideSsrSupport(appId, withHydration())];
+      return renderApplication(component, {document, appId, providers});
     }
 
     async function hydrate(html: string, component: Type<unknown>): Promise<ApplicationRef> {
@@ -131,9 +132,8 @@ fdescribe('platform-server integration', () => {
       }
 
       const providers = [
-        {provide: APP_ID, useValue: appId},
         {provide: DOCUMENT, useFactory: _document, deps: []},
-        ɵprovideHydrationSupport(),
+        provideSsrSupport(appId, withHydration()),
       ];
       return bootstrapApplication(component, {providers});
     }
