@@ -8,6 +8,7 @@
 
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
+import {NghContainer, NghDom, NghView} from '../hydration/interfaces';
 import {isInNonHydratableBlock} from '../hydration/non_hydratable';
 import {retrieveNghInfo} from '../hydration/utils';
 import {findMatchingDehydratedView} from '../hydration/views';
@@ -23,7 +24,7 @@ import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
 import {RComment, RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
-import {HEADER_OFFSET, HYDRATION_INFO, LView, NghContainer, NghDom, NghView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
+import {HEADER_OFFSET, HYDRATION_INFO, LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
 import {addViewToContainer, destroyLView, detachView, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
@@ -442,7 +443,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       rNode = dehydratedView.firstChild;
 
       // Read hydration info and pass it over to the component view.
-      hydrationDomInfo = retrieveNghInfo(rNode);
+      hydrationDomInfo = retrieveNghInfo(rNode as RElement);
     }
 
     const componentRef = componentFactory.createWithHydration(
