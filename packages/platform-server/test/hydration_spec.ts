@@ -9,7 +9,7 @@
 import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet} from '@angular/common';
-import {ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵprovideSsrSupport as provideSsrSupport, ɵsetDocument, ɵwithHydration as withHydration} from '@angular/core';
+import {ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, provideSsrSupport, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, withHydration, ɵsetDocument} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 import {bootstrapApplication} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
