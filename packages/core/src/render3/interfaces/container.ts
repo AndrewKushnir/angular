@@ -6,9 +6,11 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {NghView} from '../../hydration/interfaces';
+
 import {TNode} from './node';
 import {RComment, RElement} from './renderer_dom';
-import {HOST, LView, NEXT, NghView, PARENT, T_HOST, TRANSPLANTED_VIEWS_TO_REFRESH} from './view';
+import {HOST, LView, NEXT, PARENT, T_HOST, TRANSPLANTED_VIEWS_TO_REFRESH} from './view';
 
 
 
@@ -132,6 +134,9 @@ export interface LContainer extends Array<any> {
    */
   [VIEW_REFS]: unknown[]|null;
 
+  /**
+   * TODO: add docs!
+   */
   [DEHYDRATED_VIEWS]: NghView[]|null;
 }
 

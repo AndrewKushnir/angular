@@ -5,6 +5,7 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+import {NghView} from '../../hydration/interfaces';
 import {assertDefined} from '../../util/assert';
 import {assertFirstCreatePass, assertRComment} from '../assert';
 import {attachPatchData} from '../context_discovery';
@@ -15,7 +16,7 @@ import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNode, TNodeType} from '../interfaces/node';
 import {RComment} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
-import {HEADER_OFFSET, HYDRATION_INFO, LView, NghView, RENDERER, TView, TViewType} from '../interfaces/view';
+import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView, TViewType} from '../interfaces/view';
 import {appendChild} from '../node_manipulation';
 import {getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInNonHydratableBlock, setCurrentTNode} from '../state';
 import {getConstant} from '../util/view_utils';

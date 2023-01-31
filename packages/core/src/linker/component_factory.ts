@@ -9,8 +9,8 @@
 import {ChangeDetectorRef} from '../change_detection/change_detection';
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
+import {NghDom} from '../hydration/interfaces';
 import {Type} from '../interface/type';
-import {NghDom} from '../render3/interfaces/view';
 
 import {ElementRef} from './element_ref';
 import {NgModuleRef} from './ng_module_factory';

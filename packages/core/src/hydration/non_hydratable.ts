@@ -11,7 +11,7 @@ import {getTNodeFromLView} from '../render3/di';
 import {TContainerNode, TElementNode, TNode} from '../render3/interfaces/node';
 import {DECLARATION_VIEW, LView} from '../render3/interfaces/view';
 
-const NON_HYDRATABLE_ATTR_NAME = 'ngNonHydratable';
+export const NON_HYDRATABLE_ATTR_NAME = 'ngNonHydratable';
 
 /**
  * Helper function to walk up parent nodes using TNode data structure, crossing
