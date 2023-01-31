@@ -664,6 +664,57 @@ fdescribe('platform-server integration', () => {
         expect(clientContents)
             .toBe(stripUtilAttributes(ssrContents, false), 'Client and server contents mismatch');
       });
+
+      it('should handle projected containers inside other containers', async () => {
+        @Component({
+          standalone: true,
+          selector: 'child-comp',  //
+          template: '<ng-content></ng-content>'
+        })
+        class ChildComp {
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'root-comp',  //
+          template: '<ng-content></ng-content>'
+        })
+        class RootComp {
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [CommonModule, RootComp, ChildComp],
+          template: `
+            <root-comp>
+              <ng-container *ngFor="let item of items; last as last">
+                <child-comp *ngIf="!last">{{ item }}|</child-comp>
+              </ng-container>
+            </root-comp>
+          `
+        })
+        class MyApp {
+          items: number[] = [1, 2, 3];
+        }
+
+        const html = await ssr(MyApp);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(MyApp, RootComp, ChildComp);
+
+        const appRef = await hydrate(html, MyApp);
+        const compRef = getComponentRef<MyApp>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
     });
 
     describe('ngNonHydratable', () => {
