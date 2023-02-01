@@ -90,7 +90,7 @@ function serializeLView(lView: LView, ssrIdRegistry: TViewSsrIdRegistry): NghDom
         // a parent lView, which contains those nodes.
         if (headTNode && !isProjectionTNode(headTNode)) {
           if (!isInNonHydratableBlock(headTNode, lView)) {
-            ngh.nodes[headTNode.index - HEADER_OFFSET] = calcPathForNode(tView, lView, headTNode);
+            ngh.nodes[headTNode.index - HEADER_OFFSET] = calcPathForNode(lView, headTNode);
           }
         }
       }
@@ -162,7 +162,7 @@ function serializeLView(lView: LView, ssrIdRegistry: TViewSsrIdRegistry): NghDom
         if (nextTNode) {
           const index = nextTNode.index - HEADER_OFFSET;
           if (!isInNonHydratableBlock(nextTNode, lView)) {
-            const path = calcPathForNode(tView, lView, nextTNode);
+            const path = calcPathForNode(lView, nextTNode);
             ngh.nodes[index] = path;
           }
         }
@@ -180,7 +180,7 @@ function serializeLView(lView: LView, ssrIdRegistry: TViewSsrIdRegistry): NghDom
           const nextProjectedTNode = tNode.projectionNext;
           const index = nextProjectedTNode.index - HEADER_OFFSET;
           if (!isInNonHydratableBlock(nextProjectedTNode, lView)) {
-            const path = calcPathForNode(tView, lView, nextProjectedTNode);
+            const path = calcPathForNode(lView, nextProjectedTNode);
             ngh.nodes[index] = path;
           }
         }
@@ -226,8 +226,7 @@ function isDroppedProjectedNode(tNode: TNode): boolean {
   return seenComponentHost;
 }
 
-function calcPathForNode(
-    tView: TView, lView: LView, tNode: TNode, parentTNode?: TNode|null): string {
+function calcPathForNode(lView: LView, tNode: TNode, parentTNode?: TNode|null): string {
   const index = tNode.index;
   // If `null` is passed explicitly, use this as a signal that we want to calculate
   // the path starting from `lView[HOST]`.
@@ -255,8 +254,8 @@ function calcPathForNode(
   if (path.length === 0 && parentRNode !== rNode) {
     // Searching for a path between elements within a host node failed.
     // Trying to find a path to an element starting from the `document.body` instead.
-    path =
-        calcPathBetween((parentRNode as Node).ownerDocument!.body as Node, rNode as Node, 'body');
+    const body = (parentRNode as Node).ownerDocument!.body as Node;
+    path = calcPathBetween(body, rNode as Node, 'body');
 
     if (path.length === 0) {
       // If path is still empty, it's likely that this node is detached and
