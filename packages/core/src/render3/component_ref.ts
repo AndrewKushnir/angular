@@ -141,24 +141,23 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
       injector: Injector, projectableNodes?: any[][]|undefined, rootSelectorOrNode?: any,
       environmentInjector?: NgModuleRef<any>|EnvironmentInjector|
       undefined): AbstractComponentRef<T> {
-    return this.createWithHydration(
+    return this.createImpl(
         injector, projectableNodes, rootSelectorOrNode, environmentInjector, null);
   }
 
   /**
-   * @internal
+   * Create function implementation.
    *
-   * @param injector
-   * @param projectableNodes
-   * @param rootSelectorOrNode
-   * @param environmentInjector
-   * @param hydrationInfo
-   * @returns
+   * This implementation is internal and allows framework code
+   * to invoke it with extra parameters (e.g. for hydration) without
+   * affecting public API.
+   *
+   * @internal
    */
-  createWithHydration(
+  createImpl(
       injector: Injector, projectableNodes?: any[][]|undefined, rootSelectorOrNode?: any,
       environmentInjector?: NgModuleRef<any>|EnvironmentInjector|undefined,
-      hydrationDomInfo?: NghDom|null): AbstractComponentRef<T> {
+      hydrationInfo?: NghDom|null): AbstractComponentRef<T> {
     environmentInjector = environmentInjector || this.ngModule;
 
     let realEnvironmentInjector = environmentInjector instanceof EnvironmentInjector ?
@@ -230,7 +229,7 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
       const hostTNode = createRootComponentTNode(rootLView, hostRNode);
       const componentView = createRootComponentView(
           hostTNode, hostRNode, rootComponentDef, rootDirectives, rootLView, rendererFactory,
-          hostRenderer, null, hydrationDomInfo);
+          hostRenderer, null, hydrationInfo);
 
       tElementNode = getTNode(rootTView, HEADER_OFFSET) as TElementNode;
 
