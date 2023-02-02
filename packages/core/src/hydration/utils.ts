@@ -111,7 +111,7 @@ export function isRNodeClaimedForHydration(node: RNode): boolean {
  * during content projection. We need to re-create this node
  * from scratch during hydration.
  */
-const DROPPED_PROJECTED_NODE = '-';
+export const DROPPED_PROJECTED_NODE = '-';
 
 /**
  * Checks whether a node is annotated as "disconnected", i.e. not present
