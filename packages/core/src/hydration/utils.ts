@@ -63,22 +63,29 @@ type ClaimedNode = {
   __claimed?: boolean
 };
 
-export function handleTextNodesBeforeHydration(node: Node) {
+export let processTextNodeMarkersBeforeHydration: typeof processTextNodeMarkersBeforeHydrationImpl =
+    (node: HTMLElement) => {};  // noop by default
+
+export function enableTextNodeMarkersProcessing() {
+  processTextNodeMarkersBeforeHydration = processTextNodeMarkersBeforeHydrationImpl;
+}
+
+export function processTextNodeMarkersBeforeHydrationImpl(node: HTMLElement) {
   const doc = getDocument();
   const commentIterator = doc.createNodeIterator(node, NodeFilter.SHOW_COMMENT, {
     acceptNode(node) {
-      return (node.textContent === EMPTY_TEXT_NODE_COMMENT ||
-              node.textContent === TEXT_NODE_SEPARATOR_COMMENT) ?
-          NodeFilter.FILTER_ACCEPT :
-          NodeFilter.FILTER_REJECT;
+      const content = node.textContent;
+      const isTextNodeMarker =
+          content === EMPTY_TEXT_NODE_COMMENT || content === TEXT_NODE_SEPARATOR_COMMENT;
+      return isTextNodeMarker ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
     }
   });
-  let currentNode;
-  while (currentNode = commentIterator.nextNode()) {
+  let currentNode: Comment;
+  while (currentNode = commentIterator.nextNode() as Comment) {
     if (currentNode.textContent === EMPTY_TEXT_NODE_COMMENT) {
-      (currentNode as any)?.replaceWith(doc.createTextNode(''));
+      currentNode.replaceWith(doc.createTextNode(''));
     } else {
-      (currentNode as any)?.remove();
+      currentNode.remove();
     }
   }
 }
