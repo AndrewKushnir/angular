@@ -62,16 +62,16 @@ export abstract class TemplateRef<C> {
   abstract createEmbeddedView(context: C, injector?: Injector): EmbeddedViewRef<C>;
 
   /**
+   * Implementation of the `createEmbeddedView` function.
+   *
+   * This implementation is internal and allows framework code
+   * to invoke it with extra parameters (e.g. for hydration) without
+   * affecting public API.
+   *
    * @internal
-   * Instantiates an unattached embedded view based on this template.
-   * @param context The data-binding context of the embedded view, as declared
-   * in the `<ng-template>` usage.
-   * @param injector Injector to be used within the embedded view.
-   * @param hydrationInfo The hydration information for server side rendering
-   * @returns The new embedded view object.
    */
-  abstract createEmbeddedViewWithHydration(
-      context: C, injector?: Injector, hydrationInfo?: NghView|null): EmbeddedViewRef<C>;
+  abstract createEmbeddedViewImpl(context: C, injector?: Injector, hydrationInfo?: NghView|null):
+      EmbeddedViewRef<C>;
 
   /**
    * @internal
@@ -97,12 +97,13 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
   }
 
   override createEmbeddedView(context: T, injector?: Injector): EmbeddedViewRef<T> {
-    return this.createEmbeddedViewWithHydration(context, injector, null);
+    return this.createEmbeddedViewImpl(context, injector, null);
   }
 
-  /* @internal
+  /**
+   * @internal
    */
-  createEmbeddedViewWithHydration(context: T, injector?: Injector, hydrationInfo?: NghView|null):
+  createEmbeddedViewImpl(context: T, injector?: Injector, hydrationInfo?: NghView|null):
       EmbeddedViewRef<T> {
     const embeddedTView = this._declarationTContainer.tViews as TView;
     const embeddedLView = createLView(
