@@ -120,11 +120,16 @@ export abstract class ComponentFactory<C> {
       environmentInjector?: EnvironmentInjector|NgModuleRef<any>): ComponentRef<C>;
 
   /**
+   * Create function implementation.
+   *
+   * This implementation is internal and allows framework code
+   * to invoke it with extra parameters (e.g. for hydration) without
+   * affecting public API.
+   *
    * @internal
-   * Creates a new component with hydration.
    */
-  abstract createWithHydration(
+  abstract createImpl(
       injector: Injector, projectableNodes?: any[][], rootSelectorOrNode?: string|any,
       environmentInjector?: EnvironmentInjector|NgModuleRef<any>,
-      hydrationDomInfo?: NghDom|null): ComponentRef<C>;
+      hydrationInfo?: NghDom|null): ComponentRef<C>;
 }

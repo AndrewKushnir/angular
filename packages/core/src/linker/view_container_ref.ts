@@ -314,10 +314,9 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       hydrationInfo = findMatchingDehydratedView(this._lContainer, ssrId);
     }
 
-    const viewRef =
-        templateRef.createEmbeddedViewWithHydration(context || <any>{}, injector, hydrationInfo);
+    const viewRef = templateRef.createEmbeddedViewImpl(context || <any>{}, injector, hydrationInfo);
 
-    this.insertInternal(viewRef, index, !!hydrationInfo);
+    this.insertImpl(viewRef, index, !!hydrationInfo);
     return viewRef;
   }
 
@@ -435,27 +434,27 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     const elementName = componentFactory.selector;
     const dehydratedView = findMatchingDehydratedView(this._lContainer, elementName);
     let rNode;
-    let hydrationDomInfo: NghDom|null = null;
+    let hydrationInfo: NghDom|null = null;
 
     if (dehydratedView) {
       // Pointer to a host DOM element.
       rNode = dehydratedView.firstChild;
 
       // Read hydration info and pass it over to the component view.
-      hydrationDomInfo = retrieveNghInfo(rNode as RElement);
+      hydrationInfo = retrieveNghInfo(rNode as RElement);
     }
 
-    const componentRef = componentFactory.createWithHydration(
-        contextInjector, projectableNodes, rNode, environmentInjector, hydrationDomInfo);
-    this.insertInternal(componentRef.hostView, index, !!hydrationDomInfo);
+    const componentRef = componentFactory.createImpl(
+        contextInjector, projectableNodes, rNode, environmentInjector, hydrationInfo);
+    this.insertImpl(componentRef.hostView, index, !!hydrationInfo);
     return componentRef;
   }
 
   override insert(viewRef: ViewRef, index?: number): ViewRef {
-    return this.insertInternal(viewRef, index, false);
+    return this.insertImpl(viewRef, index, false);
   }
 
-  private insertInternal(viewRef: ViewRef, index?: number, preventDOMInsertion?: boolean): ViewRef {
+  private insertImpl(viewRef: ViewRef, index?: number, preventDOMInsertion?: boolean): ViewRef {
     const lView = (viewRef as R3ViewRef<any>)._lView!;
     const tView = lView[TVIEW];
 
