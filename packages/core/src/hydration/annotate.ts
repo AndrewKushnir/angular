@@ -10,7 +10,6 @@ import {ApplicationRef, retrieveViewsFromApplicationRef} from '../application_re
 import {collectNativeNodes} from '../render3/collect_native_nodes';
 import {CONTAINER_HEADER_OFFSET, LContainer} from '../render3/interfaces/container';
 import {TContainerNode, TNode, TNodeFlags, TNodeType} from '../render3/interfaces/node';
-import {RNode, RText} from '../render3/interfaces/renderer_dom';
 import {isComponentHost, isLContainer, isProjectionTNode, isRootView} from '../render3/interfaces/type_checks';
 import {CONTEXT, HEADER_OFFSET, HOST, LView, TView, TVIEW, TViewType} from '../render3/interfaces/view';
 import {getFirstNativeNode} from '../render3/node_manipulation';
@@ -45,8 +44,9 @@ class TViewSsrIdRegistry {
  * with info needed for hydration.
  *
  * @param appRef A current instance of an ApplicationRef.
+ * @param doc A reference to the current Document instance.
  */
-export function annotateForHydration(appRef: ApplicationRef, document: Document) {
+export function annotateForHydration(appRef: ApplicationRef, doc: Document) {
   const ssrIdRegistry = new TViewSsrIdRegistry();
   const domNodes = new Map<string, HTMLElement>();
   const viewRefs = retrieveViewsFromApplicationRef(appRef);
@@ -57,7 +57,7 @@ export function annotateForHydration(appRef: ApplicationRef, document: Document)
     const hostElement = lView[HOST];
     if (hostElement) {
       annotateHostElementForHydration(hostElement, lView, {ssrIdRegistry, domNodes});
-      addTextNodeCommentNodes(domNodes, document);
+      insertTextNodeMarkers(domNodes, doc);
     }
   }
 }
@@ -176,7 +176,32 @@ function serializeLView(
           // in projector component's template).
           ngh.nodes[adjustedIndex] = DROPPED_PROJECTED_NODE;
         } else {
-          // empty text node case
+          // Handle cases where text nodes might be lost after DOM serialization:
+          //  1. When there is an *empty text node* in DOM: in this case, this
+          //     node would not make it into the serialized string and as s result,
+          //     this node wouldn't be created in a browser. This would result in
+          //     a mismatch during the hydration, where the runtime logic would expect
+          //     a text node to be present in live DOM, but no text node would exist.
+          //     Example: `<span>{{ name }}</span>` when the `name` is an empty string.
+          //     This would result in `<span></span>` string after serialization and
+          //     in a browser only the `span` element would be created. To resolve that,
+          //     an extra comment node is appended in place of an empty text node and
+          //     that special comment node is replaced with an empty text node *before*
+          //     hydration.
+          //  2. When there are 2 consecutive text nodes present in the DOM.
+          //     Example: `<div>Hello <ng-container *ngIf="true">world</ng-container></div>`.
+          //     In this scenario, the live DOM would look like this:
+          //       <div>#text('Hello ') #text('world') #comment('container')</div>
+          //     Serialized string would look like this: `<div>Hello world<!--container--></div>`.
+          //     The live DOM in a browser after that would be:
+          //       <div>#text('Hello world') #comment('container')</div>
+          //     Notice how 2 text nodes are now "merged" into one. This would cause hydration
+          //     logic to fail, since it'd expect 2 text nodes being present, not one.
+          //     To fix this, we insert a special comment node in between those text nodes, so
+          //     serialized representation is: `<div>Hello <!--ngtns-->world<!--container--></div>`.
+          //     This forces browser to create 2 text nodes separated by a comment node.
+          //     Before running a hydration process, this special comment node is removed, so the
+          //     live DOM has exactly the same state as it was before serialization.
           if (tNodeType & TNodeType.Text) {
             let rNode = unwrapRNode(lView[i]) as HTMLElement;
             if (rNode.textContent === '') {
@@ -338,8 +363,8 @@ export function annotateHostElementForHydration(
   element.setAttribute(NGH_ATTR_NAME, serializedNgh);
 }
 
-function addTextNodeCommentNodes(domNodes: Map<string, HTMLElement>, document: Document) {
-  for (let [nodeType, el] of domNodes) {
-    el.after(document.createComment(nodeType));
+function insertTextNodeMarkers(textNodes: Map<string, HTMLElement>, doc: Document) {
+  for (let [marker, textNode] of textNodes) {
+    textNode.after(doc.createComment(marker));
   }
 }

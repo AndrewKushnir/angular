@@ -19,7 +19,7 @@ import {enableLocateOrCreateLContainerNodeImpl} from '../render3/instructions/te
 import {enableLocateOrCreateTextNodeImpl} from '../render3/instructions/text';
 
 import {cleanupDehydratedViews} from './cleanup';
-import {enableRetrieveNghInfoImpl} from './utils';
+import {enableRetrieveNghInfoImpl, enableTextNodeMarkersProcessing} from './utils';
 import {enableFindMatchingDehydratedViewImpl} from './views';
 
 /**
@@ -39,6 +39,7 @@ function enableHydrationRuntimeSupport() {
     enableLocateOrCreateTextNodeImpl();
     enableLocateOrCreateElementContainerNodeImpl();
     enableLocateOrCreateContainerRefImpl();
+    enableTextNodeMarkersProcessing();
   }
 }
 

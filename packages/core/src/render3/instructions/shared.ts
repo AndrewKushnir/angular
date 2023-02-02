@@ -9,7 +9,7 @@
 import {Injector} from '../../di/injector';
 import {ErrorHandler} from '../../error_handler';
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
-import {handleTextNodesBeforeHydration, retrieveNghInfo} from '../../hydration/utils';
+import {processTextNodeMarkersBeforeHydration, retrieveNghInfo} from '../../hydration/utils';
 import {DoCheck, OnChanges, OnInit} from '../../interface/lifecycle_hooks';
 import {SchemaMetadata} from '../../metadata/schema';
 import {ViewEncapsulation} from '../../metadata/view';
@@ -676,7 +676,7 @@ export function locateHostElement(
   const preserveContent = isHydrationEnabled || encapsulation === ViewEncapsulation.ShadowDom;
   const rootElement = renderer.selectRootElement(elementOrSelector, preserveContent);
   if (isHydrationEnabled) {
-    handleTextNodesBeforeHydration(rootElement as any);
+    processTextNodeMarkersBeforeHydration(rootElement as HTMLElement);
   }
   return rootElement;
 }
