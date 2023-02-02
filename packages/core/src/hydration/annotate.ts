@@ -40,6 +40,16 @@ class TViewSsrIdRegistry {
 }
 
 /**
+ * Describes a context available during the serialization
+ * process. The context is used to share and collect information
+ * during the serialization.
+ */
+interface HydrationContext {
+  ssrIdRegistry: TViewSsrIdRegistry;
+  corruptedTextNodes: Map<string, HTMLElement>;
+}
+
+/**
  * Annotates all components bootstrapped in a given ApplicationRef
  * with info needed for hydration.
  *
@@ -48,7 +58,7 @@ class TViewSsrIdRegistry {
  */
 export function annotateForHydration(appRef: ApplicationRef, doc: Document) {
   const ssrIdRegistry = new TViewSsrIdRegistry();
-  const domNodes = new Map<string, HTMLElement>();
+  const corruptedTextNodes = new Map<string, HTMLElement>();
   const viewRefs = retrieveViewsFromApplicationRef(appRef);
   for (const viewRef of viewRefs) {
     const lView = getComponentLView(viewRef);
@@ -56,8 +66,9 @@ export function annotateForHydration(appRef: ApplicationRef, doc: Document) {
     // a component instance.
     const hostElement = lView[HOST];
     if (hostElement) {
-      annotateHostElementForHydration(hostElement, lView, {ssrIdRegistry, domNodes});
-      insertTextNodeMarkers(domNodes, doc);
+      const context: HydrationContext = {ssrIdRegistry, corruptedTextNodes};
+      annotateHostElementForHydration(hostElement, lView, context);
+      insertTextNodeMarkers(corruptedTextNodes, doc);
     }
   }
 }
@@ -67,9 +78,7 @@ function isTI18nNode(obj: any): boolean {
   return obj.hasOwnProperty('create') && obj.hasOwnProperty('update');
 }
 
-function serializeLView(
-    lView: LView,
-    metaData: {ssrIdRegistry: TViewSsrIdRegistry, domNodes: Map<string, HTMLElement>}): NghDom {
+function serializeLView(lView: LView, context: HydrationContext): NghDom {
   const ngh: NghDom = {
     containers: {},
     templates: {},
@@ -108,7 +117,7 @@ function serializeLView(
         if (Array.isArray(embeddedTView)) {
           throw new Error(`Expecting tNode.tViews to be an object, but it's an array.`);
         }
-        ngh.templates![i - HEADER_OFFSET] = metaData.ssrIdRegistry.get(embeddedTView);
+        ngh.templates![i - HEADER_OFFSET] = context.ssrIdRegistry.get(embeddedTView);
       }
       const hostNode = lView[i][HOST]!;
       // LView[i][HOST] can be 2 different types:
@@ -121,10 +130,10 @@ function serializeLView(
         // TODO: should we check `NON_HYDRATABLE_ATTR_NAME` in tNode.mergedAttrs?
         targetNode = unwrapRNode(hostNode as LView) as Element;
         if (!(targetNode as HTMLElement).hasAttribute(NON_HYDRATABLE_ATTR_NAME)) {
-          annotateHostElementForHydration(targetNode as Element, hostNode as LView, metaData);
+          annotateHostElementForHydration(targetNode as Element, hostNode as LView, context);
         }
       }
-      const container = serializeLContainer(lView[i], metaData);
+      const container = serializeLContainer(lView[i], context);
       ngh.containers![adjustedIndex] = container;
     } else if (Array.isArray(lView[i])) {
       // This is a component
@@ -132,7 +141,7 @@ function serializeLView(
       // TODO: should we check `NON_HYDRATABLE_ATTR_NAME` in tNode.mergedAttrs?
       targetNode = unwrapRNode(lView[i][HOST]!) as Element;
       if (!(targetNode as HTMLElement).hasAttribute(NON_HYDRATABLE_ATTR_NAME)) {
-        annotateHostElementForHydration(targetNode as Element, lView[i], metaData);
+        annotateHostElementForHydration(targetNode as Element, lView[i], context);
       }
     } else if (isTI18nNode(tNode) || tNode.insertBeforeIndex) {
       // TODO: implement hydration for i18n nodes
@@ -176,7 +185,7 @@ function serializeLView(
           // in projector component's template).
           ngh.nodes[adjustedIndex] = DROPPED_PROJECTED_NODE;
         } else {
-          // Handle cases where text nodes might be lost after DOM serialization:
+          // Handle cases where text nodes can be lost after DOM serialization:
           //  1. When there is an *empty text node* in DOM: in this case, this
           //     node would not make it into the serialized string and as s result,
           //     this node wouldn't be created in a browser. This would result in
@@ -203,11 +212,11 @@ function serializeLView(
           //     Before running a hydration process, this special comment node is removed, so the
           //     live DOM has exactly the same state as it was before serialization.
           if (tNodeType & TNodeType.Text) {
-            let rNode = unwrapRNode(lView[i]) as HTMLElement;
+            const rNode = unwrapRNode(lView[i]) as HTMLElement;
             if (rNode.textContent === '') {
-              metaData.domNodes.set(EMPTY_TEXT_NODE_COMMENT, rNode);
+              context.corruptedTextNodes.set(EMPTY_TEXT_NODE_COMMENT, rNode);
             } else if (rNode.nextSibling?.nodeType === Node.TEXT_NODE) {
-              metaData.domNodes.set(TEXT_NODE_SEPARATOR_COMMENT, rNode);
+              context.corruptedTextNodes.set(TEXT_NODE_SEPARATOR_COMMENT, rNode);
             }
           }
 
@@ -299,10 +308,7 @@ function calcPathForNode(lView: LView, tNode: TNode, parentTNode?: TNode|null): 
   return path.join('.');
 }
 
-function serializeLContainer(
-    lContainer: LContainer,
-    metaData: {ssrIdRegistry: TViewSsrIdRegistry, domNodes: Map<string, HTMLElement>}):
-    NghContainer {
+function serializeLContainer(lContainer: LContainer, context: HydrationContext): NghContainer {
   const container: NghContainer = {
     views: [],
   };
@@ -330,7 +336,7 @@ function serializeLContainer(
       numRootNodes = 1;
     } else {
       template =
-          metaData.ssrIdRegistry.get(childTView);  // from which template did this lView originate?
+          context.ssrIdRegistry.get(childTView);  // from which template did this lView originate?
 
       // Collect root nodes within this view.
       const rootNodes: any[] = [];
@@ -341,7 +347,7 @@ function serializeLContainer(
     container.views.push({
       template,
       numRootNodes,
-      ...serializeLView(lContainer[i] as LView, metaData),
+      ...serializeLView(lContainer[i] as LView, context),
     });
   }
 
@@ -349,15 +355,14 @@ function serializeLContainer(
 }
 
 export function annotateHostElementForHydration(
-    element: Element, lView: LView,
-    metaData: {ssrIdRegistry: TViewSsrIdRegistry, domNodes: Map<string, HTMLElement>}): void {
-  const rawNgh = serializeLView(lView, metaData);
+    element: Element, lView: LView, context: HydrationContext): void {
+  const rawNgh = serializeLView(lView, context);
   const serializedNgh = compressNghInfo(rawNgh);
   element.setAttribute(NGH_ATTR_NAME, serializedNgh);
 }
 
-function insertTextNodeMarkers(textNodes: Map<string, HTMLElement>, doc: Document) {
-  for (let [marker, textNode] of textNodes) {
+function insertTextNodeMarkers(corruptedTextNodes: Map<string, HTMLElement>, doc: Document) {
+  for (let [marker, textNode] of corruptedTextNodes) {
     textNode.after(doc.createComment(marker));
   }
 }
