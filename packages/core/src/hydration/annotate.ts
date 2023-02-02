@@ -19,7 +19,7 @@ import {compressNghInfo} from './compression';
 import {NghContainer, NghDom} from './interfaces';
 import {calcPathBetween} from './node_lookup_utils';
 import {isInNonHydratableBlock, NON_HYDRATABLE_ATTR_NAME} from './non_hydratable';
-import {EMPTY_TEXT_NODE_COMMENT, getComponentLView, NGH_ATTR_NAME, TEXT_NODE_SEPARATOR_COMMENT} from './utils';
+import {DROPPED_PROJECTED_NODE, EMPTY_TEXT_NODE_COMMENT, getComponentLView, NGH_ATTR_NAME, TEXT_NODE_SEPARATOR_COMMENT} from './utils';
 
 /**
  * Registry that keeps track of unique TView ids throughout
@@ -232,13 +232,6 @@ function serializeLView(
 function isRootLevelProjectionNode(tNode: TNode): boolean {
   return (tNode.flags & TNodeFlags.isProjected) === TNodeFlags.isProjected;
 }
-
-/**
- * Special marker that indicates that this node was dropped
- * during content projection. We need to re-create this node
- * from scratch during hydration.
- */
-const DROPPED_PROJECTED_NODE = '-';
 
 /**
  * Detect a case where a node used in content projection,
