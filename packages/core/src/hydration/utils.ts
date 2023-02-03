@@ -87,10 +87,10 @@ export function processTextNodeMarkersBeforeHydration(node: HTMLElement) {
 }
 
 export function locateHostElementImpl(
-    renderer: Renderer, elementOrSelector: RElement|string, encapsulation: ViewEncapsulation,
-    injector: Injector): RElement {
-  const preserveContent = true;
-  const rootElement = renderer.selectRootElement(elementOrSelector, preserveContent);
+    renderer: Renderer, elementOrSelector: RElement|string,
+    encapsulation: ViewEncapsulation): RElement {
+  // Always retain content when we are in hydration mode.
+  const rootElement = renderer.selectRootElement(elementOrSelector, true /* preserveContent */);
   processTextNodeMarkersBeforeHydration(rootElement as HTMLElement);
   return rootElement;
 };
