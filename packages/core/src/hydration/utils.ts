@@ -6,8 +6,11 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {Injector} from '../di/injector';
 import {ViewRef} from '../linker';
+import {ViewEncapsulation} from '../metadata/view';
 import {getDocument} from '../render3/interfaces/document';
+import {Renderer} from '../render3/interfaces/renderer';
 import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isRootView} from '../render3/interfaces/type_checks';
 import {HEADER_OFFSET} from '../render3/interfaces/view';
@@ -63,14 +66,7 @@ type ClaimedNode = {
   __claimed?: boolean
 };
 
-export let processTextNodeMarkersBeforeHydration: typeof processTextNodeMarkersBeforeHydrationImpl =
-    (node: HTMLElement) => {};  // noop by default
-
-export function enableTextNodeMarkersProcessing() {
-  processTextNodeMarkersBeforeHydration = processTextNodeMarkersBeforeHydrationImpl;
-}
-
-export function processTextNodeMarkersBeforeHydrationImpl(node: HTMLElement) {
+export function processTextNodeMarkersBeforeHydration(node: HTMLElement) {
   const doc = getDocument();
   const commentIterator = doc.createNodeIterator(node, NodeFilter.SHOW_COMMENT, {
     acceptNode(node) {
@@ -89,6 +85,15 @@ export function processTextNodeMarkersBeforeHydrationImpl(node: HTMLElement) {
     }
   }
 }
+
+export function locateHostElementImpl(
+    renderer: Renderer, elementOrSelector: RElement|string, encapsulation: ViewEncapsulation,
+    injector: Injector): RElement {
+  const preserveContent = true;
+  const rootElement = renderer.selectRootElement(elementOrSelector, preserveContent);
+  processTextNodeMarkersBeforeHydration(rootElement as HTMLElement);
+  return rootElement;
+};
 
 // TODO: consider using WeakMap instead.
 export function markRNodeAsClaimedForHydration(node: RNode, checkIfAlreadyClaimed = true) {

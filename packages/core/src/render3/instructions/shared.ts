@@ -9,7 +9,7 @@
 import {Injector} from '../../di/injector';
 import {ErrorHandler} from '../../error_handler';
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
-import {processTextNodeMarkersBeforeHydration, retrieveNghInfo} from '../../hydration/utils';
+import {retrieveNghInfo} from '../../hydration/utils';
 import {DoCheck, OnChanges, OnInit} from '../../interface/lifecycle_hooks';
 import {SchemaMetadata} from '../../metadata/schema';
 import {ViewEncapsulation} from '../../metadata/view';
@@ -346,6 +346,8 @@ export function renderView<T>(tView: TView, lView: LView<T>, context: T): void {
 
     throw error;
   } finally {
+    // TODO: should we cleanup lView[HYDRATION_INFO] here as well?
+    // Note: we may want to do it after first update block due to ICUs.
     lView[FLAGS] &= ~LViewFlags.CreationMode;
     leaveView();
   }
@@ -668,17 +670,24 @@ function createViewBlueprint(bindingStartIndex: number, initialViewLength: numbe
  * @param rendererFactory Factory function to create renderer instance.
  * @param elementOrSelector Render element or CSS selector to locate the element.
  * @param encapsulation View Encapsulation defined for component that requests host element.
+ * @param injector Root view injector instance.
  */
-export function locateHostElement(
-    renderer: Renderer, elementOrSelector: RElement|string, encapsulation: ViewEncapsulation,
-    isHydrationEnabled: boolean): RElement {
-  // When using native Shadow DOM, do not clear host element to allow native slot projection
-  const preserveContent = isHydrationEnabled || encapsulation === ViewEncapsulation.ShadowDom;
-  const rootElement = renderer.selectRootElement(elementOrSelector, preserveContent);
-  if (isHydrationEnabled) {
-    processTextNodeMarkersBeforeHydration(rootElement as HTMLElement);
-  }
-  return rootElement;
+export let locateHostElement =
+    (renderer: Renderer, elementOrSelector: RElement|string, encapsulation: ViewEncapsulation,
+     injector: Injector): RElement => {
+      // When using native Shadow DOM, do not clear host element to allow native slot projection.
+      // Also retain content when hydration is enabled and the code is invoked on the client.
+      const preserveContent = encapsulation === ViewEncapsulation.ShadowDom;
+      return renderer.selectRootElement(elementOrSelector, preserveContent);
+    };
+
+/**
+ * Function that swaps default implementation of the locate host element function
+ * with a new implementation. This is used to extend this function for hydration
+ * purposes.
+ */
+export function setLocateHostElementImpl(impl: typeof locateHostElement) {
+  locateHostElement = impl;
 }
 
 /**
