@@ -22,8 +22,9 @@ function stripUtilAttributes(html: string, keepNgh: boolean): string {
   html = html.replace(/ ng-version=".*?"/g, '')  //
              .replace(/ ng-server-context=".*?"/g, '');
   if (!keepNgh) {
-    html =
-        html.replace(/ ngh=".*?"/g, '').replace(/<!--ngetn-->/g, '').replace(/<!--ngtns-->/g, '');
+    html = html.replace(/ ngh=".*?"/g, '')  //
+               .replace(/<!--ngetn-->/g, '')
+               .replace(/<!--ngtns-->/g, '');
   }
   return html;
 }
@@ -112,10 +113,10 @@ fdescribe('platform-server integration', () => {
       }
     });
 
-    async function ssr(component: Type<unknown>): Promise<string> {
-      const document = '<html><head></head><body><app></app></body></html>';
+    async function ssr(component: Type<unknown>, doc?: string): Promise<string> {
+      doc ||= '<html><head></head><body><app></app></body></html>';
       const providers = [provideSsrSupport(appId, withHydration())];
-      return renderApplication(component, {document, appId, providers});
+      return renderApplication(component, {document: doc, appId, providers});
     }
 
     async function hydrate(html: string, component: Type<unknown>): Promise<ApplicationRef> {
@@ -278,6 +279,40 @@ fdescribe('platform-server integration', () => {
            verifyAllNodesClaimedForHydration(clientRootNode);
            verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
          });
+
+      // FIXME: this test is broken due to the state leakage because of
+      // the `enableHydrationRuntimeSupport`, which needs to set implementations
+      // in a reverse-able manner.
+      xit('should handle extra child nodes within a root app component', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            <div>Some content</div>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const extraChildNodes = '<!--comment--> Some text! <b>and a tag</b>';
+        const doc = `<html><head></head><body><app>${extraChildNodes}</app></body></html>`;
+        const html = await ssr(SimpleComponent, doc);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
     });
 
     describe('text nodes', () => {
