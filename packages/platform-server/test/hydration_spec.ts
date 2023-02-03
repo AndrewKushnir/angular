@@ -280,10 +280,7 @@ fdescribe('platform-server integration', () => {
            verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
          });
 
-      // FIXME: this test is broken due to the state leakage because of
-      // the `enableHydrationRuntimeSupport`, which needs to set implementations
-      // in a reverse-able manner.
-      xit('should handle extra child nodes within a root app component', async () => {
+      it('should handle extra child nodes within a root app component', async () => {
         @Component({
           standalone: true,
           selector: 'app',
