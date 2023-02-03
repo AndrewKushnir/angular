@@ -28,6 +28,7 @@ export function cleanupDehydratedViews(appRef: ApplicationRef) {
       const hostElement = lView[HOST];
       if (hostElement) {
         cleanupLView(lView);
+        ngDevMode && ngDevMode.postHydrationCleanupRuns++;
       }
     }
   });
