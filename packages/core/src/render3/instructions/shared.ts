@@ -673,13 +673,13 @@ function createViewBlueprint(bindingStartIndex: number, initialViewLength: numbe
  * @param injector Root view injector instance.
  */
 export let locateHostElement =
-    (renderer: Renderer, elementOrSelector: RElement|string, encapsulation: ViewEncapsulation):
-        RElement => {
-          // When using native Shadow DOM, do not clear host element to allow native slot
-          // projection.
-          const preserveContent = encapsulation === ViewEncapsulation.ShadowDom;
-          return renderer.selectRootElement(elementOrSelector, preserveContent);
-        };
+    (renderer: Renderer, elementOrSelector: RElement|string, encapsulation: ViewEncapsulation,
+     injector: Injector): RElement => {
+      // When using native Shadow DOM, do not clear host element to allow native slot
+      // projection.
+      const preserveContent = encapsulation === ViewEncapsulation.ShadowDom;
+      return renderer.selectRootElement(elementOrSelector, preserveContent);
+    };
 
 /**
  * Function that swaps default implementation of the locate host element function
