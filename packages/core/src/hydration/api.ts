@@ -15,20 +15,27 @@ import {inject} from '../di/injector_compatibility';
 import {enableLocateOrCreateContainerRefImpl} from '../linker/view_container_ref';
 import {enableLocateOrCreateElementNodeImpl} from '../render3/instructions/element';
 import {enableLocateOrCreateElementContainerNodeImpl} from '../render3/instructions/element_container';
+import {setLocateHostElementImpl} from '../render3/instructions/shared';
 import {enableLocateOrCreateLContainerNodeImpl} from '../render3/instructions/template';
 import {enableLocateOrCreateTextNodeImpl} from '../render3/instructions/text';
 
 import {cleanupDehydratedViews} from './cleanup';
-import {enableRetrieveNghInfoImpl, enableTextNodeMarkersProcessing} from './utils';
+import {enableRetrieveNghInfoImpl, locateHostElementImpl} from './utils';
 import {enableFindMatchingDehydratedViewImpl} from './views';
+
+const NG_DEV_MODE = typeof ngDevMode === 'undefined' || !!ngDevMode;
 
 /**
  * Internal token that specifies whether hydration is enabled.
  */
-export const IS_HYDRATION_ENABLED = new InjectionToken<boolean>('IS_HYDRATION_ENABLED');
+export const IS_HYDRATION_FEATURE_ENABLED =
+    new InjectionToken<boolean>(NG_DEV_MODE ? 'IS_HYDRATION_FEATURE_ENABLED' : '');
 
 let isHydrationSupportEnabled = false;
 
+// TODO: update this implementation to allow a "rollback".
+// This would be needed for tests, so that we reset the logic
+// back before we SSR the next component.
 function enableHydrationRuntimeSupport() {
   if (!isHydrationSupportEnabled) {
     isHydrationSupportEnabled = true;
@@ -39,7 +46,7 @@ function enableHydrationRuntimeSupport() {
     enableLocateOrCreateTextNodeImpl();
     enableLocateOrCreateElementContainerNodeImpl();
     enableLocateOrCreateContainerRefImpl();
-    enableTextNodeMarkersProcessing();
+    setLocateHostElementImpl(locateHostElementImpl);
   }
 }
 
@@ -92,7 +99,7 @@ export function withHydration(): Provider[] {
       multi: true,
     },
     {
-      provide: IS_HYDRATION_ENABLED,
+      provide: IS_HYDRATION_FEATURE_ENABLED,
       useValue: true,
     }
   ];
