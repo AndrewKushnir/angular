@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {PLATFORM_ID} from '../application_tokens';
 import {Injector} from '../di/injector';
 import {ViewRef} from '../linker';
 import {ViewEncapsulation} from '../metadata/view';
@@ -15,6 +16,7 @@ import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isRootView} from '../render3/interfaces/type_checks';
 import {HEADER_OFFSET} from '../render3/interfaces/view';
 
+import {IS_HYDRATION_FEATURE_ENABLED} from './api';
 import {decompressNghInfo} from './compression';
 import {NghDom} from './interfaces';
 
@@ -87,11 +89,22 @@ export function processTextNodeMarkersBeforeHydration(node: HTMLElement) {
 }
 
 export function locateHostElementImpl(
-    renderer: Renderer, elementOrSelector: RElement|string,
-    encapsulation: ViewEncapsulation): RElement {
-  // Always retain content when we are in hydration mode.
-  const rootElement = renderer.selectRootElement(elementOrSelector, true /* preserveContent */);
-  processTextNodeMarkersBeforeHydration(rootElement as HTMLElement);
+    renderer: Renderer, elementOrSelector: RElement|string, encapsulation: ViewEncapsulation,
+    injector: Injector): RElement {
+  const isHydrationEnabled = injector.get(IS_HYDRATION_FEATURE_ENABLED, false);
+
+  // FIXME: this is a fix to the problem that happens in tests :(
+  // We load extra code from `withHydration` fn, but it is retained
+  // throughout the execution of all tests, thus also making it into
+  // SSR code path. We should investigate how to avoid this check here.
+  const isBrowser = injector.get(PLATFORM_ID) === 'browser';
+
+  const preserveContent =
+      (isBrowser && isHydrationEnabled) || encapsulation === ViewEncapsulation.ShadowDom;
+  const rootElement = renderer.selectRootElement(elementOrSelector, preserveContent);
+  if (isHydrationEnabled) {
+    processTextNodeMarkersBeforeHydration(rootElement as HTMLElement);
+  }
   return rootElement;
 };
 

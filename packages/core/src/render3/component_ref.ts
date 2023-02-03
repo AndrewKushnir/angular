@@ -187,7 +187,8 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
     // dynamically. Default to 'div' if this component did not specify any tag name in its selector.
     const elementName = this.componentDef.selectors[0][0] as string || 'div';
     const hostRNode = rootSelectorOrNode ?
-        locateHostElement(hostRenderer, rootSelectorOrNode, this.componentDef.encapsulation) :
+        locateHostElement(
+            hostRenderer, rootSelectorOrNode, this.componentDef.encapsulation, rootViewInjector) :
         createElementNode(hostRenderer, elementName, getNamespace(elementName));
 
     const rootFlags = this.componentDef.onPush ? LViewFlags.Dirty | LViewFlags.IsRoot :
