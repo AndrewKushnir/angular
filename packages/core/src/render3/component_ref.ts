@@ -13,7 +13,6 @@ import {InjectFlags, InjectOptions} from '../di/interface/injector';
 import {ProviderToken} from '../di/provider_token';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {RuntimeError, RuntimeErrorCode} from '../errors';
-import {IS_HYDRATION_ENABLED} from '../hydration/api';
 import {NghDom} from '../hydration/interfaces';
 import {retrieveNghInfo} from '../hydration/utils';
 import {Type} from '../interface/type';
@@ -187,10 +186,9 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
     // Determine a tag name used for creating host elements when this component is created
     // dynamically. Default to 'div' if this component did not specify any tag name in its selector.
     const elementName = this.componentDef.selectors[0][0] as string || 'div';
-    const isHydrationEnabled = rootViewInjector.get(IS_HYDRATION_ENABLED, false);
     const hostRNode = rootSelectorOrNode ?
         locateHostElement(
-            hostRenderer, rootSelectorOrNode, this.componentDef.encapsulation, isHydrationEnabled) :
+            hostRenderer, rootSelectorOrNode, this.componentDef.encapsulation, rootViewInjector) :
         createElementNode(hostRenderer, elementName, getNamespace(elementName));
 
     const rootFlags = this.componentDef.onPush ? LViewFlags.Dirty | LViewFlags.IsRoot :
