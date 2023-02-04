@@ -15,9 +15,9 @@ import {CONTEXT, HEADER_OFFSET, HOST, LView, TView, TVIEW, TViewType} from '../r
 import {getFirstNativeNode} from '../render3/node_manipulation';
 import {unwrapRNode} from '../render3/util/view_utils';
 
-import {compressNghInfo} from './compression';
+import {compressNghInfo, compressNodeLocation} from './compression';
 import {NghContainer, NghDom} from './interfaces';
-import {calcPathBetween} from './node_lookup_utils';
+import {calcPathBetween, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
 import {isInNonHydratableBlock, NON_HYDRATABLE_ATTR_NAME} from './non_hydratable';
 import {DROPPED_PROJECTED_NODE, EMPTY_TEXT_NODE_COMMENT, getComponentLView, NGH_ATTR_NAME, TEXT_NODE_SEPARATOR_COMMENT} from './utils';
 
@@ -272,7 +272,7 @@ function calcPathForNode(lView: LView, tNode: TNode, parentTNode?: TNode|null): 
   // If `null` is passed explicitly, use this as a signal that we want to calculate
   // the path starting from `lView[HOST]`.
   parentTNode = parentTNode === null ? null : (parentTNode || tNode.parent!);
-  const parentIndex = parentTNode === null ? 'host' : parentTNode.index;
+  const parentIndex = parentTNode === null ? REFERENCE_NODE_HOST : parentTNode.index;
   const parentRNode =
       parentTNode === null ? lView[HOST] : unwrapRNode(lView[parentIndex as number]);
   let rNode = unwrapRNode(lView[index]);
@@ -290,22 +290,23 @@ function calcPathForNode(lView: LView, tNode: TNode, parentTNode?: TNode|null): 
       rNode = firstRNode;
     }
   }
-  const parentId = parentIndex === 'host' ? parentIndex : '' + (parentIndex - HEADER_OFFSET);
-  let path: string[] = calcPathBetween(parentRNode as Node, rNode as Node, parentId);
-  if (path.length === 0 && parentRNode !== rNode) {
+  const referenceNode =
+      parentIndex === REFERENCE_NODE_HOST ? parentIndex : '' + (parentIndex - HEADER_OFFSET);
+  let path: string|null = calcPathBetween(parentRNode as Node, rNode as Node, referenceNode);
+  if (path === null && parentRNode !== rNode) {
     // Searching for a path between elements within a host node failed.
     // Trying to find a path to an element starting from the `document.body` instead.
     const body = (parentRNode as Node).ownerDocument!.body as Node;
-    path = calcPathBetween(body, rNode as Node, 'body');
+    path = calcPathBetween(body, rNode as Node, REFERENCE_NODE_BODY);
 
-    if (path.length === 0) {
+    if (path === null) {
       // If path is still empty, it's likely that this node is detached and
       // won't be found during hydration.
       // TODO: add a better error message, potentially suggesting `ngNonHydratable`.
       throw new Error('Unable to locate element on a page.');
     }
   }
-  return path.join('.');
+  return path!;
 }
 
 function serializeLContainer(lContainer: LContainer, context: HydrationContext): NghContainer {

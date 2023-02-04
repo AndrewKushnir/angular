@@ -14,10 +14,14 @@ import {ɵɵresolveBody} from '../render3/util/misc_utils';
 import {getNativeByTNode, unwrapRNode} from '../render3/util/view_utils';
 import {assertDefined} from '../util/assert';
 
+import {compressNodeLocation, decompressNodeLocation} from './compression';
+
+export const REFERENCE_NODE_HOST = 'h';
+export const REFERENCE_NODE_BODY = 'b';
 
 export enum NodeNavigationStep {
-  FirstChild,
-  NextSibling,
+  FirstChild = 'f',
+  NextSibling = 'n',
 }
 
 export class NoPathFoundError extends Error {}
@@ -74,27 +78,19 @@ function navigateBetweenSiblings(start: Node, finish: Node): NodeNavigationStep[
   return nav;
 }
 
-export function calcPathBetween(from: Node, to: Node, parent: string): string[] {
-  let path: string[] = [];
+export function calcPathBetween(from: Node, to: Node, parent: string): string|null {
+  let path: NodeNavigationStep[] = [];
   try {
-    path = navigateBetween(from, to).map(op => {
-      switch (op) {
-        case NodeNavigationStep.FirstChild:
-          return 'firstChild';
-        case NodeNavigationStep.NextSibling:
-          return 'nextSibling';
-      }
-    });
+    path = navigateBetween(from, to);
   } catch (e: unknown) {
     if (e instanceof NoPathFoundError) {
-      return [];
+      return null;
     }
   }
-  path.unshift(parent);
-  return path;
+  return compressNodeLocation(parent, path);
 }
 
-function findExistingNode(host: Node, path: string[]): RNode {
+function findExistingNode(host: Node, path: NodeNavigationStep[]): RNode {
   let node = host;
   for (const op of path) {
     if (!node) {
@@ -102,10 +98,10 @@ function findExistingNode(host: Node, path: string[]): RNode {
       throw new Error(`findExistingNode: failed to find node at ${path}.`);
     }
     switch (op) {
-      case 'firstChild':
+      case NodeNavigationStep.FirstChild:
         node = node.firstChild!;
         break;
-      case 'nextSibling':
+      case NodeNavigationStep.NextSibling:
         node = node.nextSibling!;
         break;
     }
@@ -118,22 +114,17 @@ function findExistingNode(host: Node, path: string[]): RNode {
 }
 
 function locateRNodeByPath(path: string, lView: LView): RNode {
-  const pathParts = path.split('.');
-  // First element in a path is:
-  // - either a parent node id: `12.nextSibling...`
-  // - or a 'host' string to indicate that the search should start from the host node
-  // - or a 'body' string, in which case we start the lookup from the <body> node
-  const firstPathPart = pathParts.shift();
-  if (firstPathPart === 'host') {
-    return findExistingNode(lView[0] as unknown as Element, pathParts);
-  } else if (firstPathPart === 'body') {
-    const body = ɵɵresolveBody(lView[0] as unknown as RElement & {ownerDocument: Document});
-    return findExistingNode(body, pathParts);
+  const [referenceNode, ...pathParts] = decompressNodeLocation(path);
+  let ref: Element;
+  if (referenceNode === REFERENCE_NODE_HOST) {
+    ref = lView[0] as unknown as Element;
+  } else if (referenceNode === REFERENCE_NODE_BODY) {
+    ref = ɵɵresolveBody(lView[0] as unknown as RElement & {ownerDocument: Document});
   } else {
-    const parentElementId = Number(firstPathPart!);
-    const parentRNode = unwrapRNode((lView as any)[parentElementId + HEADER_OFFSET]);
-    return findExistingNode(parentRNode as Element, pathParts);
+    const parentElementId = Number(referenceNode);
+    ref = unwrapRNode((lView as any)[parentElementId + HEADER_OFFSET]) as Element;
   }
+  return findExistingNode(ref, pathParts);
 }
 
 function calcViewContainerSize(views: NghView[]): number {
