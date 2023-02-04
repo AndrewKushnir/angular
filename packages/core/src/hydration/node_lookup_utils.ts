@@ -140,7 +140,7 @@ export function locateNextRNode<T extends RNode>(
     previousTNode: TNode|null, previousTNodeParent: boolean): T|null {
   let native: RNode|null = null;
   const adjustedIndex = tNode.index - HEADER_OFFSET;
-  if (hydrationInfo.nodes[adjustedIndex]) {
+  if (hydrationInfo.nodes?.[adjustedIndex]) {
     // We know exact location of the node.
     native = locateRNodeByPath(hydrationInfo.nodes[adjustedIndex], lView);
   } else if (tView.firstChild === tNode) {
@@ -155,12 +155,12 @@ export function locateNextRNode<T extends RNode>(
       // Previous node was an `<ng-container>`, so this node is a first child
       // within an element container, so we can locate the container in ngh data
       // structure and use its first child.
-      const nghContainer = hydrationInfo.containers[previousTNode!.index - HEADER_OFFSET];
+      const nghContainer = hydrationInfo.containers?.[previousTNode!.index - HEADER_OFFSET];
       if (ngDevMode && !nghContainer) {
         // TODO: add better error message.
         throw new Error('Invalid state.');
       }
-      native = nghContainer.firstChild!;
+      native = nghContainer!.firstChild!;
     } else {
       // FIXME: this doesn't work for i18n :(
       // In i18n case, previous tNode is a parent element,
@@ -169,14 +169,14 @@ export function locateNextRNode<T extends RNode>(
         native = (previousRElement as any).firstChild;
       } else {
         const previousNodeHydrationInfo =
-            hydrationInfo.containers[previousTNode!.index - HEADER_OFFSET];
+            hydrationInfo.containers?.[previousTNode!.index - HEADER_OFFSET];
         if (previousTNode!.type === TNodeType.Element && previousNodeHydrationInfo) {
           // If the previous node is an element, but it also has container info,
           // this means that we are processing a node like `<div #vcrTarget>`, which is
           // represented in live DOM as `<div></div>...<!--container-->`.
           // In this case, there are nodes *after* this element and we need to skip those.
           // `+1` stands for an anchor comment node after all the views in this container.
-          const nodesToSkip = calcViewContainerSize(previousNodeHydrationInfo.views) + 1;
+          const nodesToSkip = calcViewContainerSize(previousNodeHydrationInfo!.views!) + 1;
           previousRElement = siblingAfter(nodesToSkip, previousRElement)!;
           // TODO: add an assert that `previousRElement` is a comment node.
         }

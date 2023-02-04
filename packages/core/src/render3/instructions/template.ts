@@ -34,7 +34,7 @@ function templateFirstCreatePass(
   const tViewConsts = tView.consts;
   const adjustedIndex = index + HEADER_OFFSET;
   const ngh = lView[HYDRATION_INFO];
-  let ssrId = (ngh && ngh.templates[index]) || null;
+  let ssrId = (ngh && ngh.templates?.[index]) || null;
   // TODO(pk): refactor getOrCreateTNode to have the "create" only version
   const tNode = getOrCreateTNode(
       tView, adjustedIndex, TNodeType.Container, tagName || null,
@@ -132,7 +132,7 @@ function locateOrCreateLContainerNodeImpl(
     let currentRNode =
         locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
 
-    const nghContainer = ngh.containers[index];
+    const nghContainer = ngh.containers?.[index]!;
     ngDevMode &&
         assertDefined(nghContainer, 'There is no hydration info available for this template');
 
