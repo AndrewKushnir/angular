@@ -641,7 +641,7 @@ function locateOrCreateContainerRefImpl(
       isNodeDisconnected(ngh, hostTNode.index - HEADER_OFFSET);
   if (!isCreating) {
     const index = hostTNode.index - HEADER_OFFSET;
-    nghContainer = ngh.containers[index];
+    nghContainer = ngh!.containers![index];
     ngDevMode &&
         assertDefined(nghContainer, 'There is no hydration info available for this container');
   }

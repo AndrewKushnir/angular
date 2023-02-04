@@ -136,5 +136,5 @@ export const DROPPED_PROJECTED_NODE = '-';
  * in live DOM at serialization time.
  */
 export function isNodeDisconnected(hydrationInfo: NghDom, index: number): boolean {
-  return hydrationInfo.nodes[index] === DROPPED_PROJECTED_NODE;
+  return hydrationInfo.nodes?.[index] === DROPPED_PROJECTED_NODE;
 }
