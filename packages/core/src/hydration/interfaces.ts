@@ -10,9 +10,9 @@
  * TODO: add docs here and for each field.
  */
 export interface NghDom {
-  nodes: Record<number, string>;
-  containers: Record<number, NghContainer>;
-  templates: Record<number, string>;
+  nodes?: Record<number, string>;
+  containers?: Record<number, NghContainer>;
+  templates?: Record<number, string>;
 
   // First node in this view.
   // TODO: consider storing this info elsewhere to keep separation
@@ -25,7 +25,7 @@ export interface NghDom {
  * TODO: add docs here and for each field.
  */
 export interface NghContainer {
-  views: NghView[];
+  views?: NghView[];
 
   // Describes the number of top level nodes in this container.
   // Only applicable to <ng-container>s.
