@@ -24,20 +24,22 @@ import {siblingAfter} from './node_lookup_utils';
 export function locateDehydratedViewsInContainer(
     currentRNode: RNode, nghContainer: NghContainer): [RNode, NghView[]] {
   const dehydratedViews: NghView[] = [];
-  for (const nghView of nghContainer.views) {
-    const view = {...nghView};
-    if (view.numRootNodes > 0) {
-      // Keep reference to the first node in this view,
-      // so it can be accessed while invoking template instructions.
-      view.firstChild = currentRNode as HTMLElement;
+  if (nghContainer.views) {
+    for (const nghView of nghContainer.views) {
+      const view = {...nghView};
+      if (view.numRootNodes > 0) {
+        // Keep reference to the first node in this view,
+        // so it can be accessed while invoking template instructions.
+        view.firstChild = currentRNode as HTMLElement;
 
-      // Move over to the first node after this view, which can
-      // either be a first node of the next view or an anchor comment
-      // node after the last view in a container.
-      currentRNode = siblingAfter(view.numRootNodes, currentRNode as RElement)!;
+        // Move over to the first node after this view, which can
+        // either be a first node of the next view or an anchor comment
+        // node after the last view in a container.
+        currentRNode = siblingAfter(view.numRootNodes, currentRNode as RElement)!;
+      }
+
+      dehydratedViews.push(view);
     }
-
-    dehydratedViews.push(view);
   }
 
   ngDevMode && assertRComment(currentRNode, 'Expecting a comment node as a view container anchor');

@@ -171,7 +171,7 @@ function locateOrCreateElementContainerNode(
     ngDevMode && ngDevMode.rendererCreateComment++;
     comment = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
   } else {
-    const nghContainer = ngh.containers[index];
+    const nghContainer = ngh.containers?.[index]!;
     ngDevMode &&
         assertDefined(
             nghContainer, 'There is no hydration info available for this element container');
@@ -179,7 +179,7 @@ function locateOrCreateElementContainerNode(
     const currentRNode =
         locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
 
-    if (nghContainer.views.length > 0) {
+    if (nghContainer.views && nghContainer.views.length > 0) {
       // This <ng-container> is also annotated as a view container.
       // Extract all dehydrated views following instructions from ngh
       // and store this info for later reuse in `createContainerRef`.

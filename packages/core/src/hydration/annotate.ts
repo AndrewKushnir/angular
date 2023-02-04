@@ -79,12 +79,7 @@ function isTI18nNode(obj: any): boolean {
 }
 
 function serializeLView(lView: LView, context: HydrationContext): NghDom {
-  const ngh: NghDom = {
-    containers: {},
-    templates: {},
-    nodes: {},
-  };
-
+  const ngh: NghDom = {};
   const tView = lView[TVIEW];
   for (let i = HEADER_OFFSET; i < tView.bindingStartIndex; i++) {
     let targetNode: Node|null = null;
@@ -104,6 +99,7 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
         // a parent lView, which contains those nodes.
         if (headTNode && !isProjectionTNode(headTNode)) {
           if (!isInNonHydratableBlock(headTNode, lView)) {
+            ngh.nodes ??= {};
             ngh.nodes[headTNode.index - HEADER_OFFSET] = calcPathForNode(lView, headTNode);
           }
         }
@@ -117,7 +113,8 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
         if (Array.isArray(embeddedTView)) {
           throw new Error(`Expecting tNode.tViews to be an object, but it's an array.`);
         }
-        ngh.templates![i - HEADER_OFFSET] = context.ssrIdRegistry.get(embeddedTView);
+        ngh.templates ??= {};
+        ngh.templates[i - HEADER_OFFSET] = context.ssrIdRegistry.get(embeddedTView);
       }
       const hostNode = lView[i][HOST]!;
       // LView[i][HOST] can be 2 different types:
@@ -134,7 +131,8 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
         }
       }
       const container = serializeLContainer(lView[i], context);
-      ngh.containers![adjustedIndex] = container;
+      ngh.containers ??= {};
+      ngh.containers[adjustedIndex] = container;
     } else if (Array.isArray(lView[i])) {
       // This is a component
       // Check to see if it has ngNonHydratable
@@ -157,10 +155,10 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
         // so it's only represented by the number of top-level nodes
         // as a shift to get to a corresponding comment node.
         const container: NghContainer = {
-          views: [],
           numRootNodes: rootNodes.length,
         };
 
+        ngh.containers ??= {};
         ngh.containers[adjustedIndex] = container;
       } else if (tNodeType & TNodeType.Projection) {
         // Current TNode has no DOM element associated with it,
@@ -174,6 +172,7 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
           const index = nextTNode.index - HEADER_OFFSET;
           if (!isInNonHydratableBlock(nextTNode, lView)) {
             const path = calcPathForNode(lView, nextTNode);
+            ngh.nodes ??= {};
             ngh.nodes[index] = path;
           }
         }
@@ -183,6 +182,7 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
           // doesn't make it into one of the content projection slots
           // (for example, when there is no default <ng-content /> slot
           // in projector component's template).
+          ngh.nodes ??= {};
           ngh.nodes[adjustedIndex] = DROPPED_PROJECTED_NODE;
         } else {
           // Handle cases where text nodes can be lost after DOM serialization:
@@ -228,6 +228,7 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
             const index = nextProjectedTNode.index - HEADER_OFFSET;
             if (!isInNonHydratableBlock(nextProjectedTNode, lView)) {
               const path = calcPathForNode(lView, nextProjectedTNode);
+              ngh.nodes ??= {};
               ngh.nodes[index] = path;
             }
           }
@@ -310,9 +311,7 @@ function calcPathForNode(lView: LView, tNode: TNode, parentTNode?: TNode|null): 
 }
 
 function serializeLContainer(lContainer: LContainer, context: HydrationContext): NghContainer {
-  const container: NghContainer = {
-    views: [],
-  };
+  const container: NghContainer = {};
 
   for (let i = CONTAINER_HEADER_OFFSET; i < lContainer.length; i++) {
     let childLView = lContainer[i] as LView;
@@ -345,6 +344,7 @@ function serializeLContainer(lContainer: LContainer, context: HydrationContext):
       numRootNodes = rootNodes.length;
     }
 
+    container.views ??= [];
     container.views.push({
       template,
       numRootNodes,
