@@ -10,7 +10,7 @@ import {assertRComment} from '../render3/assert';
 import {DEHYDRATED_VIEWS, LContainer} from '../render3/interfaces/container';
 import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 
-import {NghContainer, NghView} from './interfaces';
+import {NghContainer, NghView, NUM_ROOT_NODES, TEMPLATE, VIEWS} from './interfaces';
 import {siblingAfter} from './node_lookup_utils';
 
 
@@ -24,10 +24,10 @@ import {siblingAfter} from './node_lookup_utils';
 export function locateDehydratedViewsInContainer(
     currentRNode: RNode, nghContainer: NghContainer): [RNode, NghView[]] {
   const dehydratedViews: NghView[] = [];
-  if (nghContainer.views) {
-    for (const nghView of nghContainer.views) {
+  if (nghContainer[VIEWS]) {
+    for (const nghView of nghContainer[VIEWS]) {
       const view = {...nghView};
-      if (view.numRootNodes > 0) {
+      if (view[NUM_ROOT_NODES] > 0) {
         // Keep reference to the first node in this view,
         // so it can be accessed while invoking template instructions.
         view.firstChild = currentRNode as HTMLElement;
@@ -35,7 +35,7 @@ export function locateDehydratedViewsInContainer(
         // Move over to the first node after this view, which can
         // either be a first node of the next view or an anchor comment
         // node after the last view in a container.
-        currentRNode = siblingAfter(view.numRootNodes, currentRNode as RElement)!;
+        currentRNode = siblingAfter(view[NUM_ROOT_NODES], currentRNode as RElement)!;
       }
 
       dehydratedViews.push(view);
@@ -63,7 +63,7 @@ function findMatchingDehydratedViewImpl(lContainer: LContainer, template: string
     if (dehydratedViews.length > 0) {
       // TODO: take into account an index of a view within ViewContainerRef,
       // otherwise, we may end up reusing wrong nodes from live DOM?
-      const dehydratedViewIndex = dehydratedViews.findIndex(view => view.template === template);
+      const dehydratedViewIndex = dehydratedViews.findIndex(view => view[TEMPLATE] === template);
 
       if (dehydratedViewIndex > -1) {
         hydrationInfo = dehydratedViews[dehydratedViewIndex];
