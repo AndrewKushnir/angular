@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {NghDom, NghView} from '../hydration/interfaces';
+import {CONTAINERS, NghDom, NghView, NODES, NUM_ROOT_NODES, VIEWS} from '../hydration/interfaces';
 import {TNode, TNodeType} from '../render3/interfaces/node';
 import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {HEADER_OFFSET, LView, TView} from '../render3/interfaces/view';
@@ -130,7 +130,7 @@ function locateRNodeByPath(path: string, lView: LView): RNode {
 function calcViewContainerSize(views: NghView[]): number {
   let numNodes = 0;
   for (let view of views) {
-    numNodes += view.numRootNodes;
+    numNodes += view[NUM_ROOT_NODES];
   }
   return numNodes;
 }
@@ -140,9 +140,9 @@ export function locateNextRNode<T extends RNode>(
     previousTNode: TNode|null, previousTNodeParent: boolean): T|null {
   let native: RNode|null = null;
   const adjustedIndex = tNode.index - HEADER_OFFSET;
-  if (hydrationInfo.nodes?.[adjustedIndex]) {
+  if (hydrationInfo[NODES]?.[adjustedIndex]) {
     // We know exact location of the node.
-    native = locateRNodeByPath(hydrationInfo.nodes[adjustedIndex], lView);
+    native = locateRNodeByPath(hydrationInfo[NODES][adjustedIndex], lView);
   } else if (tView.firstChild === tNode) {
     // We create a first node in this view.
     native = hydrationInfo.firstChild as RNode;
@@ -155,7 +155,7 @@ export function locateNextRNode<T extends RNode>(
       // Previous node was an `<ng-container>`, so this node is a first child
       // within an element container, so we can locate the container in ngh data
       // structure and use its first child.
-      const nghContainer = hydrationInfo.containers?.[previousTNode!.index - HEADER_OFFSET];
+      const nghContainer = hydrationInfo[CONTAINERS]?.[previousTNode!.index - HEADER_OFFSET];
       if (ngDevMode && !nghContainer) {
         // TODO: add better error message.
         throw new Error('Invalid state.');
@@ -169,14 +169,14 @@ export function locateNextRNode<T extends RNode>(
         native = (previousRElement as any).firstChild;
       } else {
         const previousNodeHydrationInfo =
-            hydrationInfo.containers?.[previousTNode!.index - HEADER_OFFSET];
+            hydrationInfo[CONTAINERS]?.[previousTNode!.index - HEADER_OFFSET];
         if (previousTNode!.type === TNodeType.Element && previousNodeHydrationInfo) {
           // If the previous node is an element, but it also has container info,
           // this means that we are processing a node like `<div #vcrTarget>`, which is
           // represented in live DOM as `<div></div>...<!--container-->`.
           // In this case, there are nodes *after* this element and we need to skip those.
           // `+1` stands for an anchor comment node after all the views in this container.
-          const nodesToSkip = calcViewContainerSize(previousNodeHydrationInfo!.views!) + 1;
+          const nodesToSkip = calcViewContainerSize(previousNodeHydrationInfo![VIEWS]!) + 1;
           previousRElement = siblingAfter(nodesToSkip, previousRElement)!;
           // TODO: add an assert that `previousRElement` is a comment node.
         }

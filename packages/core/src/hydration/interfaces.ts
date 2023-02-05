@@ -6,13 +6,20 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+export const NODES = 'n';
+export const NUM_ROOT_NODES = 'r';
+export const CONTAINERS = 'c';
+export const TEMPLATES = 't';
+export const TEMPLATE = 'i';  // as it's also an "id"
+export const VIEWS = 'v';
+
 /**
  * TODO: add docs here and for each field.
  */
 export interface NghDom {
-  nodes?: Record<number, string>;
-  containers?: Record<number, NghContainer>;
-  templates?: Record<number, string>;
+  [NODES]?: Record<number, string>;
+  [CONTAINERS]?: Record<number, NghContainer>;
+  [TEMPLATES]?: Record<number, string>;
 
   // First node in this view.
   // TODO: consider storing this info elsewhere to keep separation
@@ -25,7 +32,7 @@ export interface NghDom {
  * TODO: add docs here and for each field.
  */
 export interface NghContainer {
-  views?: NghView[];
+  [VIEWS]?: NghView[];
 
   // Describes the number of top level nodes in this container.
   // Only applicable to <ng-container>s.
@@ -33,7 +40,7 @@ export interface NghContainer {
   // TODO: consider moving this info elsewhere to avoid confusion
   // between view containers (<div *ngIf>) and element containers
   // (<ng-container>s).
-  numRootNodes?: number;
+  [NUM_ROOT_NODES]?: number;
 
   // First node in this container. This is applicable to
   // <ng-container> only.
@@ -53,8 +60,8 @@ export interface NghContainer {
  * TODO: add docs here and for each field.
  */
 export interface NghView extends NghDom {
-  template: string;
-  numRootNodes: number;
+  [TEMPLATE]: string;
+  [NUM_ROOT_NODES]: number;
 
   // First node in this view.
   // TODO: consider storing this info elsewhere to keep separation

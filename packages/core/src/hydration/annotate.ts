@@ -15,8 +15,8 @@ import {CONTEXT, HEADER_OFFSET, HOST, LView, TView, TVIEW, TViewType} from '../r
 import {getFirstNativeNode} from '../render3/node_manipulation';
 import {unwrapRNode} from '../render3/util/view_utils';
 
-import {compressNghInfo, compressNodeLocation} from './compression';
-import {NghContainer, NghDom} from './interfaces';
+import {compressNghInfo} from './compression';
+import {CONTAINERS, NghContainer, NghDom, NODES, NUM_ROOT_NODES, TEMPLATE, TEMPLATES, VIEWS} from './interfaces';
 import {calcPathBetween, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
 import {isInNonHydratableBlock, NON_HYDRATABLE_ATTR_NAME} from './non_hydratable';
 import {DROPPED_PROJECTED_NODE, EMPTY_TEXT_NODE_COMMENT, getComponentLView, NGH_ATTR_NAME, TEXT_NODE_SEPARATOR_COMMENT} from './utils';
@@ -99,8 +99,8 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
         // a parent lView, which contains those nodes.
         if (headTNode && !isProjectionTNode(headTNode)) {
           if (!isInNonHydratableBlock(headTNode, lView)) {
-            ngh.nodes ??= {};
-            ngh.nodes[headTNode.index - HEADER_OFFSET] = calcPathForNode(lView, headTNode);
+            ngh[NODES] ??= {};
+            ngh[NODES][headTNode.index - HEADER_OFFSET] = calcPathForNode(lView, headTNode);
           }
         }
       }
@@ -113,8 +113,8 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
         if (Array.isArray(embeddedTView)) {
           throw new Error(`Expecting tNode.tViews to be an object, but it's an array.`);
         }
-        ngh.templates ??= {};
-        ngh.templates[i - HEADER_OFFSET] = context.ssrIdRegistry.get(embeddedTView);
+        ngh[TEMPLATES] ??= {};
+        ngh[TEMPLATES][i - HEADER_OFFSET] = context.ssrIdRegistry.get(embeddedTView);
       }
       const hostNode = lView[i][HOST]!;
       // LView[i][HOST] can be 2 different types:
@@ -131,8 +131,8 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
         }
       }
       const container = serializeLContainer(lView[i], context);
-      ngh.containers ??= {};
-      ngh.containers[adjustedIndex] = container;
+      ngh[CONTAINERS] ??= {};
+      ngh[CONTAINERS][adjustedIndex] = container;
     } else if (Array.isArray(lView[i])) {
       // This is a component
       // Check to see if it has ngNonHydratable
@@ -155,11 +155,11 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
         // so it's only represented by the number of top-level nodes
         // as a shift to get to a corresponding comment node.
         const container: NghContainer = {
-          numRootNodes: rootNodes.length,
+          [NUM_ROOT_NODES]: rootNodes.length,
         };
 
-        ngh.containers ??= {};
-        ngh.containers[adjustedIndex] = container;
+        ngh[CONTAINERS] ??= {};
+        ngh[CONTAINERS][adjustedIndex] = container;
       } else if (tNodeType & TNodeType.Projection) {
         // Current TNode has no DOM element associated with it,
         // so the following node would not be able to find an anchor.
@@ -172,8 +172,8 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
           const index = nextTNode.index - HEADER_OFFSET;
           if (!isInNonHydratableBlock(nextTNode, lView)) {
             const path = calcPathForNode(lView, nextTNode);
-            ngh.nodes ??= {};
-            ngh.nodes[index] = path;
+            ngh[NODES] ??= {};
+            ngh[NODES][index] = path;
           }
         }
       } else {
@@ -182,8 +182,8 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
           // doesn't make it into one of the content projection slots
           // (for example, when there is no default <ng-content /> slot
           // in projector component's template).
-          ngh.nodes ??= {};
-          ngh.nodes[adjustedIndex] = DROPPED_PROJECTED_NODE;
+          ngh[NODES] ??= {};
+          ngh[NODES][adjustedIndex] = DROPPED_PROJECTED_NODE;
         } else {
           // Handle cases where text nodes can be lost after DOM serialization:
           //  1. When there is an *empty text node* in DOM: in this case, this
@@ -228,8 +228,8 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
             const index = nextProjectedTNode.index - HEADER_OFFSET;
             if (!isInNonHydratableBlock(nextProjectedTNode, lView)) {
               const path = calcPathForNode(lView, nextProjectedTNode);
-              ngh.nodes ??= {};
-              ngh.nodes[index] = path;
+              ngh[NODES] ??= {};
+              ngh[NODES][index] = path;
             }
           }
         }
@@ -344,10 +344,10 @@ function serializeLContainer(lContainer: LContainer, context: HydrationContext):
       numRootNodes = rootNodes.length;
     }
 
-    container.views ??= [];
-    container.views.push({
-      template,
-      numRootNodes,
+    container[VIEWS] ??= [];
+    container[VIEWS].push({
+      [TEMPLATE]: template,
+      [NUM_ROOT_NODES]: numRootNodes,
       ...serializeLView(lContainer[i] as LView, context),
     });
   }

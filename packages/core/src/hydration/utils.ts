@@ -18,7 +18,7 @@ import {HEADER_OFFSET} from '../render3/interfaces/view';
 
 import {IS_HYDRATION_FEATURE_ENABLED} from './api';
 import {decompressNghInfo} from './compression';
-import {NghDom} from './interfaces';
+import {NghDom, NODES} from './interfaces';
 
 export const NGH_ATTR_NAME = 'ngh';
 export const EMPTY_TEXT_NODE_COMMENT = 'ngetn';
@@ -136,5 +136,5 @@ export const DROPPED_PROJECTED_NODE = '-';
  * in live DOM at serialization time.
  */
 export function isNodeDisconnected(hydrationInfo: NghDom, index: number): boolean {
-  return hydrationInfo.nodes?.[index] === DROPPED_PROJECTED_NODE;
+  return hydrationInfo[NODES]?.[index] === DROPPED_PROJECTED_NODE;
 }
