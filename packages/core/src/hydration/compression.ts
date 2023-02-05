@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {NghDom} from './interfaces';
+import {NghContainer, NghDom, NghView} from './interfaces';
 import {NodeNavigationStep, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
 
 /**

@@ -8,7 +8,7 @@
 
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
-import {NghContainer, NghDom, NghView} from '../hydration/interfaces';
+import {CONTAINERS, NghContainer, NghDom, NghView} from '../hydration/interfaces';
 import {isInNonHydratableBlock} from '../hydration/non_hydratable';
 import {isNodeDisconnected, markRNodeAsClaimedForHydration, retrieveNghInfo} from '../hydration/utils';
 import {findMatchingDehydratedView, locateDehydratedViewsInContainer} from '../hydration/views';
@@ -641,7 +641,7 @@ function locateOrCreateContainerRefImpl(
       isNodeDisconnected(ngh, hostTNode.index - HEADER_OFFSET);
   if (!isCreating) {
     const index = hostTNode.index - HEADER_OFFSET;
-    nghContainer = ngh!.containers![index];
+    nghContainer = ngh![CONTAINERS]![index];
     ngDevMode &&
         assertDefined(nghContainer, 'There is no hydration info available for this container');
   }

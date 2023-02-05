@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {CONTAINERS, NUM_ROOT_NODES, VIEWS} from '../../hydration/interfaces';
 import {locateNextRNode, siblingAfter} from '../../hydration/node_lookup_utils';
 import {isNodeDisconnected, markRNodeAsClaimedForHydration} from '../../hydration/utils';
 import {locateDehydratedViewsInContainer} from '../../hydration/views';
@@ -171,7 +172,7 @@ function locateOrCreateElementContainerNode(
     ngDevMode && ngDevMode.rendererCreateComment++;
     comment = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
   } else {
-    const nghContainer = ngh.containers?.[index]!;
+    const nghContainer = ngh[CONTAINERS]?.[index]!;
     ngDevMode &&
         assertDefined(
             nghContainer, 'There is no hydration info available for this element container');
@@ -179,7 +180,7 @@ function locateOrCreateElementContainerNode(
     const currentRNode =
         locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
 
-    if (nghContainer.views && nghContainer.views.length > 0) {
+    if (nghContainer[VIEWS] && nghContainer[VIEWS].length > 0) {
       // This <ng-container> is also annotated as a view container.
       // Extract all dehydrated views following instructions from ngh
       // and store this info for later reuse in `createContainerRef`.
@@ -200,7 +201,7 @@ function locateOrCreateElementContainerNode(
       // so it can be referenced while invoking further instructions.
       nghContainer.firstChild = currentRNode as HTMLElement;
 
-      comment = siblingAfter<RComment>(nghContainer.numRootNodes!, currentRNode!)!;
+      comment = siblingAfter<RComment>(nghContainer[NUM_ROOT_NODES]!, currentRNode!)!;
     }
 
     ngDevMode &&
