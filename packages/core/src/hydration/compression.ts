@@ -7,7 +7,7 @@
  */
 
 import {NghDom} from './interfaces';
-import {LightJSON} from './light_json';
+import {NghJSON} from './ngh_json';
 import {NodeNavigationStep, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
 
 /**
@@ -88,7 +88,7 @@ export function decompressNodeLocation(path: string): [string|number, ...NodeNav
  * @returns
  */
 export function compressNghInfo(ngh: NghDom): string {
-  return LightJSON.stringify(ngh);
+  return NghJSON.stringify(ngh);
 }
 
 /**
@@ -99,5 +99,5 @@ export function compressNghInfo(ngh: NghDom): string {
  * @returns
  */
 export function decompressNghInfo(ngh: string): NghDom {
-  return LightJSON.parse(ngh);
+  return NghJSON.parse(ngh);
 }

@@ -93,7 +93,7 @@ function parse<T>(input: string): T {
  * used to serialize Ngh data structures, which allows to drop
  * quotes around keys and values.
  */
-export class LightJSON {
+export class NghJSON {
   static stringify<T>(input: T): string {
     // TODO: consider better implementation here.
     return JSON.stringify(input).replace(/"/g, '');
