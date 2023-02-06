@@ -6,7 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {NghContainer, NghDom, NghView} from './interfaces';
+import {NghDom} from './interfaces';
+import {LightJSON} from './light_json';
 import {NodeNavigationStep, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
 
 /**
@@ -87,8 +88,7 @@ export function decompressNodeLocation(path: string): [string|number, ...NodeNav
  * @returns
  */
 export function compressNghInfo(ngh: NghDom): string {
-  // TODO: implement better (more compact) serialization.
-  return JSON.stringify(ngh);
+  return LightJSON.stringify(ngh);
 }
 
 /**
@@ -99,6 +99,5 @@ export function compressNghInfo(ngh: NghDom): string {
  * @returns
  */
 export function decompressNghInfo(ngh: string): NghDom {
-  // TODO: implement better de-serialization.
-  return JSON.parse(ngh);
+  return LightJSON.parse(ngh);
 }
