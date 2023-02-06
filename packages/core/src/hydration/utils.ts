@@ -34,8 +34,8 @@ let _retrieveNghInfoImpl: typeof retrieveNghInfoImpl = (rNode: RElement) => null
 function retrieveNghInfoImpl(rNode: RElement): NghDom|null {
   let nghInfo: NghDom|null = null;
   const nghAttrValue = (rNode as HTMLElement).getAttribute(NGH_ATTR_NAME);
-  if (nghAttrValue) {
-    nghInfo = decompressNghInfo(nghAttrValue);
+  if (nghAttrValue != null) {
+    nghInfo = nghAttrValue !== '' ? decompressNghInfo(nghAttrValue) : {};
     nghInfo.firstChild = (rNode as HTMLElement).firstChild as HTMLElement;
     rNode.removeAttribute(NGH_ATTR_NAME);
     // Note: don't check whether this node was claimed for hydration,
@@ -129,7 +129,7 @@ export function isRNodeClaimedForHydration(node: RNode): boolean {
  * during content projection. We need to re-create this node
  * from scratch during hydration.
  */
-export const DROPPED_PROJECTED_NODE = '-';
+export const DROPPED_PROJECTED_NODE = 'd';
 
 /**
  * Checks whether a node is annotated as "disconnected", i.e. not present
