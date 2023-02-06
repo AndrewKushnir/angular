@@ -339,7 +339,7 @@ function serializeLContainer(lContainer: LContainer, context: HydrationContext):
           context.ssrIdRegistry.get(childTView);  // from which template did this lView originate?
 
       // Collect root nodes within this view.
-      const rootNodes: any[] = [];
+      const rootNodes: unknown[] = [];
       collectNativeNodes(childTView, childLView, childTView.firstChild, rootNodes);
       numRootNodes = rootNodes.length;
     }
@@ -358,7 +358,11 @@ function serializeLContainer(lContainer: LContainer, context: HydrationContext):
 export function annotateHostElementForHydration(
     element: Element, lView: LView, context: HydrationContext): void {
   const rawNgh = serializeLView(lView, context);
-  const serializedNgh = compressNghInfo(rawNgh);
+  let serializedNgh = '';
+  // Do not serialize an empty object
+  if (Object.keys(rawNgh).length > 0) {
+    serializedNgh = compressNghInfo(rawNgh);
+  }
   element.setAttribute(NGH_ATTR_NAME, serializedNgh);
 }
 
