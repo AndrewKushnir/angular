@@ -1048,6 +1048,59 @@ fdescribe('platform-server integration', () => {
       });
     });
 
+    describe('ngh compression', () => {
+      // TODO: update the test with proper `expect` statements.
+      xit('should work with *ngFor', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [NgIf, NgFor],
+          template: `
+            <div>
+              <span *ngFor="let item of items">
+                {{ item }}
+                <b *ngIf="item > 5 && item < 10">is between 5 and 10!</b>
+              </span>
+            </div>
+          `,
+        })
+        class SimpleComponent {
+          items = [...Array(15).keys()];  // [0, ..., 14]
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+
+        await whenStable(appRef);
+
+        // Post-cleanup should *not* contain dehydrated views.
+        const postCleanupContents = stripExcessiveSpaces(clientRootNode.outerHTML);
+        expect(postCleanupContents)
+            .not.toContain(
+                '<span> 5 <b>is bigger than 15!</b><!--bindings={ "ng-reflect-ng-if": "false" }--></span>');
+        expect(postCleanupContents)
+            .toContain(
+                '<span> 30 <b>is bigger than 15!</b><!--bindings={ "ng-reflect-ng-if": "true" }--></span>');
+        expect(postCleanupContents)
+            .toContain('<span> 5 <!--bindings={ "ng-reflect-ng-if": "false" }--></span>');
+        expect(postCleanupContents)
+            .toContain(
+                '<span> 50 <b>is bigger than 15!</b><!--bindings={ "ng-reflect-ng-if": "true" }--></span>');
+      });
+    });
+
     describe('*ngFor', () => {
       it('should work with *ngFor', async () => {
         @Component({
