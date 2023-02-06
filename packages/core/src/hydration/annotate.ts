@@ -16,7 +16,7 @@ import {getFirstNativeNode} from '../render3/node_manipulation';
 import {unwrapRNode} from '../render3/util/view_utils';
 
 import {compressNghInfo} from './compression';
-import {CONTAINERS, NghContainer, NghDom, NODES, NUM_ROOT_NODES, TEMPLATE, TEMPLATES, VIEWS} from './interfaces';
+import {CONTAINERS, MULTIPLIER, NghContainer, NghDom, NghView, NODES, NUM_ROOT_NODES, TEMPLATE, TEMPLATES, VIEWS} from './interfaces';
 import {calcPathBetween, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
 import {isInNonHydratableBlock, NON_HYDRATABLE_ATTR_NAME} from './non_hydratable';
 import {DROPPED_PROJECTED_NODE, EMPTY_TEXT_NODE_COMMENT, getComponentLView, NGH_ATTR_NAME, TEXT_NODE_SEPARATOR_COMMENT} from './utils';
@@ -344,15 +344,33 @@ function serializeLContainer(lContainer: LContainer, context: HydrationContext):
       numRootNodes = rootNodes.length;
     }
 
-    container[VIEWS] ??= [];
-    container[VIEWS].push({
+    const view: NghView = {
       [TEMPLATE]: template,
       [NUM_ROOT_NODES]: numRootNodes,
       ...serializeLView(lContainer[i] as LView, context),
-    });
+    };
+    container[VIEWS] ??= [];
+    if (container[VIEWS].length > 0) {
+      const prevView = container[VIEWS].at(-1)!;  // the last element in array
+      // Compare `view` and `prevView` to see if they are the same.
+      if (compareNghView(view, prevView)) {
+        prevView[MULTIPLIER] ??= 1;
+        prevView[MULTIPLIER]++;
+      } else {
+        container[VIEWS].push(view);
+      }
+    } else {
+      container[VIEWS].push(view);
+    }
   }
 
   return container;
+}
+
+function compareNghView(curr: NghView, prev: NghView): boolean {
+  const prevClone = {...prev};
+  delete prevClone[MULTIPLIER];
+  return JSON.stringify(curr) === JSON.stringify(prevClone);
 }
 
 export function annotateHostElementForHydration(
