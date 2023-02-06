@@ -12,6 +12,7 @@ export const CONTAINERS = 'c';
 export const TEMPLATES = 't';
 export const TEMPLATE = 'i';  // as it's also an "id"
 export const VIEWS = 'v';
+export const MULTIPLIER = 'x';  // similar to "x10" as in 10 copies
 
 /**
  * TODO: add docs here and for each field.
@@ -62,6 +63,7 @@ export interface NghContainer {
 export interface NghView extends NghDom {
   [TEMPLATE]: string;
   [NUM_ROOT_NODES]: number;
+  [MULTIPLIER]?: number;
 
   // First node in this view.
   // TODO: consider storing this info elsewhere to keep separation
