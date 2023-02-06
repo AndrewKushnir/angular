@@ -7,7 +7,7 @@
  */
 
 import {compressNodeLocation, decompressNodeLocation} from '../../src/hydration/compression';
-import {LightJSON} from '../../src/hydration/light_json';
+import {NghJSON} from '../../src/hydration/ngh_json';
 import {NodeNavigationStep, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from '../../src/hydration/node_lookup_utils';
 
 describe('compression of node location', () => {
@@ -37,7 +37,7 @@ describe('compression of node location', () => {
 describe('LightJSON', () => {
   it('should parse simple objects', () => {
     const input = '{i:4,v:[1,2,3]}';
-    const output = LightJSON.parse(input);
+    const output = NghJSON.parse(input);
     expect(output).toEqual({i: 4, v: [1, 2, 3]});
   });
 });
