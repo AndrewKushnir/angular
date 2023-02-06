@@ -10,6 +10,8 @@ import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet} from '@angular/common';
 import {ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, provideSsrSupport, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, withHydration, ɵsetDocument} from '@angular/core';
+import {CONTAINERS, NghDom, VIEWS} from '@angular/core/src/hydration/interfaces';
+import {NghJSON} from '@angular/core/src/hydration/ngh_json';
 import {TestBed} from '@angular/core/testing';
 import {bootstrapApplication} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
@@ -1049,8 +1051,7 @@ fdescribe('platform-server integration', () => {
     });
 
     describe('ngh compression', () => {
-      // TODO: update the test with proper `expect` statements.
-      xit('should work with *ngFor', async () => {
+      it('should avoid repeating views info (*ngFor) in ngh annotations', async () => {
         @Component({
           standalone: true,
           selector: 'app',
@@ -1071,9 +1072,20 @@ fdescribe('platform-server integration', () => {
         const html = await ssr(SimpleComponent);
         const ssrContents = getAppContents(html);
 
-        // TODO: properly assert `ngh` attribute value once the `ngh`
-        // format stabilizes, for now we just check that it's present.
-        expect(ssrContents).toContain('<app ngh');
+        const rawNgh = ssrContents.match(/ngh="(.*)?"/)![1];
+        const ngh = NghJSON.parse(rawNgh) as NghDom;
+
+        // We expect 3 serialized views here:
+        //  - {i:t0,r:1,t:{2:t1},c:{2:{}},x:6}
+        //  - {i:t0,r:1,t:{2:t1},c:{2:{v:[{i:t1,r:1}]}},x:4}
+        //  - {i:t0,r:1,t:{2:t1},c:{2:{}},x:5}
+        // Note the `x:N` in each JSON string, this is a view
+        // multiplier, i.e. how many times this view is repeated.
+        const views = ngh[CONTAINERS]![1][VIEWS]!;
+        expect(views.length).toBe(3);
+        expect(views[0].x).toBe(6);
+        expect(views[1].x).toBe(4);
+        expect(views[2].x).toBe(5);
 
         resetTViewsFor(SimpleComponent);
 
@@ -1085,19 +1097,8 @@ fdescribe('platform-server integration', () => {
 
         await whenStable(appRef);
 
-        // Post-cleanup should *not* contain dehydrated views.
-        const postCleanupContents = stripExcessiveSpaces(clientRootNode.outerHTML);
-        expect(postCleanupContents)
-            .not.toContain(
-                '<span> 5 <b>is bigger than 15!</b><!--bindings={ "ng-reflect-ng-if": "false" }--></span>');
-        expect(postCleanupContents)
-            .toContain(
-                '<span> 30 <b>is bigger than 15!</b><!--bindings={ "ng-reflect-ng-if": "true" }--></span>');
-        expect(postCleanupContents)
-            .toContain('<span> 5 <!--bindings={ "ng-reflect-ng-if": "false" }--></span>');
-        expect(postCleanupContents)
-            .toContain(
-                '<span> 50 <b>is bigger than 15!</b><!--bindings={ "ng-reflect-ng-if": "true" }--></span>');
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
     });
 
