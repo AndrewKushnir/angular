@@ -12,7 +12,7 @@ import {CONTAINER_HEADER_OFFSET} from './interfaces/container';
 import {TIcuContainerNode, TNode, TNodeType} from './interfaces/node';
 import {RNode} from './interfaces/renderer_dom';
 import {isLContainer} from './interfaces/type_checks';
-import {DECLARATION_COMPONENT_VIEW, LView, T_HOST, TVIEW, TView} from './interfaces/view';
+import {DECLARATION_COMPONENT_VIEW, LView, TVIEW, TView} from './interfaces/view';
 import {assertTNodeType} from './node_assert';
 import {getProjectionNodes} from './node_manipulation';
 import {getLViewParent} from './util/view_traversal_utils';

@@ -9,9 +9,10 @@
 import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet} from '@angular/common';
-import {ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, provideSsrSupport, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, withHydration, ɵsetDocument} from '@angular/core';
+import {ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, provideSsrSupport, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, withHydration, ɵdisableSsrPeformanceProfiler as disableSsrPeformanceProfiler, ɵenableSsrPeformanceProfiler as enableSsrPeformanceProfiler, ɵgetSsrProfiler as getSsrProfiler, ɵsetDocument, ɵSsrProfiler as SsrProfiler} from '@angular/core';
 import {CONTAINERS, NghDom, VIEWS} from '@angular/core/src/hydration/interfaces';
 import {NghJSON} from '@angular/core/src/hydration/ngh_json';
+import {SsrPerfMetrics} from '@angular/core/src/hydration/profiler';
 import {TestBed} from '@angular/core/testing';
 import {bootstrapApplication} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
@@ -141,6 +142,52 @@ fdescribe('platform-server integration', () => {
       ];
       return bootstrapApplication(component, {providers});
     }
+
+    describe('ssr performance profiler', () => {
+      it('should profile performance', async () => {
+        @Component({
+          standalone: true,
+          selector: '[mat-button]',
+          template: `
+         <ng-content></ng-content>
+       `,
+        })
+        class ButtonComponent {
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [ButtonComponent],
+          template: `
+         <button mat-button mat-button-trigger>Button</button>
+         <span>{{text}}</span>
+       `,
+        })
+        class SimpleComponent {
+          text = '';
+        }
+
+        const profiler = new SsrProfiler();
+
+        enableSsrPeformanceProfiler(profiler);
+        expect(getSsrProfiler()).not.toBeNull();
+
+        const html = await ssr(SimpleComponent);
+
+        disableSsrPeformanceProfiler();
+        expect(getSsrProfiler()).toBeNull();
+
+        expect(profiler.getMetric(SsrPerfMetrics.OverallSsrTime)).toBeGreaterThan(0);
+        expect(profiler.getMetric(SsrPerfMetrics.DomSerializationTime)).toBeGreaterThan(0);
+        expect(profiler.getMetric(SsrPerfMetrics.OverallHydrationTime)).toBeGreaterThan(0);
+        expect(profiler.getMetric(SsrPerfMetrics.SerializedDomNodes)).toBe(5);
+        expect(profiler.getMetric(SsrPerfMetrics.SerializedComponents)).toBe(2);
+        expect(profiler.getMetric(SsrPerfMetrics.NghAnnotationSize)).toBeGreaterThan(0);
+        expect(profiler.getMetric(SsrPerfMetrics.OverallHtmlSize)).toBeGreaterThan(0);
+        expect(profiler.getMetric(SsrPerfMetrics.EmptyTextNodeCount)).toBe(1);
+      });
+    });
 
     describe('basic scenarios', () => {
       it('should support text-only contents', async () => {
