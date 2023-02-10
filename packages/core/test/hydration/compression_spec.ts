@@ -40,4 +40,11 @@ describe('LightJSON', () => {
     const output = NghJSON.parse(input);
     expect(output).toEqual({i: 4, v: [1, 2, 3]});
   });
+
+  it('should allow dashes at token value positions', () => {
+    const input = '{i:my-cmp,v:[1,2,3]}';
+    debugger;
+    const output = NghJSON.parse(input);
+    expect(output).toEqual({i: 'my-cmp', v: [1, 2, 3]});
+  });
 });
