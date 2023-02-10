@@ -19,6 +19,7 @@ import {compressNghInfo} from './compression';
 import {CONTAINERS, MULTIPLIER, NghContainer, NghDom, NghView, NODES, NUM_ROOT_NODES, TEMPLATE, TEMPLATES, VIEWS} from './interfaces';
 import {calcPathBetween, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
 import {isInNonHydratableBlock, NON_HYDRATABLE_ATTR_NAME} from './non_hydratable';
+import {SsrPerfMetrics, SsrProfiler} from './profiler';
 import {DROPPED_PROJECTED_NODE, EMPTY_TEXT_NODE_COMMENT, getComponentLView, NGH_ATTR_NAME, TEXT_NODE_SEPARATOR_COMMENT} from './utils';
 
 /**
@@ -47,6 +48,7 @@ class TViewSsrIdRegistry {
 interface HydrationContext {
   ssrIdRegistry: TViewSsrIdRegistry;
   corruptedTextNodes: Map<string, HTMLElement>;
+  profiler: SsrProfiler|null;
 }
 
 /**
@@ -56,7 +58,8 @@ interface HydrationContext {
  * @param appRef A current instance of an ApplicationRef.
  * @param doc A reference to the current Document instance.
  */
-export function annotateForHydration(appRef: ApplicationRef, doc: Document) {
+export function annotateForHydration(
+    appRef: ApplicationRef, doc: Document, profiler: SsrProfiler|null) {
   const ssrIdRegistry = new TViewSsrIdRegistry();
   const corruptedTextNodes = new Map<string, HTMLElement>();
   const viewRefs = retrieveViewsFromApplicationRef(appRef);
@@ -66,9 +69,10 @@ export function annotateForHydration(appRef: ApplicationRef, doc: Document) {
     // a component instance.
     const hostElement = lView[HOST];
     if (hostElement) {
-      const context: HydrationContext = {ssrIdRegistry, corruptedTextNodes};
+      const context: HydrationContext = {ssrIdRegistry, corruptedTextNodes, profiler};
       annotateHostElementForHydration(hostElement, lView, context);
       insertTextNodeMarkers(corruptedTextNodes, doc);
+      profiler?.incrementMetricValue(SsrPerfMetrics.EmptyTextNodeCount, corruptedTextNodes.size);
     }
   }
 }
@@ -88,6 +92,12 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
     // tNode may be null in the case of a localRef
     if (!tNode) {
       continue;
+    }
+    if (context.profiler) {
+      // We process 1 more node from LView here. If we process a component
+      // or an LContainer, we can still increase the value by one, since both
+      // of them have native nodes (e.g. `lContainer[HOST]`).
+      context.profiler.incrementMetricValue(SsrPerfMetrics.SerializedDomNodes, 1);
     }
     if (Array.isArray(tNode.projection)) {
       // TODO: handle `RNode[]` as well.
@@ -380,6 +390,15 @@ export function annotateHostElementForHydration(
   // Do not serialize an empty object
   if (Object.keys(rawNgh).length > 0) {
     serializedNgh = compressNghInfo(rawNgh);
+  }
+  if (context.profiler) {
+    if (serializedNgh.length === 0) {
+      context.profiler.incrementMetricValue(SsrPerfMetrics.ComponentsWithEmptyNgh, 1);
+    }
+    context.profiler.incrementMetricValue(
+        SsrPerfMetrics.NghAnnotationSize, serializedNgh.length + 7);  // 7 to account for ' ngh=""'
+    context.profiler.incrementMetricValue(
+        SsrPerfMetrics.SerializedComponents, 1);  // increment by one more component
   }
   element.setAttribute(NGH_ATTR_NAME, serializedNgh);
 }
