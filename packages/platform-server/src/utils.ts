@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {APP_ID, ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵannotateForHydration as annotateForHydration, ɵinternalCreateApplication as internalCreateApplication, ɵIS_HYDRATION_FEATURE_ENABLED as IS_HYDRATION_FEATURE_ENABLED, ɵisPromise} from '@angular/core';
+import {APP_ID, ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleFactory, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵannotateForHydration as annotateForHydration, ɵgetSsrProfiler as getSsrProfiler, ɵinternalCreateApplication as internalCreateApplication, ɵIS_HYDRATION_FEATURE_ENABLED as IS_HYDRATION_FEATURE_ENABLED, ɵisPromise, ɵisSsrProfilerEnabled as isSsrProfilerEnabled, ɵSsrPerfMetrics as SsrPerfMetrics, ɵSsrProfiler as SsrProfiler} from '@angular/core';
 import {BrowserModule} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
@@ -46,8 +46,8 @@ function appendServerContextInfo(serverContext: string, applicationRef: Applicat
 }
 
 function _render<T>(
-    platform: PlatformRef,
-    bootstrapPromise: Promise<NgModuleRef<T>|ApplicationRef>): Promise<string> {
+    platform: PlatformRef, bootstrapPromise: Promise<NgModuleRef<T>|ApplicationRef>,
+    profiler: SsrProfiler|null): Promise<string> {
   return bootstrapPromise.then((moduleOrApplicationRef) => {
     const environmentInjector = moduleOrApplicationRef.injector;
     const transitionId = environmentInjector.get(APP_ID, null);
@@ -90,10 +90,25 @@ the server-rendered app can be properly bootstrapped into a client app.`);
 
           const complete = () => {
             if (applicationRef.injector.get(IS_HYDRATION_FEATURE_ENABLED, false)) {
-              annotateForHydration(applicationRef, platformState.getDocument());
+              const annotate = () =>
+                  annotateForHydration(applicationRef, platformState.getDocument(), profiler);
+              if (profiler) {
+                profiler.invokeAndMeasure(annotate, SsrPerfMetrics.OverallHydrationTime)
+              } else {
+                annotate();
+              }
             }
 
-            const output = platformState.renderToString();
+            const renderToString = () => platformState.renderToString();
+            let output: string;
+            if (profiler) {
+              output =
+                  profiler?.invokeAndMeasure(renderToString, SsrPerfMetrics.DomSerializationTime);
+              profiler.incrementMetricValue(SsrPerfMetrics.OverallHtmlSize, output.length);
+            } else {
+              output = renderToString();
+            }
+
             platform.destroy();
             return output;
           };
@@ -151,9 +166,22 @@ export function renderModule<T>(
     moduleType: Type<T>,
     options: {document?: string|Document; url?: string; extraProviders?: StaticProvider[]}):
     Promise<string> {
+  const profiler = getSsrProfiler();
+  if (profiler) {
+    profiler.startTimespan(SsrPerfMetrics.OverallSsrTime);
+  }
   const {document, url, extraProviders: platformProviders} = options;
   const platform = _getPlatform(platformDynamicServer, {document, url, platformProviders});
-  return _render(platform, platform.bootstrapModule(moduleType));
+  const output = _render(platform, platform.bootstrapModule(moduleType), profiler);
+  output.then((result: string) => {
+    if (profiler) {
+      profiler.stopTimespan(SsrPerfMetrics.OverallSsrTime);
+      const metrics = profiler.serializeMetrics();
+      console.log(metrics);
+    }
+    return result;
+  });
+  return output;
 }
 
 /**
@@ -195,6 +223,10 @@ export function renderApplication<T>(rootComponent: Type<T>, options: {
   providers?: Array<Provider|EnvironmentProviders>;
   platformProviders?: Provider[];
 }): Promise<string> {
+  const profiler = getSsrProfiler();
+  if (profiler) {
+    profiler.startTimespan(SsrPerfMetrics.OverallSsrTime);
+  }
   const {document, url, platformProviders, appId} = options;
   const platform = _getPlatform(platformDynamicServer, {document, url, platformProviders});
   const appProviders = [
@@ -203,7 +235,17 @@ export function renderApplication<T>(rootComponent: Type<T>, options: {
     ...TRANSFER_STATE_SERIALIZATION_PROVIDERS,
     ...(options.providers ?? []),
   ];
-  return _render(platform, internalCreateApplication({rootComponent, appProviders}));
+  const output =
+      _render(platform, internalCreateApplication({rootComponent, appProviders}), profiler);
+  output.then((result: string) => {
+    if (profiler) {
+      profiler.stopTimespan(SsrPerfMetrics.OverallSsrTime);
+      const metrics = profiler.serializeMetrics();
+      console.log(metrics);
+    }
+    return result;
+  });
+  return output;
 }
 
 /**
@@ -230,5 +272,5 @@ export function renderModuleFactory<T>(
     Promise<string> {
   const {document, url, extraProviders: platformProviders} = options;
   const platform = _getPlatform(platformServer, {document, url, platformProviders});
-  return _render(platform, platform.bootstrapModuleFactory(moduleFactory));
+  return _render(platform, platform.bootstrapModuleFactory(moduleFactory), null);
 }
