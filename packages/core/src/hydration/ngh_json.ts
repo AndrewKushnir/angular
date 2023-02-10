@@ -7,8 +7,14 @@
  */
 
 
-function isAlphanumeric(char: string): boolean {
-  return /[0-9a-z]/.test(char);
+/**
+ * Checks if a character is within a valid token chars set, which is:
+ * * a-z and A-Z
+ * * 0-9
+ * * `-` char
+ */
+function isValidTokenChar(char: string): boolean {
+  return /[0-9a-zA-Z\-]/.test(char);
 }
 
 function isDigit(char: string): boolean {
@@ -26,7 +32,7 @@ function parse<T>(input: string): T {
     let onlyDigits = true;
     while (idx < input.length) {
       const next = peek();
-      if (isAlphanumeric(next)) {
+      if (isValidTokenChar(next)) {
         if (!isDigit(next)) {
           onlyDigits = false;
         }
@@ -34,6 +40,8 @@ function parse<T>(input: string): T {
       } else
         break;
     }
+    // Check if there are only digits in a string, in which case
+    // transform it from a string to a number.
     return onlyDigits && char !== '' ? parseInt(char) : char;
   };
 
