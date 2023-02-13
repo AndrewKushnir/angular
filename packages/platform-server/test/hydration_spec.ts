@@ -9,7 +9,7 @@
 import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet} from '@angular/common';
-import {ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, provideSsrSupport, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, withHydration, ɵdisableSsrPeformanceProfiler as disableSsrPeformanceProfiler, ɵenableSsrPeformanceProfiler as enableSsrPeformanceProfiler, ɵgetSsrProfiler as getSsrProfiler, ɵsetDocument, ɵSsrProfiler as SsrProfiler} from '@angular/core';
+import {ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, provideHydrationSupport, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵdisableSsrPeformanceProfiler as disableSsrPeformanceProfiler, ɵenableSsrPeformanceProfiler as enableSsrPeformanceProfiler, ɵgetSsrProfiler as getSsrProfiler, ɵsetDocument, ɵSsrProfiler as SsrProfiler} from '@angular/core';
 import {CONTAINERS, NghDom, VIEWS} from '@angular/core/src/hydration/interfaces';
 import {NghJSON} from '@angular/core/src/hydration/ngh_json';
 import {SsrPerfMetrics} from '@angular/core/src/hydration/profiler';
@@ -118,7 +118,7 @@ fdescribe('platform-server integration', () => {
 
     async function ssr(component: Type<unknown>, doc?: string): Promise<string> {
       doc ||= '<html><head></head><body><app></app></body></html>';
-      const providers = [provideSsrSupport(appId, withHydration())];
+      const providers = [provideHydrationSupport()];
       return renderApplication(component, {document: doc, appId, providers});
     }
 
@@ -138,7 +138,7 @@ fdescribe('platform-server integration', () => {
 
       const providers = [
         {provide: DOCUMENT, useFactory: _document, deps: []},
-        provideSsrSupport(appId, withHydration()),
+        provideHydrationSupport(),
       ];
       return bootstrapApplication(component, {providers});
     }

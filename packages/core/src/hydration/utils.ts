@@ -94,7 +94,7 @@ export function locateHostElementImpl(
   const isHydrationEnabled = injector.get(IS_HYDRATION_FEATURE_ENABLED, false);
 
   // FIXME: this is a fix to the problem that happens in tests :(
-  // We load extra code from `withHydration` fn, but it is retained
+  // We load extra code from `provideHydrationSupport` fn, but it is retained
   // throughout the execution of all tests, thus also making it into
   // SSR code path. We should investigate how to avoid this check here.
   const isBrowser = injector.get(PLATFORM_ID) === 'browser';
