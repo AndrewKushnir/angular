@@ -1315,6 +1315,10 @@ fdescribe('platform-server integration', () => {
               <span>This is a content of a dynamic component.</span>
               <b *ngIf="isServer">This is a SERVER-ONLY content</b>
               <i *ngIf="!isServer">This is a CLIENT-ONLY content</i>
+              <ng-container *ngIf="isServer">
+                This is also a SERVER-ONLY content, but inside ng-container.
+                <b>With some extra tags</b> and some text inside.
+              </ng-container>
             `,
            })
            class DynamicComponent {

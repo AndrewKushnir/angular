@@ -43,8 +43,12 @@ function cleanupLContainer(lContainer: LContainer) {
     for (const view of lContainer[DEHYDRATED_VIEWS]) {
       // FIXME: this is a temporary check to keep "lazy" components
       // from being removed. This code is **only** needed for testing
-      // purposes and must be removed.
-      if (view.firstChild && !view.firstChild.hasAttribute('lazy')) {
+      // purposes and must be removed. Instead, we should rely on
+      // a flag (like `lazy: true`) that should be included into
+      // the dehydrated view object (added as a part of serialization).
+      const firstChild = view.firstChild;
+      if (firstChild &&
+          (firstChild.nodeType !== Node.ELEMENT_NODE || !firstChild.hasAttribute('lazy'))) {
         removeDehydratedView(view);
       } else {
         retainedViews.push(view);
@@ -80,8 +84,9 @@ function removeDehydratedView(dehydratedView: NghView) {
   if (currentRNode) {
     const numNodes = dehydratedView[NUM_ROOT_NODES];
     while (nodesRemoved < numNodes) {
+      const nextSibling = currentRNode.nextSibling as HTMLElement;
       currentRNode.remove();
-      currentRNode = currentRNode.nextSibling as HTMLElement;
+      currentRNode = nextSibling;
       nodesRemoved++;
     }
   }
