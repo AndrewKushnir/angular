@@ -13,7 +13,7 @@ import {TElementNode, TNode, TNodeType} from '../interfaces/node';
 import {RText} from '../interfaces/renderer_dom';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
 import {appendChild, createTextNode} from '../node_manipulation';
-import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInNonHydratableBlock, setCurrentTNode} from '../state';
+import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInSkipHydrationBlock, setCurrentTNode} from '../state';
 
 import {getOrCreateTNode} from './shared';
 
@@ -66,7 +66,7 @@ function locateOrCreateTextNodeImpl(
     previousTNode: TNode, previousTNodeParent: boolean): [boolean, RText] {
   const ngh = lView[HYDRATION_INFO];
   const index = adjustedIndex - HEADER_OFFSET;
-  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
+  const isCreating = !ngh || isInSkipHydrationBlock() || isNodeDisconnected(ngh, index);
   let textNative: RText;
   if (isCreating) {
     textNative = createTextNode(lView[RENDERER], value);

@@ -20,7 +20,7 @@ import {RComment} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView, TViewType} from '../interfaces/view';
 import {appendChild} from '../node_manipulation';
-import {getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInNonHydratableBlock, setCurrentTNode} from '../state';
+import {getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInSkipHydrationBlock, setCurrentTNode} from '../state';
 import {getConstant} from '../util/view_utils';
 
 import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
@@ -125,7 +125,7 @@ function locateOrCreateLContainerNodeImpl(
   let dehydratedViews: NghView[] = [];
   const ngh = lView[HYDRATION_INFO];
   const index = adjustedIndex - HEADER_OFFSET;
-  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
+  const isCreating = !ngh || isInSkipHydrationBlock() || isNodeDisconnected(ngh, index);
   if (isCreating) {
     comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
   } else {

@@ -20,8 +20,8 @@ import {unwrapRNode} from '../render3/util/view_utils';
 import {compressNghInfo} from './compression';
 import {CONTAINERS, MULTIPLIER, NghContainer, NghDom, NghView, NODES, NUM_ROOT_NODES, TEMPLATE, TEMPLATES, VIEWS} from './interfaces';
 import {calcPathBetween, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
-import {isInNonHydratableBlock, NON_HYDRATABLE_ATTR_NAME} from './non_hydratable';
 import {SsrPerfMetrics, SsrProfiler} from './profiler';
+import {isInSkipHydrationBlock, SKIP_HYDRATION_ATTR_NAME} from './skip_hydration';
 import {DROPPED_PROJECTED_NODE, EMPTY_TEXT_NODE_COMMENT, getComponentLView, NGH_ATTR_NAME, TEXT_NODE_SEPARATOR_COMMENT} from './utils';
 
 /**
@@ -110,7 +110,7 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
         // since all DOM nodes in this projection were handled while processing
         // a parent lView, which contains those nodes.
         if (headTNode && !isProjectionTNode(headTNode)) {
-          if (!isInNonHydratableBlock(headTNode, lView)) {
+          if (!isInSkipHydrationBlock(headTNode, lView)) {
             ngh[NODES] ??= {};
             ngh[NODES][headTNode.index - HEADER_OFFSET] = calcPathForNode(lView, headTNode);
           }
@@ -135,10 +135,10 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
       // We only handle the DOM Node case here
       if (Array.isArray(hostNode)) {
         // this is a component
-        // Check to see if it has ngNonHydratable
-        // TODO: should we check `NON_HYDRATABLE_ATTR_NAME` in tNode.mergedAttrs?
+        // Check to see if it has ngSkipHydration
+        // TODO: should we check `SKIP_HYDRATION_ATTR_NAME` in tNode.mergedAttrs?
         targetNode = unwrapRNode(hostNode as LView) as Element;
-        if (!(targetNode as HTMLElement).hasAttribute(NON_HYDRATABLE_ATTR_NAME)) {
+        if (!(targetNode as HTMLElement).hasAttribute(SKIP_HYDRATION_ATTR_NAME)) {
           annotateHostElementForHydration(targetNode as Element, hostNode as LView, context);
         }
       }
@@ -147,10 +147,10 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
       ngh[CONTAINERS][adjustedIndex] = container;
     } else if (Array.isArray(lView[i])) {
       // This is a component
-      // Check to see if it has ngNonHydratable
-      // TODO: should we check `NON_HYDRATABLE_ATTR_NAME` in tNode.mergedAttrs?
+      // Check to see if it has ngSkipHydration
+      // TODO: should we check `SKIP_HYDRATION_ATTR_NAME` in tNode.mergedAttrs?
       targetNode = unwrapRNode(lView[i][HOST]!) as Element;
-      if (!(targetNode as HTMLElement).hasAttribute(NON_HYDRATABLE_ATTR_NAME)) {
+      if (!(targetNode as HTMLElement).hasAttribute(SKIP_HYDRATION_ATTR_NAME)) {
         annotateHostElementForHydration(targetNode as Element, lView[i], context);
       }
     } else if (isTI18nNode(tNode) || tNode.insertBeforeIndex) {
@@ -182,7 +182,7 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
         }
         if (nextTNode) {
           const index = nextTNode.index - HEADER_OFFSET;
-          if (!isInNonHydratableBlock(nextTNode, lView)) {
+          if (!isInSkipHydrationBlock(nextTNode, lView)) {
             const path = calcPathForNode(lView, nextTNode);
             ngh[NODES] ??= {};
             ngh[NODES][index] = path;
@@ -238,7 +238,7 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
             // need to provide a location to that node.
             const nextProjectedTNode = tNode.projectionNext;
             const index = nextProjectedTNode.index - HEADER_OFFSET;
-            if (!isInNonHydratableBlock(nextProjectedTNode, lView)) {
+            if (!isInSkipHydrationBlock(nextProjectedTNode, lView)) {
               const path = calcPathForNode(lView, nextProjectedTNode);
               ngh[NODES] ??= {};
               ngh[NODES][index] = path;
@@ -315,7 +315,7 @@ function calcPathForNode(lView: LView, tNode: TNode, parentTNode?: TNode|null): 
     if (path === null) {
       // If path is still empty, it's likely that this node is detached and
       // won't be found during hydration.
-      // TODO: add a better error message, potentially suggesting `ngNonHydratable`.
+      // TODO: add a better error message, potentially suggesting `ngSkipHydration`.
       throw new Error('Unable to locate element on a page.');
     }
   }
