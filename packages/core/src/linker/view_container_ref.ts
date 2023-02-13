@@ -9,7 +9,7 @@
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {CONTAINERS, NghContainer, NghDom, NghView} from '../hydration/interfaces';
-import {isInNonHydratableBlock} from '../hydration/non_hydratable';
+import {isInSkipHydrationBlock} from '../hydration/skip_hydration';
 import {isNodeDisconnected, markRNodeAsClaimedForHydration, retrieveNghInfo} from '../hydration/utils';
 import {findMatchingDehydratedView, locateDehydratedViewsInContainer} from '../hydration/views';
 import {isType, Type} from '../interface/type';
@@ -637,7 +637,7 @@ function locateOrCreateContainerRefImpl(
   let nghContainer: NghContainer;
   let dehydratedViews: NghView[] = [];
   const ngh = hostLView[HYDRATION_INFO];
-  const isCreating = !ngh || isInNonHydratableBlock(hostTNode, hostLView) ||
+  const isCreating = !ngh || isInSkipHydrationBlock(hostTNode, hostLView) ||
       isNodeDisconnected(ngh, hostTNode.index - HEADER_OFFSET);
   if (!isCreating) {
     const index = hostTNode.index - HEADER_OFFSET;

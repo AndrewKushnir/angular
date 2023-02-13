@@ -20,7 +20,7 @@ import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
 import {appendChild} from '../node_manipulation';
-import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInNonHydratableBlock, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
+import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInSkipHydrationBlock, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {computeStaticStyling} from '../styling/static_styling';
 import {getConstant} from '../util/view_utils';
 
@@ -167,7 +167,7 @@ function locateOrCreateElementContainerNode(
   let comment: RComment;
   const index = adjustedIndex - HEADER_OFFSET;
   const ngh = lView[HYDRATION_INFO];
-  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
+  const isCreating = !ngh || isInSkipHydrationBlock() || isNodeDisconnected(ngh, index);
   if (isCreating) {
     ngDevMode && ngDevMode.rendererCreateComment++;
     comment = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');

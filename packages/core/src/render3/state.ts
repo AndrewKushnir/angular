@@ -174,13 +174,13 @@ interface InstructionState {
   bindingsEnabled: boolean;
 
   // TODO: Add Comments
-  nonHydratableRootTNode: TNode|null;
+  skipHydrationRootTNode: TNode|null;
 }
 
 const instructionState: InstructionState = {
   lFrame: createLFrame(null),
   bindingsEnabled: true,
-  nonHydratableRootTNode: null,
+  skipHydrationRootTNode: null,
 };
 
 /**
@@ -219,12 +219,12 @@ export function getBindingsEnabled(): boolean {
   return instructionState.bindingsEnabled;
 }
 
-export function isInNonHydratableBlock(): boolean {
-  return instructionState.nonHydratableRootTNode !== null;
+export function isInSkipHydrationBlock(): boolean {
+  return instructionState.skipHydrationRootTNode !== null;
 }
 
-export function isNonHydratableRootTNode(tNode: TNode): boolean {
-  return instructionState.nonHydratableRootTNode === tNode;
+export function isSkipHydrationRootTNode(tNode: TNode): boolean {
+  return instructionState.skipHydrationRootTNode === tNode;
 }
 
 /**
@@ -251,8 +251,8 @@ export function ɵɵenableBindings(): void {
 }
 
 // TODO: Add Comments
-export function enterNonHydratableBlock(tNode: TNode): void {
-  instructionState.nonHydratableRootTNode = tNode;
+export function enterSkipHydrationBlock(tNode: TNode): void {
+  instructionState.skipHydrationRootTNode = tNode;
 }
 
 /**
@@ -279,8 +279,8 @@ export function ɵɵdisableBindings(): void {
 }
 
 // TODO: Add Comments
-export function leaveNonHydratableBlock(): void {
-  instructionState.nonHydratableRootTNode = null;
+export function leaveSkipHydrationBlock(): void {
+  instructionState.skipHydrationRootTNode = null;
 }
 
 /**
