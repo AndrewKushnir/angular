@@ -767,13 +767,13 @@ export function getNgModuleDef<T>(type: any, throwNotFound?: boolean): NgModuleD
  * algorithm.
  *
  */
-function getComponentId(componentDef: Partial<ComponentDef<unknown>>): string {
+export function getComponentId(componentDef: Partial<ComponentDef<unknown>>): string {
   let hash = 0;
 
   const hashSelectors = [
     ...(componentDef.selectors || []),
 
-    // We cannot rely soley on the component selector as the same selector can be used in diffent
+    // We cannot rely solely on the component selector as the same selector can be used in different
     // modules.
     // Example:
     // https://github.com/angular/components/blob/d9f82c8f95309e77a6d82fd574c65871e91354c2/src/material/core/option/option.ts#L248
@@ -783,8 +783,10 @@ function getComponentId(componentDef: Partial<ComponentDef<unknown>>): string {
     componentDef.consts,
     componentDef.vars,
     componentDef.decls,
-    componentDef.directiveDefs?.length,
-    componentDef.pipeDefs?.length,
+    // FIXME: relying on `directiveDefs` and `pipeDefs` would make
+    // component id different in JIT and AOT, we should probably just remove lines below.
+    componentDef.directiveDefs?.length ?? 0,
+    componentDef.pipeDefs?.length ?? 0,
   ].join('|');
 
   for (const char of hashSelectors) {
