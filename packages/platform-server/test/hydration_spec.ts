@@ -306,8 +306,9 @@ fdescribe('platform-server integration', () => {
              selector: 'app',
              imports: [ButtonComponent, TriggerDirective],
              template: `
-            <button mat-button mat-button-trigger>Button</button>
-          `,
+                <button mat-button mat-button-trigger>Button</button>
+                <span>Next element that relies on the previous element's location</span>
+              `,
            })
            class SimpleComponent {
            }
