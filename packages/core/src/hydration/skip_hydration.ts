@@ -11,7 +11,7 @@ import {getTNodeFromLView} from '../render3/di';
 import {TContainerNode, TElementNode, TNode} from '../render3/interfaces/node';
 import {DECLARATION_VIEW, LView} from '../render3/interfaces/view';
 
-export const NON_HYDRATABLE_ATTR_NAME = 'ngNonHydratable';
+export const SKIP_HYDRATION_ATTR_NAME = 'ngSkipHydration';
 
 /**
  * Helper function to walk up parent nodes using TNode data structure, crossing
@@ -54,16 +54,16 @@ export function navigateParentTNodes(
   return null;
 }
 
-export function hasNgNonHydratableAttr(tNode: TNode): boolean {
+export function hasNgSkipHydrationAttr(tNode: TNode): boolean {
   // TODO: we need to iterate over `tNode.mergedAttrs` better
-  // to avoid cases when `ngNonHydratable` is an attribute value,
-  // e.g. `<div title="ngNonHydratable"></div>`.
-  return !!tNode.mergedAttrs?.includes(NON_HYDRATABLE_ATTR_NAME);
+  // to avoid cases when `ngSkipHydration` is an attribute value,
+  // e.g. `<div title="ngSkipHydration"></div>`.
+  return !!tNode.mergedAttrs?.includes(SKIP_HYDRATION_ATTR_NAME);
 }
 
-export function isInNonHydratableBlock(tNode: TNode, lView: LView): boolean {
-  const foundTNode = navigateParentTNodes(tNode as TNode, lView, hasNgNonHydratableAttr);
-  // We are in a non-hydratable block when:
+export function isInSkipHydrationBlock(tNode: TNode, lView: LView): boolean {
+  const foundTNode = navigateParentTNodes(tNode as TNode, lView, hasNgSkipHydrationAttr);
+  // We are in a skip hydration block when:
   // - we have a TNode
   // - the tNode is different than the root node
   return foundTNode !== null && foundTNode !== tNode;
