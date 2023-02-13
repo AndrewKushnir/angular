@@ -80,7 +80,7 @@ function verifyClientAndSSRContentsMatch(ssrContents: string, clientAppRootEleme
 }
 
 function verifyAllNodesClaimedForHydration(el: any) {
-  if (el.nodeType === Node.ELEMENT_NODE && el.hasAttribute('ngnonhydratable')) return;
+  if (el.nodeType === Node.ELEMENT_NODE && el.hasAttribute('ngskiphydration')) return;
   if (!el.__claimed) {
     fail('Hydration error: the node is *not* hydrated: ' + el.outerHTML);
   }
@@ -891,8 +891,8 @@ fdescribe('platform-server integration', () => {
       });
     });
 
-    describe('ngNonHydratable', () => {
-      it('should skip hydrating elements with ngNonHydratable attribute', async () => {
+    describe('ngSkipHydration', () => {
+      it('should skip hydrating elements with ngSkipHydration attribute', async () => {
         @Directive({standalone: true, selector: 'button'})
         class MyButtonDirective {
           el = inject(ElementRef);
@@ -922,7 +922,7 @@ fdescribe('platform-server integration', () => {
           imports: [ProjectorCmp, MyButtonDirective],
           selector: 'app',
           template: `
-            <projector-cmp ngNonHydratable>
+            <projector-cmp ngSkipHydration>
               <button type="button">Click Me</button>
               <button type="button">Click Also</button>
               <button type="button">No, Click Me Instead</button>
@@ -950,7 +950,7 @@ fdescribe('platform-server integration', () => {
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
 
-      it('should skip hydrating elements with ngNonHydratable host binding', async () => {
+      it('should skip hydrating elements with ngSkipHydration host binding', async () => {
         @Directive({standalone: true, selector: 'button'})
         class MyButtonDirective {
           el = inject(ElementRef);
@@ -959,7 +959,7 @@ fdescribe('platform-server integration', () => {
         @Component({
           standalone: true,
           selector: 'projector-cmp',
-          host: {ngNonHydratable: 'true'},
+          host: {ngSkipHydration: 'true'},
           template: `
             <main>
               <ng-content></ng-content>
@@ -1009,7 +1009,7 @@ fdescribe('platform-server integration', () => {
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
 
-      it('should skip hydrating elements with ngNonHydratable attribute in VCR', async () => {
+      it('should skip hydrating elements with ngSkipHydration attribute in VCR', async () => {
         @Component({
           standalone: true,
           selector: 'nested-cmp',
@@ -1037,7 +1037,7 @@ fdescribe('platform-server integration', () => {
           imports: [ProjectorCmp],
           selector: 'app',
           template: `
-            <projector-cmp ngNonHydratable>
+            <projector-cmp ngSkipHydration>
             </projector-cmp>
           `,
         })

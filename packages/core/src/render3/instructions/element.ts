@@ -7,7 +7,7 @@
  */
 
 import {locateNextRNode} from '../../hydration/node_lookup_utils';
-import {hasNgNonHydratableAttr} from '../../hydration/non_hydratable';
+import {hasNgSkipHydrationAttr} from '../../hydration/skip_hydration';
 import {isNodeDisconnected, markRNodeAsClaimedForHydration} from '../../hydration/utils';
 import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert';
 import {assertFirstCreatePass, assertHasParent, assertRElement} from '../assert';
@@ -20,7 +20,7 @@ import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
 import {appendChild, createElementNode, setupStaticAttributes} from '../node_manipulation';
-import {decreaseElementDepthCount, enterNonHydratableBlock, getBindingIndex, getCurrentTNode, getElementDepthCount, getLView, getNamespace, getTView, increaseElementDepthCount, isCurrentTNodeParent, isInNonHydratableBlock, isNonHydratableRootTNode, leaveNonHydratableBlock, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
+import {decreaseElementDepthCount, enterSkipHydrationBlock, getBindingIndex, getCurrentTNode, getElementDepthCount, getLView, getNamespace, getTView, increaseElementDepthCount, isCurrentTNodeParent, isInSkipHydrationBlock, isSkipHydrationRootTNode, leaveSkipHydrationBlock, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
 import {computeStaticStyling} from '../styling/static_styling';
 import {getConstant} from '../util/view_utils';
 
@@ -149,8 +149,8 @@ export function ɵɵelementEnd(): typeof ɵɵelementEnd {
   const tNode = currentTNode;
   ngDevMode && assertTNodeType(tNode, TNodeType.AnyRNode);
 
-  if (isNonHydratableRootTNode(tNode)) {
-    leaveNonHydratableBlock();
+  if (isSkipHydrationRootTNode(tNode)) {
+    leaveSkipHydrationBlock();
   }
 
   decreaseElementDepthCount();
@@ -203,7 +203,7 @@ function locateOrCreateElementNodeImpl(
     name: string, previousTNode: TNode, previousTNodeParent: boolean): [boolean, RElement] {
   const ngh = lView[HYDRATION_INFO];
   const index = adjustedIndex - HEADER_OFFSET;
-  const isCreating = !ngh || isInNonHydratableBlock() || isNodeDisconnected(ngh, index);
+  const isCreating = !ngh || isInSkipHydrationBlock() || isNodeDisconnected(ngh, index);
   let native: RElement;
   if (isCreating) {
     native = createElementNode(renderer, name, getNamespace());
@@ -217,8 +217,8 @@ function locateOrCreateElementNodeImpl(
             `Expecting an element node with ${name} tag name in the elementStart instruction`);
     ngDevMode && markRNodeAsClaimedForHydration(native);
   }
-  if (ngh && hasNgNonHydratableAttr(tNode)) {
-    enterNonHydratableBlock(tNode);
+  if (ngh && hasNgSkipHydrationAttr(tNode)) {
+    enterSkipHydrationBlock(tNode);
 
     // Since this isn't hydratable, we need to empty the node
     // so there's no duplicate content after render
