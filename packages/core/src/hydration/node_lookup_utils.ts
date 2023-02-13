@@ -7,6 +7,7 @@
  */
 
 import {CONTAINERS, NghDom, NghView, NODES, NUM_ROOT_NODES, VIEWS} from '../hydration/interfaces';
+import {assertRComment} from '../render3/assert';
 import {TNode, TNodeType} from '../render3/interfaces/node';
 import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {HEADER_OFFSET, LView, TView} from '../render3/interfaces/view';
@@ -175,10 +176,13 @@ export function locateNextRNode<T extends RNode>(
           // this means that we are processing a node like `<div #vcrTarget>`, which is
           // represented in live DOM as `<div></div>...<!--container-->`.
           // In this case, there are nodes *after* this element and we need to skip those.
+          const views = previousNodeHydrationInfo![VIEWS];
+          const numRootNodesToSkip = views ? calcViewContainerSize(views) : 0;
           // `+1` stands for an anchor comment node after all the views in this container.
-          const nodesToSkip = calcViewContainerSize(previousNodeHydrationInfo![VIEWS]!) + 1;
+          const nodesToSkip = numRootNodesToSkip + 1;
           previousRElement = siblingAfter(nodesToSkip, previousRElement)!;
-          // TODO: add an assert that `previousRElement` is a comment node.
+
+          ngDevMode && assertRComment(previousRElement);
         }
         native = previousRElement.nextSibling as RElement;
       }
