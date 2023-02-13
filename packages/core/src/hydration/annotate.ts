@@ -7,7 +7,9 @@
  */
 
 import {ApplicationRef, retrieveViewsFromApplicationRef} from '../application_ref';
+import {Type} from '../interface/type';
 import {collectNativeNodes} from '../render3/collect_native_nodes';
+import {getComponentDef, getComponentId} from '../render3/definition';
 import {CONTAINER_HEADER_OFFSET, LContainer} from '../render3/interfaces/container';
 import {TContainerNode, TNode, TNodeFlags, TNodeType} from '../render3/interfaces/node';
 import {isComponentHost, isLContainer, isProjectionTNode, isRootView} from '../render3/interfaces/type_checks';
@@ -336,10 +338,8 @@ function serializeLContainer(lContainer: LContainer, context: HydrationContext):
     let numRootNodes = 0;
     if (childTView.type === TViewType.Component) {
       const ctx = childLView[CONTEXT];
-      // TODO: this is a hack (we capture a component host element name),
-      // we need a more stable solution here, for ex. a way to generate
-      // a component id, see https://github.com/angular/angular/pull/48253.
-      template = (ctx!.constructor as any)['ɵcmp'].selectors[0][0];
+      const componentDef = getComponentDef(ctx!.constructor as Type<unknown>)!;
+      template = getComponentId(componentDef);
 
       // This is a component view, which has only 1 root node: the component
       // host node itself (other nodes would be inside that host node).
