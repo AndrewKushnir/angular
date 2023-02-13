@@ -431,8 +431,8 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     // TODO: this is not correct for selectors like `app[param]`,
     // we need to rely on some other info (like component id),
     // see https://github.com/angular/angular/pull/48253.
-    const elementName = componentFactory.selector;
-    const dehydratedView = findMatchingDehydratedView(this._lContainer, elementName);
+    const componentDef = getComponentDef(componentFactory.componentType)!;
+    const dehydratedView = findMatchingDehydratedView(this._lContainer, componentDef.id);
     let rNode;
     let hydrationInfo: NghDom|null = null;
 
