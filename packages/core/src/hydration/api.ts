@@ -56,28 +56,13 @@ function isBrowser() {
 }
 
 /**
- * TODO: add more precise typings for features, see `provideRouter`
  * TODO: add docs
  *
  * @publicApi
  * @developerPreview
  */
-export function provideSsrSupport(appId: string, ...features: Provider[]): EnvironmentProviders {
+export function provideHydrationSupport(): EnvironmentProviders {
   return makeEnvironmentProviders([
-    {provide: APP_ID, useValue: appId},
-    ...features,
-  ]);
-}
-
-/**
- * TODO: add more precise typings for features, see `provideRouter`
- * TODO: add docs
- *
- * @publicApi
- * @developerPreview
- */
-export function withHydration(): Provider[] {
-  return [
     {
       provide: ENVIRONMENT_INITIALIZER,
       useValue: () => {
@@ -102,5 +87,5 @@ export function withHydration(): Provider[] {
       provide: IS_HYDRATION_FEATURE_ENABLED,
       useValue: true,
     }
-  ];
+  ]);
 }

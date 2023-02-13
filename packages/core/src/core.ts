@@ -41,7 +41,7 @@ export {createNgModule, createNgModuleRef, createEnvironmentInjector} from './re
 export {createComponent, reflectComponentType, ComponentMirror} from './render3/component';
 export {isStandalone} from './render3/definition';
 export {ApplicationConfig, mergeApplicationConfig} from './application_config';
-export {provideSsrSupport, withHydration} from './hydration/api';
+export {provideHydrationSupport} from './hydration/api';
 
 import {global} from './util/global';
 if (typeof ngDevMode !== 'undefined' && ngDevMode) {
