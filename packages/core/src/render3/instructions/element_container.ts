@@ -173,6 +173,8 @@ function locateOrCreateElementContainerNode(
     comment = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
   } else {
     const nghContainer = ngh.data[CONTAINERS]?.[index]!;
+    ngh.elementContainers ??= {};
+
     ngDevMode &&
         assertDefined(
             nghContainer, 'There is no hydration info available for this element container');
@@ -184,16 +186,15 @@ function locateOrCreateElementContainerNode(
       // This <ng-container> is also annotated as a view container.
       // Extract all dehydrated views following instructions from ngh
       // and store this info for later reuse in `createContainerRef`.
-      const [anchorRNode, views] = locateDehydratedViewsInContainer(currentRNode!, nghContainer);
+      const [anchorRNode, dehydratedViews] =
+          locateDehydratedViewsInContainer(currentRNode!, nghContainer);
 
       comment = anchorRNode as RComment;
 
-      if (views.length > 0) {
+      if (dehydratedViews.length > 0) {
         // Store dehydrated views info in ngh data structure for later reuse
         // while creating a ViewContainerRef instance, see `createContainerRef`.
-        //
-        // FIXME: we *must* not store any info here.
-        (nghContainer as any).dehydratedViews = views;
+        ngh.elementContainers[index] = {dehydratedViews};
       }
     } else {
       // This is a plain `<ng-container>`, which is *not* used
@@ -201,9 +202,7 @@ function locateOrCreateElementContainerNode(
       //
       // Store a reference to the first node in a container,
       // so it can be referenced while invoking further instructions.
-      //
-      // FIXME: we *must* not store any info here.
-      (nghContainer as any).firstChild = currentRNode as HTMLElement;
+      ngh.elementContainers[index] = {firstChild: currentRNode as HTMLElement};
 
       comment = siblingAfter<RComment>(nghContainer[NUM_ROOT_NODES]!, currentRNode!)!;
     }

@@ -7,8 +7,6 @@
  */
 
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
-import {locateNextRNode} from '../../hydration/node_lookup_utils';
-import {markRNodeAsClaimedForHydration} from '../../hydration/utils';
 import {getPluralCase} from '../../i18n/localization';
 import {assertDefined, assertDomNode, assertEqual, assertGreaterThan, assertIndexInRange, throwError} from '../../util/assert';
 import {assertIndexInExpandoRange, assertTIcu} from '../assert';
@@ -18,7 +16,7 @@ import {ELEMENT_MARKER, I18nCreateOpCode, I18nCreateOpCodes, I18nUpdateOpCode, I
 import {TNode} from '../interfaces/node';
 import {RElement, RNode, RText} from '../interfaces/renderer_dom';
 import {SanitizerFn} from '../interfaces/sanitization';
-import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TVIEW, TView} from '../interfaces/view';
+import {HEADER_OFFSET, LView, RENDERER, TView} from '../interfaces/view';
 import {createCommentNode, createElementNode, createTextNode, nativeInsertBefore, nativeParentNode, nativeRemoveNode, updateTextNode} from '../node_manipulation';
 import {getBindingIndex} from '../state';
 import {renderStringify} from '../util/stringify_utils';

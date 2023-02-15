@@ -151,6 +151,7 @@ export function locateNextRNode<T extends RNode>(
     native = hydrationInfo.firstChild as RNode;
   } else {
     ngDevMode && assertDefined(previousTNode, 'Unexpected state: no current TNode found.');
+    const previousTNodeIndex = previousTNode!.index - HEADER_OFFSET;
     let previousRElement = getNativeByTNode(previousTNode!, lView) as RElement;
     // TODO: we may want to use this instead?
     // const closest = getClosestRElement(tView, previousTNode, lView);
@@ -158,13 +159,12 @@ export function locateNextRNode<T extends RNode>(
       // Previous node was an `<ng-container>`, so this node is a first child
       // within an element container, so we can locate the container in ngh data
       // structure and use its first child.
-      const nghContainer = hydrationInfo.data[CONTAINERS]?.[previousTNode!.index - HEADER_OFFSET];
-      if (ngDevMode && !nghContainer) {
+      const elementContainer = hydrationInfo.elementContainers?.[previousTNodeIndex];
+      if (ngDevMode && !elementContainer) {
         // TODO: add better error message.
         throw new Error('Invalid state.');
       }
-      // FIXME: this information should be taken from elsewhere.
-      native = (nghContainer as any)!.firstChild!;
+      native = elementContainer!.firstChild!;
     } else {
       // FIXME: this doesn't work for i18n :(
       // In i18n case, previous tNode is a parent element,
@@ -172,8 +172,7 @@ export function locateNextRNode<T extends RNode>(
       if (previousTNodeParent) {
         native = (previousRElement as any).firstChild;
       } else {
-        const previousNodeHydrationInfo =
-            hydrationInfo.data[CONTAINERS]?.[previousTNode!.index - HEADER_OFFSET];
+        const previousNodeHydrationInfo = containers?.[previousTNodeIndex];
         if (previousTNode!.type === TNodeType.Element && previousNodeHydrationInfo) {
           // If the previous node is an element, but it also has container info,
           // this means that we are processing a node like `<div #vcrTarget>`, which is
