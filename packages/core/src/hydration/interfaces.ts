@@ -21,12 +21,6 @@ export interface NghDom {
   [NODES]?: Record<number, string>;
   [CONTAINERS]?: Record<number, NghContainer>;
   [TEMPLATES]?: Record<number, string>;
-
-  // First node in this view.
-  // TODO: consider storing this info elsewhere to keep separation
-  // between deserialized data from `ngh` attributes and the data
-  // that is used at runtime for hydration.
-  firstChild?: HTMLElement;
 }
 
 /**
@@ -35,26 +29,9 @@ export interface NghDom {
 export interface NghContainer {
   [VIEWS]?: NghView[];
 
-  // Describes the number of top level nodes in this container.
-  // Only applicable to <ng-container>s.
-  //
-  // TODO: consider moving this info elsewhere to avoid confusion
-  // between view containers (<div *ngIf>) and element containers
-  // (<ng-container>s).
+  // Describes the number of top level nodes in this element container.
+  // Only for element containers, i.e. <ng-container>.
   [NUM_ROOT_NODES]?: number;
-
-  // First node in this container. This is applicable to
-  // <ng-container> only.
-  //
-  // TODO: consider moving this info elsewhere to avoid confusion
-  // between view containers (<div *ngIf>) and element containers
-  // (<ng-container>s).
-  firstChild?: HTMLElement;
-
-  // In some situations (see `createContainerRef`), dehydrated views
-  // are discovered early in the process, so we need to store them
-  // temporarily here and access later when creating a ViewContainerRef.
-  dehydratedViews?: NghView[];
 }
 
 /**
@@ -64,10 +41,26 @@ export interface NghView extends NghDom {
   [TEMPLATE]: string;
   [NUM_ROOT_NODES]: number;
   [MULTIPLIER]?: number;
+}
 
-  // First node in this view.
-  // TODO: consider storing this info elsewhere to keep separation
-  // between deserialized data from `ngh` attributes and the data
-  // that is used at runtime for hydration.
+export interface NghDomInstance {
+  data: Readonly<NghDom>;
   firstChild?: HTMLElement;
+  elementContainers?: {[index: number]: NghContainerInstance};
+}
+
+export interface NghContainerInstance {
+  data: Readonly<NghContainer>;
+
+  // First node in this element container.
+  firstChild: HTMLElement;
+
+  // In some situations (see `createContainerRef`), dehydrated views
+  // are discovered early in the process, so we need to store them
+  // temporarily here and access later when creating a ViewContainerRef.
+  dehydratedViews?: NghViewInstance[];
+}
+
+export interface NghViewInstance extends NghDomInstance {
+  data: Readonly<NghView>;
 }
