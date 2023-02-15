@@ -8,7 +8,7 @@
 
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
-import {CONTAINERS, NghContainer, NghContainerInstance, NghDom, NghDomInstance, NghView, NghViewInstance} from '../hydration/interfaces';
+import {CONTAINERS, NghContainer, NghDomInstance, NghViewInstance} from '../hydration/interfaces';
 import {isInSkipHydrationBlock} from '../hydration/skip_hydration';
 import {isNodeDisconnected, markRNodeAsClaimedForHydration, retrieveNghInfo} from '../hydration/utils';
 import {findMatchingDehydratedView, locateDehydratedViewsInContainer} from '../hydration/views';
@@ -637,10 +637,10 @@ function locateOrCreateContainerRefImpl(
   let nghContainer: NghContainer;
   let dehydratedViews: NghViewInstance[] = [];
   const ngh = hostLView[HYDRATION_INFO];
-  const isCreating = !ngh || isInSkipHydrationBlock(hostTNode, hostLView) ||
-      isNodeDisconnected(ngh, hostTNode.index - HEADER_OFFSET);
+  const index = hostTNode.index - HEADER_OFFSET;
+  const isCreating =
+      !ngh || isInSkipHydrationBlock(hostTNode, hostLView) || isNodeDisconnected(ngh, index);
   if (!isCreating) {
-    const index = hostTNode.index - HEADER_OFFSET;
     nghContainer = ngh!.data[CONTAINERS]![index];
     ngDevMode &&
         assertDefined(nghContainer, 'There is no hydration info available for this container');
@@ -653,13 +653,15 @@ function locateOrCreateContainerRefImpl(
   // it again.
   if (hostTNode.type & TNodeType.ElementContainer) {
     commentNode = unwrapRNode(slotValue) as RComment;
-    // FIXME: we *must* avoid storing `dehydratedViews` on readonly ngh data.
-    if (!isCreating && nghContainer! && Array.isArray((nghContainer as any).dehydratedViews)) {
-      // When we create an LContainer based on `<ng-container>`, the container
-      // is already processed, including dehydrated views info. Reuse this info
-      // and erase it in the ngh data to avoid memory leaks.
-      dehydratedViews = (nghContainer as any).dehydratedViews!;
-      (nghContainer as any).dehydratedViews = [];
+    if (!isCreating) {
+      const elementContainer = ngh!.elementContainers?.[index];
+      if (elementContainer && Array.isArray(elementContainer.dehydratedViews)) {
+        // When we create an LContainer based on `<ng-container>`, the container
+        // is already processed, including dehydrated views info. Reuse this info
+        // and erase it in the ngh data to avoid memory leaks.
+        dehydratedViews = elementContainer.dehydratedViews;
+        elementContainer.dehydratedViews = [];
+      }
     }
   } else {
     if (isCreating) {

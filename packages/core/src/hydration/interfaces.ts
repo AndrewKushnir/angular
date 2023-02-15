@@ -46,19 +46,21 @@ export interface NghView extends NghDom {
 export interface NghDomInstance {
   data: Readonly<NghDom>;
   firstChild?: HTMLElement;
-  elementContainers?: {[index: number]: NghContainerInstance};
+  elementContainers?: {[index: number]: NghElementContainerInstance};
+}
+
+export interface NghElementContainerInstance {
+  // First node in this element container.
+  firstChild?: HTMLElement;
+
+  // In some situations (see `createContainerRef`), dehydrated views
+  // are discovered early in the process (during the `elementContainerStart` invocation),
+  // so we need to store them temporarily here and access later while creating a ViewContainerRef.
+  dehydratedViews?: NghViewInstance[];
 }
 
 export interface NghContainerInstance {
   data: Readonly<NghContainer>;
-
-  // First node in this element container.
-  firstChild: HTMLElement;
-
-  // In some situations (see `createContainerRef`), dehydrated views
-  // are discovered early in the process, so we need to store them
-  // temporarily here and access later when creating a ViewContainerRef.
-  dehydratedViews?: NghViewInstance[];
 }
 
 export interface NghViewInstance extends NghDomInstance {
