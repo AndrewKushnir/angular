@@ -9,6 +9,7 @@
 import {Injector} from '../../di/injector';
 import {ErrorHandler} from '../../error_handler';
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
+import {NghDomInstance} from '../../hydration/interfaces';
 import {retrieveNghInfo} from '../../hydration/utils';
 import {DoCheck, OnChanges, OnInit} from '../../interface/lifecycle_hooks';
 import {SchemaMetadata} from '../../metadata/schema';
@@ -122,7 +123,7 @@ export function createLView<T>(
     parentLView: LView|null, tView: TView, context: T|null, flags: LViewFlags, host: RElement|null,
     tHostNode: TNode|null, rendererFactory: RendererFactory|null, renderer: Renderer|null,
     sanitizer: Sanitizer|null, injector: Injector|null, embeddedViewInjector: Injector|null,
-    hydrationInfo?: any): LView {
+    hydrationInfo?: NghDomInstance|null): LView {
   const lView = tView.blueprint.slice() as LView;
   lView[HOST] = host;
   lView[FLAGS] = flags | LViewFlags.CreationMode | LViewFlags.Attached | LViewFlags.FirstLViewPass;

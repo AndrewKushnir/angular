@@ -8,7 +8,7 @@
 
 import {Injector} from '../../di/injector';
 import {ProviderToken} from '../../di/provider_token';
-import {NghDom} from '../../hydration/interfaces';
+import {NghDomInstance} from '../../hydration/interfaces';
 import {SchemaMetadata} from '../../metadata/schema';
 import {Sanitizer} from '../../sanitization/sanitizer';
 
@@ -328,7 +328,7 @@ export interface LView<T = unknown> extends Array<any> {
   /**
    * TODO: add docs!
    */
-  [HYDRATION_INFO]: NghDom|null;
+  [HYDRATION_INFO]: NghDomInstance|null;
 
   /**
    * Optional injector assigned to embedded views that takes

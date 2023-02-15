@@ -9,7 +9,7 @@
 import {ChangeDetectorRef} from '../change_detection/change_detection';
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
-import {NghDom} from '../hydration/interfaces';
+import {NghDom, NghDomInstance} from '../hydration/interfaces';
 import {Type} from '../interface/type';
 
 import {ElementRef} from './element_ref';
@@ -131,5 +131,5 @@ export abstract class ComponentFactory<C> {
   abstract createImpl(
       injector: Injector, projectableNodes?: any[][], rootSelectorOrNode?: string|any,
       environmentInjector?: EnvironmentInjector|NgModuleRef<any>,
-      hydrationInfo?: NghDom|null): ComponentRef<C>;
+      hydrationInfo?: NghDomInstance|null): ComponentRef<C>;
 }

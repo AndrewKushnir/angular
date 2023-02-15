@@ -104,26 +104,11 @@ export function applyCreateOpCodes(
     let appendNow = (opCode & I18nCreateOpCode.APPEND_EAGERLY) === I18nCreateOpCode.APPEND_EAGERLY;
     const index = opCode >>> I18nCreateOpCode.SHIFT;
     let rNode = lView[index];
-    const ngh = lView[HYDRATION_INFO];
     if (rNode === null) {
       let native;
-      if (ngh) {
-        // debugger;
-        const tView = lView[TVIEW];
-        const tNode = tView.data[index] as TNode;
-        native = locateNextRNode<RElement>(ngh, tView, lView, tNode, null, false)!;
-        appendNow = false;
-        // ngDevMode &&
-        //     assertRElement(
-        //         native, name,
-        //                `Expecting an element node with ${name} tag name in the elementStart
-        //                instruction`);
-        ngDevMode && markRNodeAsClaimedForHydration(native);
-      } else {
-        // We only create new DOM nodes if they don't already exist: If ICU switches case back to a
-        // case which was already instantiated, no need to create new DOM nodes.
-        native = isComment ? renderer.createComment(text) : createTextNode(renderer, text);
-      }
+      // We only create new DOM nodes if they don't already exist: If ICU switches case back to a
+      // case which was already instantiated, no need to create new DOM nodes.
+      native = isComment ? renderer.createComment(text) : createTextNode(renderer, text);
       rNode = lView[index] = native;
     }
     if (appendNow && parentRNode !== null) {
