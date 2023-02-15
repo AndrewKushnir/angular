@@ -38,7 +38,7 @@ import {ComponentDef, DirectiveDef, HostDirectiveDefs} from './interfaces/defini
 import {PropertyAliasValue, TContainerNode, TElementContainerNode, TElementNode, TNode, TNodeType} from './interfaces/node';
 import {Renderer, RendererFactory} from './interfaces/renderer';
 import {RElement, RNode} from './interfaces/renderer_dom';
-import {CONTEXT, HEADER_OFFSET, HYDRATION_INFO, LView, LViewFlags, TVIEW, TViewType} from './interfaces/view';
+import {CONTEXT, HEADER_OFFSET, HYDRATION_INFO, INJECTOR, LView, LViewFlags, TVIEW, TViewType} from './interfaces/view';
 import {MATH_ML_NAMESPACE, SVG_NAMESPACE} from './namespaces';
 import {createElementNode, setupStaticAttributes, writeDirectClass} from './node_manipulation';
 import {extractAttrsAndClassesFromSelector, stringifyCSSSelectorList} from './node_selector_matcher';
@@ -363,7 +363,7 @@ function createRootComponentView(
       tNode, rendererFactory, viewRenderer, sanitizer || null, null, null, hydrationInfo);
 
   if (rNode !== null && componentView[HYDRATION_INFO] === null) {
-    componentView[HYDRATION_INFO] = retrieveNghInfo(rNode);
+    componentView[HYDRATION_INFO] = retrieveNghInfo(rNode, componentView[INJECTOR]!);
   }
 
   if (tView.firstCreatePass) {

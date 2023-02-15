@@ -6,8 +6,6 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {NghDom} from './interfaces';
-import {NghJSON} from './ngh_json';
 import {NodeNavigationStep, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
 
 /**
@@ -78,26 +76,4 @@ export function decompressNodeLocation(path: string): [string|number, ...NodeNav
     }
   }
   return [ref, ...steps];
-}
-
-/**
- * Compresses NGH data collected for a component and serializes
- * it into a string.
- *
- * @param ngh
- * @returns
- */
-export function compressNghInfo(ngh: NghDom): string {
-  return NghJSON.stringify(ngh);
-}
-
-/**
- * De-serializes NGH info retrieved from the `ngh` attribute.
- * Effectively reverts the `compressNghInfo` operation.
- *
- * @param ngh
- * @returns
- */
-export function decompressNghInfo(ngh: string): NghDom {
-  return NghJSON.parse(ngh);
 }
