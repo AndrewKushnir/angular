@@ -1693,7 +1693,7 @@ function renderComponent(hostLView: LView, componentHostIdx: number) {
 
   const hostRNode = componentView[HOST];
   if (hostRNode !== null && componentView[HYDRATION_INFO] === null) {
-    componentView[HYDRATION_INFO] = retrieveNghInfo(hostRNode);
+    componentView[HYDRATION_INFO] = retrieveNghInfo(hostRNode, componentView[INJECTOR]!);
   }
 
   renderView(componentTView, componentView, componentView[CONTEXT]);

@@ -33,6 +33,8 @@ export const IS_HYDRATION_FEATURE_ENABLED =
 
 let isHydrationSupportEnabled = false;
 
+export const TRANSFER_STATE_TOKEN_ID = '__ɵnghData__';
+
 // TODO: update this implementation to allow a "rollback".
 // This would be needed for tests, so that we reset the logic
 // back before we SSR the next component.
@@ -56,13 +58,10 @@ function isBrowser() {
 }
 
 /**
- * TODO: add docs
- *
- * @publicApi
- * @developerPreview
+ * TODO: refactor and/or rename this function!
  */
-export function provideHydrationSupport(): EnvironmentProviders {
-  return makeEnvironmentProviders([
+export function internalProvideHydrationSupport(): Provider[] {
+  return [
     {
       provide: ENVIRONMENT_INITIALIZER,
       useValue: () => {
@@ -87,5 +86,5 @@ export function provideHydrationSupport(): EnvironmentProviders {
       provide: IS_HYDRATION_FEATURE_ENABLED,
       useValue: true,
     }
-  ]);
+  ];
 }

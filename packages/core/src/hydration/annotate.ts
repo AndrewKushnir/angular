@@ -17,7 +17,7 @@ import {CONTEXT, HEADER_OFFSET, HOST, LView, TView, TVIEW, TViewType} from '../r
 import {getFirstNativeNode} from '../render3/node_manipulation';
 import {unwrapRNode} from '../render3/util/view_utils';
 
-import {compressNghInfo} from './compression';
+import {TRANSFER_STATE_TOKEN_ID} from './api';
 import {CONTAINERS, MULTIPLIER, NghContainer, NghDom, NghView, NODES, NUM_ROOT_NODES, TEMPLATE, TEMPLATES, VIEWS} from './interfaces';
 import {calcPathBetween, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
 import {SsrPerfMetrics, SsrProfiler} from './profiler';
@@ -51,6 +51,59 @@ interface HydrationContext {
   ssrIdRegistry: TViewSsrIdRegistry;
   corruptedTextNodes: Map<string, HTMLElement>;
   profiler: SsrProfiler|null;
+  transferState: TransferState;
+}
+
+type StateKey<T> = string&{
+  __not_a_string: never,
+  __value_type?: T,
+};
+
+export function makeStateKey<T = void>(key: string): StateKey<T> {
+  return key as StateKey<T>;
+}
+
+/**
+ * This is an interface that represents the `TransferState` class
+ * from the `platform-browser` package.
+ * TODO: the `TransferState` from the `platform-browser` package
+ * should implement this interface (to avoid divergence).
+ */
+export interface TransferState {
+  /**
+   * Get the value corresponding to a key. Return `defaultValue` if key is not found.
+   */
+  get<T>(key: StateKey<T>, defaultValue: T): T;
+
+  /**
+   * Set the value corresponding to a key.
+   */
+  set<T>(key: StateKey<T>, value: T): void;
+
+  /**
+   * Remove a key from the store.
+   */
+  remove<T>(key: StateKey<T>): void;
+
+  /**
+   * Test whether a key exists in the store.
+   */
+  hasKey<T>(key: StateKey<T>): boolean;
+
+  /**
+   * Indicates whether the state is empty.
+   */
+  get isEmpty(): boolean;
+
+  /**
+   * Register a callback to provide the value for a key when `toJson` is called.
+   */
+  onSerialize<T>(key: StateKey<T>, callback: () => T): void;
+
+  /**
+   * Serialize the current state of the store to JSON.
+   */
+  toJson(): string;
 }
 
 /**
@@ -61,7 +114,8 @@ interface HydrationContext {
  * @param doc A reference to the current Document instance.
  */
 export function annotateForHydration(
-    appRef: ApplicationRef, doc: Document, profiler: SsrProfiler|null) {
+    appRef: ApplicationRef, doc: Document, transferState: TransferState,
+    profiler: SsrProfiler|null) {
   const ssrIdRegistry = new TViewSsrIdRegistry();
   const corruptedTextNodes = new Map<string, HTMLElement>();
   const viewRefs = retrieveViewsFromApplicationRef(appRef);
@@ -71,7 +125,12 @@ export function annotateForHydration(
     // a component instance.
     const hostElement = lView[HOST];
     if (hostElement) {
-      const context: HydrationContext = {ssrIdRegistry, corruptedTextNodes, profiler};
+      const context: HydrationContext = {
+        ssrIdRegistry,
+        corruptedTextNodes,
+        profiler,
+        transferState,
+      };
       annotateHostElementForHydration(hostElement, lView, context);
       insertTextNodeMarkers(corruptedTextNodes, doc);
       profiler?.incrementMetricValue(SsrPerfMetrics.EmptyTextNodeCount, corruptedTextNodes.size);
@@ -383,24 +442,27 @@ function compareNghView(curr: NghView, prev: NghView): boolean {
   return JSON.stringify(curr) === JSON.stringify(prevClone);
 }
 
+export const NGH_DATA_KEY = makeStateKey<Array<NghDom>>(TRANSFER_STATE_TOKEN_ID);
+
 export function annotateHostElementForHydration(
     element: Element, lView: LView, context: HydrationContext): void {
   const rawNgh = serializeLView(lView, context);
-  let serializedNgh = '';
-  // Do not serialize an empty object
-  if (Object.keys(rawNgh).length > 0) {
-    serializedNgh = compressNghInfo(rawNgh);
-  }
+  // TODO: figure out how to deduplicate entries.
+  const storage = context.transferState.get(NGH_DATA_KEY, []);
+  const index = storage.length;
+  storage.push(rawNgh);
+  context.transferState.set(NGH_DATA_KEY, storage);
   if (context.profiler) {
-    if (serializedNgh.length === 0) {
+    if (Object.keys(rawNgh).length === 0) {
       context.profiler.incrementMetricValue(SsrPerfMetrics.ComponentsWithEmptyNgh, 1);
     }
     context.profiler.incrementMetricValue(
-        SsrPerfMetrics.NghAnnotationSize, serializedNgh.length + 7);  // 7 to account for ' ngh=""'
+        SsrPerfMetrics.NghAnnotationSize,
+        index.toString().length + 7);  // 7 to account for ' ngh=""'
     context.profiler.incrementMetricValue(
         SsrPerfMetrics.SerializedComponents, 1);  // increment by one more component
   }
-  element.setAttribute(NGH_ATTR_NAME, serializedNgh);
+  element.setAttribute(NGH_ATTR_NAME, index.toString());
 }
 
 function insertTextNodeMarkers(corruptedTextNodes: Map<string, HTMLElement>, doc: Document) {

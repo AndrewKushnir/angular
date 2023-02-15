@@ -9,12 +9,11 @@
 import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet} from '@angular/common';
-import {ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, provideHydrationSupport, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵdisableSsrPeformanceProfiler as disableSsrPeformanceProfiler, ɵenableSsrPeformanceProfiler as enableSsrPeformanceProfiler, ɵgetSsrProfiler as getSsrProfiler, ɵsetDocument, ɵSsrProfiler as SsrProfiler} from '@angular/core';
+import {APP_ID, ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵdisableSsrPeformanceProfiler as disableSsrPeformanceProfiler, ɵenableSsrPeformanceProfiler as enableSsrPeformanceProfiler, ɵgetSsrProfiler as getSsrProfiler, ɵsetDocument, ɵSsrProfiler as SsrProfiler, ɵTRANSFER_STATE_TOKEN_ID as TRANSFER_STATE_TOKEN_ID, ɵunescapeTransferStateContent} from '@angular/core';
 import {CONTAINERS, NghDom, VIEWS} from '@angular/core/src/hydration/interfaces';
-import {NghJSON} from '@angular/core/src/hydration/ngh_json';
 import {SsrPerfMetrics} from '@angular/core/src/hydration/profiler';
 import {TestBed} from '@angular/core/testing';
-import {bootstrapApplication} from '@angular/platform-browser';
+import {bootstrapApplication, provideHydrationSupport} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
 import {renderApplication} from '../src/utils';
@@ -42,6 +41,13 @@ function getAppContents(html: string): string {
     throw new Error('App not found!');
   }
   return result[1];
+}
+
+function getAnnotationFromTransferState(input: string): {} {
+  const rawContents = input.match(/<script[^>]+>(.*?)<\/script>/)![1];
+  const contents = ɵunescapeTransferStateContent(rawContents);
+  const data = JSON.parse(contents) as any;
+  return data[TRANSFER_STATE_TOKEN_ID];
 }
 
 function whenStable(appRef: ApplicationRef): Promise<boolean> {
@@ -73,9 +79,14 @@ function getComponentRef<T>(appRef: ApplicationRef): ComponentRef<T> {
   return appRef.components[0];
 }
 
+function stripTransferDataScript(input: string): string {
+  return input.replace(/<script (.*?)<\/script>/s, '');
+}
+
 function verifyClientAndSSRContentsMatch(ssrContents: string, clientAppRootElement: HTMLElement) {
-  const clientContents = stripUtilAttributes(clientAppRootElement.outerHTML, false);
-  ssrContents = stripUtilAttributes(ssrContents, false);
+  const clientContents =
+      stripTransferDataScript(stripUtilAttributes(clientAppRootElement.outerHTML, false));
+  ssrContents = stripTransferDataScript(stripUtilAttributes(ssrContents, false));
   expect(clientContents).toBe(ssrContents, 'Client and server contents mismatch');
 }
 
@@ -118,7 +129,10 @@ fdescribe('platform-server integration', () => {
 
     async function ssr(component: Type<unknown>, doc?: string): Promise<string> {
       doc ||= '<html><head></head><body><app></app></body></html>';
-      const providers = [provideHydrationSupport()];
+      const providers = [
+        {provide: APP_ID, useValue: appId},
+        provideHydrationSupport(),
+      ];
       return renderApplication(component, {document: doc, appId, providers});
     }
 
@@ -137,6 +151,7 @@ fdescribe('platform-server integration', () => {
       }
 
       const providers = [
+        {provide: APP_ID, useValue: appId},
         {provide: DOCUMENT, useFactory: _document, deps: []},
         provideHydrationSupport(),
       ];
@@ -837,7 +852,9 @@ fdescribe('platform-server integration', () => {
         const clientContents = stripUtilAttributes(portalRootNode.outerHTML, false) +
             stripUtilAttributes(clientRootNode.outerHTML, false);
         expect(clientContents)
-            .toBe(stripUtilAttributes(ssrContents, false), 'Client and server contents mismatch');
+            .toBe(
+                stripUtilAttributes(stripTransferDataScript(ssrContents), false),
+                'Client and server contents mismatch');
       });
 
       it('should handle projected containers inside other containers', async () => {
@@ -1120,8 +1137,7 @@ fdescribe('platform-server integration', () => {
         const html = await ssr(SimpleComponent);
         const ssrContents = getAppContents(html);
 
-        const rawNgh = ssrContents.match(/ngh="(.*)?"/)![1];
-        const ngh = NghJSON.parse(rawNgh) as NghDom;
+        const ngh = getAnnotationFromTransferState(ssrContents) as NghDom[];
 
         // We expect 3 serialized views here:
         //  - {i:t0,r:1,t:{2:t1},c:{2:{}},x:6}
@@ -1129,7 +1145,7 @@ fdescribe('platform-server integration', () => {
         //  - {i:t0,r:1,t:{2:t1},c:{2:{}},x:5}
         // Note the `x:N` in each JSON string, this is a view
         // multiplier, i.e. how many times this view is repeated.
-        const views = ngh[CONTAINERS]![1][VIEWS]!;
+        const views = ngh[0][CONTAINERS]![1][VIEWS]!;
         expect(views.length).toBe(3);
         expect(views[0].x).toBe(6);
         expect(views[1].x).toBe(4);
