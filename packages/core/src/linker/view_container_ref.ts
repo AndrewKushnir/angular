@@ -441,7 +441,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       rNode = dehydratedView.firstChild;
 
       // Read hydration info and pass it over to the component view.
-      hydrationInfo = retrieveNghInfo(rNode as RElement);
+      hydrationInfo = retrieveNghInfo(rNode as RElement, environmentInjector as Injector);
     }
 
     const componentRef = componentFactory.createImpl(

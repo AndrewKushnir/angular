@@ -7,7 +7,7 @@
  */
 
 import {CommonModule, DOCUMENT, XhrFactory, ɵPLATFORM_BROWSER_ID as PLATFORM_BROWSER_ID} from '@angular/common';
-import {APP_ID, ApplicationConfig as ApplicationConfigFromCore, ApplicationModule, ApplicationRef, createPlatformFactory, ErrorHandler, Inject, InjectionToken, ModuleWithProviders, NgModule, NgZone, Optional, PLATFORM_ID, PLATFORM_INITIALIZER, platformCore, PlatformRef, Provider, RendererFactory2, SkipSelf, StaticProvider, Testability, TestabilityRegistry, Type, ɵINJECTOR_SCOPE as INJECTOR_SCOPE, ɵinternalCreateApplication as internalCreateApplication, ɵsetDocument, ɵTESTABILITY as TESTABILITY, ɵTESTABILITY_GETTER as TESTABILITY_GETTER} from '@angular/core';
+import {APP_ID, ApplicationConfig as ApplicationConfigFromCore, ApplicationModule, ApplicationRef, createPlatformFactory, EnvironmentProviders, ErrorHandler, inject, Inject, InjectionToken, makeEnvironmentProviders, ModuleWithProviders, NgModule, NgZone, Optional, PLATFORM_ID, PLATFORM_INITIALIZER, platformCore, PlatformRef, Provider, RendererFactory2, SkipSelf, StaticProvider, Testability, TestabilityRegistry, Type, ɵINJECTOR_SCOPE as INJECTOR_SCOPE, ɵinternalCreateApplication as internalCreateApplication, ɵinternalProvideHydrationSupport as internalProvideHydrationSupport, ɵsetDocument, ɵTESTABILITY as TESTABILITY, ɵTESTABILITY_GETTER as TESTABILITY_GETTER, ɵTRANSFER_STATE as TRANSFER_STATE} from '@angular/core';
 
 import {BrowserDomAdapter} from './browser/browser_adapter';
 import {BrowserGetTestability} from './browser/testability';
@@ -17,6 +17,7 @@ import {DomEventsPlugin} from './dom/events/dom_events';
 import {EVENT_MANAGER_PLUGINS, EventManager} from './dom/events/event_manager';
 import {KeyEventsPlugin} from './dom/events/key_events';
 import {DomSharedStylesHost, SharedStylesHost} from './dom/shared_styles_host';
+import {TransferState} from './platform-browser';
 
 const NG_DEV_MODE = typeof ngDevMode === 'undefined' || !!ngDevMode;
 
@@ -138,6 +139,19 @@ export function provideProtractorTestingSupport(): Provider[] {
   // alterations are performed to the `provideProtractorTestingSupport` call results in app
   // code.
   return [...TESTABILITY_PROVIDERS];
+}
+
+/**
+ * TODO: add docs
+ *
+ * @publicApi
+ * @developerPreview
+ */
+export function provideHydrationSupport(): EnvironmentProviders {
+  return makeEnvironmentProviders([
+    ...internalProvideHydrationSupport(),
+    {provide: TRANSFER_STATE, useFactory: () => inject(TransferState)}
+  ]);
 }
 
 export function initDomAdapter() {

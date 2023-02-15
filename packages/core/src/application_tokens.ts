@@ -7,6 +7,7 @@
  */
 
 import {InjectionToken} from './di';
+import {TransferState} from './hydration/annotate';
 
 
 /**
@@ -57,6 +58,11 @@ export const PLATFORM_ID = new InjectionToken<Object>('Platform ID', {
   providedIn: 'platform',
   factory: () => 'unknown',  // set a default platform name, when none set explicitly
 });
+
+/**
+ * TODO: add docs!
+ */
+export const TRANSFER_STATE = new InjectionToken<TransferState>('Transfer State');
 
 /**
  * A [DI token](guide/glossary#di-token "DI token definition") that indicates the root directory of

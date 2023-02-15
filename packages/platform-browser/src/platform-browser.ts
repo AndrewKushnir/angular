@@ -8,7 +8,7 @@
 
 // Re-export TransferState to the public API of the `platform-browser` for backwards-compatibility.
 export {ɵmakeStateKey as makeStateKey, ɵStateKey as StateKey, ɵTransferState as TransferState} from '@angular/core';
-export {ApplicationConfig, bootstrapApplication, BrowserModule, createApplication, platformBrowser, provideProtractorTestingSupport} from './browser';
+export {ApplicationConfig, bootstrapApplication, BrowserModule, createApplication, platformBrowser, provideHydrationSupport, provideProtractorTestingSupport} from './browser';
 export {Meta, MetaDefinition} from './browser/meta';
 export {Title} from './browser/title';
 export {disableDebugTools, enableDebugTools} from './browser/tools/tools';

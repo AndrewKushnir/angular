@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {APP_ID, ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵannotateForHydration as annotateForHydration, ɵgetSsrProfiler as getSsrProfiler, ɵinternalCreateApplication as internalCreateApplication, ɵIS_HYDRATION_FEATURE_ENABLED as IS_HYDRATION_FEATURE_ENABLED, ɵisPromise, ɵisSsrProfilerEnabled as isSsrProfilerEnabled, ɵSsrPerfMetrics as SsrPerfMetrics, ɵSsrProfiler as SsrProfiler} from '@angular/core';
-import {BrowserModule} from '@angular/platform-browser';
+import {APP_ID, ApplicationRef, EnvironmentProviders, importProvidersFrom, InjectionToken, NgModuleRef, PlatformRef, Provider, Renderer2, StaticProvider, Type, ɵannotateForHydration as annotateForHydration, ɵgetSsrProfiler as getSsrProfiler, ɵinternalCreateApplication as internalCreateApplication, ɵIS_HYDRATION_FEATURE_ENABLED as IS_HYDRATION_FEATURE_ENABLED, ɵisPromise, ɵisSsrProfilerEnabled as isSsrProfilerEnabled, ɵSsrPerfMetrics as SsrPerfMetrics, ɵSsrProfiler as SsrProfiler, ɵTRANSFER_STATE_TOKEN_ID as TRANSFER_STATE_TOKEN_ID} from '@angular/core';
+import {BrowserModule, makeStateKey, TransferState} from '@angular/platform-browser';
 import {first} from 'rxjs/operators';
 
 import {PlatformState} from './platform_state';
@@ -44,6 +44,8 @@ function appendServerContextInfo(serverContext: string, applicationRef: Applicat
   });
 }
 
+const NGH_DATA_KEY = makeStateKey<Array<unknown>>(TRANSFER_STATE_TOKEN_ID);
+
 function _render<T>(
     platform: PlatformRef, bootstrapPromise: Promise<NgModuleRef<T>|ApplicationRef>,
     profiler: SsrProfiler|null): Promise<string> {
@@ -67,7 +69,21 @@ the server-rendered app can be properly bootstrapped into a client app.`);
 
           const platformState = platform.injector.get(PlatformState);
 
-          const asyncPromises: Promise<any>[] = [];
+          const beforeAppSerializedPromises: Promise<any>[] = [];
+
+          // Generate extra annotation for hydration.
+          if (applicationRef.injector.get(IS_HYDRATION_FEATURE_ENABLED, false)) {
+            const annotate = () => {
+              const transferStateService = applicationRef.injector.get(TransferState);
+              return annotateForHydration(
+                  applicationRef, platformState.getDocument(), transferStateService, profiler);
+            };
+            if (profiler) {
+              profiler.invokeAndMeasure(annotate, SsrPerfMetrics.OverallHydrationTime)
+            } else {
+              annotate();
+            }
+          }
 
           // Run any BEFORE_APP_SERIALIZED callbacks just before rendering to string.
           const callbacks = environmentInjector.get(BEFORE_APP_SERIALIZED, null);
@@ -78,7 +94,7 @@ the server-rendered app can be properly bootstrapped into a client app.`);
                 const callbackResult = callback();
                 if (ɵisPromise(callbackResult)) {
                   // TODO: in TS3.7, callbackResult is void.
-                  asyncPromises.push(callbackResult as any);
+                  beforeAppSerializedPromises.push(callbackResult as any);
                 }
               } catch (e) {
                 // Ignore exceptions.
@@ -88,19 +104,13 @@ the server-rendered app can be properly bootstrapped into a client app.`);
           }
 
           const complete = () => {
-            if (applicationRef.injector.get(IS_HYDRATION_FEATURE_ENABLED, false)) {
-              const annotate = () =>
-                  annotateForHydration(applicationRef, platformState.getDocument(), profiler);
-              if (profiler) {
-                profiler.invokeAndMeasure(annotate, SsrPerfMetrics.OverallHydrationTime)
-              } else {
-                annotate();
-              }
-            }
-
             const renderToString = () => platformState.renderToString();
             let output: string;
             if (profiler) {
+              const transferState = applicationRef.injector.get(TransferState);
+              const nghData = transferState.get(NGH_DATA_KEY, []) ?? [];
+              profiler.incrementMetricValue(
+                  SsrPerfMetrics.NghAnnotationSize, JSON.stringify(nghData).length);
               output =
                   profiler?.invokeAndMeasure(renderToString, SsrPerfMetrics.DomSerializationTime);
               profiler.incrementMetricValue(SsrPerfMetrics.OverallHtmlSize, output.length);
@@ -112,12 +122,12 @@ the server-rendered app can be properly bootstrapped into a client app.`);
             return output;
           };
 
-          if (asyncPromises.length === 0) {
+          if (beforeAppSerializedPromises.length === 0) {
             return complete();
           }
 
           return Promise
-              .all(asyncPromises.map((asyncPromise) => {
+              .all(beforeAppSerializedPromises.map((asyncPromise) => {
                 return asyncPromise.catch((e) => {
                   console.warn('Ignoring BEFORE_APP_SERIALIZED Exception: ', e);
                 });
