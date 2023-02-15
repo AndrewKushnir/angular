@@ -7,7 +7,6 @@
  */
 
 import {compressNodeLocation, decompressNodeLocation} from '../../src/hydration/compression';
-import {NghJSON} from '../../src/hydration/ngh_json';
 import {NodeNavigationStep, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from '../../src/hydration/node_lookup_utils';
 
 describe('compression of node location', () => {
@@ -30,21 +29,5 @@ describe('compression of node location', () => {
       expect(compressNodeLocation(refNode, steps as NodeNavigationStep[])).toEqual(path);
       expect(decompressNodeLocation(path)).toEqual([refNode, ...steps]);
     });
-  });
-});
-
-// TODO: add more tests!
-describe('LightJSON', () => {
-  it('should parse simple objects', () => {
-    const input = '{i:4,v:[1,2,3]}';
-    const output = NghJSON.parse(input);
-    expect(output).toEqual({i: 4, v: [1, 2, 3]});
-  });
-
-  it('should allow dashes at token value positions', () => {
-    const input = '{i:my-cmp,v:[1,2,3]}';
-    debugger;
-    const output = NghJSON.parse(input);
-    expect(output).toEqual({i: 'my-cmp', v: [1, 2, 3]});
   });
 });
