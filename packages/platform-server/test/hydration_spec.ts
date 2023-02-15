@@ -1164,6 +1164,71 @@ fdescribe('platform-server integration', () => {
         verifyAllNodesClaimedForHydration(clientRootNode);
         verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
+
+      it('should avoid generating duplicate ngh annotation info ' +
+             'in transferred state',
+         async () => {
+           @Component({
+             standalone: true,
+             selector: 'nested-cmp-a',
+             imports: [NgIf],
+             template: `<div *ngIf="true">CompA</div>`,
+           })
+           class NestedComponentA {
+           }
+
+           @Component({
+             standalone: true,
+             selector: 'nested-cmp-b',
+             imports: [NgIf],
+             template: `<ng-container *ngIf="true">CompB</ng-container>`,
+           })
+           class NestedComponentB {
+           }
+
+           @Component({
+             standalone: true,
+             selector: 'app',
+             imports: [NestedComponentA, NestedComponentB],
+             template: `
+                <div>
+                  <nested-cmp-b />
+                  <nested-cmp-a />
+                  <nested-cmp-a />
+                </div>
+                <span>
+                  <nested-cmp-a />
+                  <nested-cmp-b />
+                </span>
+              `,
+           })
+           class SimpleComponent {
+           }
+
+           const html = await ssr(SimpleComponent);
+           const ssrContents = getAppContents(html);
+
+           const ngh = getAnnotationFromTransferState(ssrContents) as NghDom[];
+
+           // Expect 3 items in the `ngh` collection
+           // (one per nested component + 1 for the root <app> component).
+           expect(ngh.length).toBe(3);
+           expect(ssrContents.match(/ngh="1"/g)!.length).toBe(3);  // <nested-cmp-a />
+           expect(ssrContents.match(/ngh="0"/g)!.length).toBe(2);  // <nested-cmp-b />
+
+           resetTViewsFor(SimpleComponent, NestedComponentA, NestedComponentB);
+
+           const appRef = await hydrate(html, SimpleComponent);
+           const compRef = getComponentRef<SimpleComponent>(appRef);
+           appRef.tick();
+
+           const clientRootNode = compRef.location.nativeElement;
+
+           await whenStable(appRef);
+
+           verifyAllNodesClaimedForHydration(clientRootNode);
+           verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+         });
     });
 
     describe('*ngFor', () => {
