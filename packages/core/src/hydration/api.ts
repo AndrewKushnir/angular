@@ -7,8 +7,8 @@
  */
 
 import {ApplicationRef} from '../application_ref';
-import {APP_BOOTSTRAP_LISTENER, APP_ID, PLATFORM_ID} from '../application_tokens';
-import {EnvironmentProviders, makeEnvironmentProviders, Provider} from '../di';
+import {APP_BOOTSTRAP_LISTENER, PLATFORM_ID} from '../application_tokens';
+import {Provider} from '../di';
 import {ENVIRONMENT_INITIALIZER} from '../di/initializer_token';
 import {InjectionToken} from '../di/injection_token';
 import {inject} from '../di/injector_compatibility';

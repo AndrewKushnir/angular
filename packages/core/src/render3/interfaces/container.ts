@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {NghView} from '../../hydration/interfaces';
+import {NghViewInstance} from '../../hydration/interfaces';
 
 import {TNode} from './node';
 import {RComment, RElement} from './renderer_dom';
@@ -137,7 +137,7 @@ export interface LContainer extends Array<any> {
   /**
    * TODO: add docs!
    */
-  [DEHYDRATED_VIEWS]: NghView[]|null;
+  [DEHYDRATED_VIEWS]: NghViewInstance[]|null;
 }
 
 // Note: This hack is necessary so we don't erroneously get a circular dependency

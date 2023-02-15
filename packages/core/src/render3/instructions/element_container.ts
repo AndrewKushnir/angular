@@ -172,7 +172,7 @@ function locateOrCreateElementContainerNode(
     ngDevMode && ngDevMode.rendererCreateComment++;
     comment = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
   } else {
-    const nghContainer = ngh[CONTAINERS]?.[index]!;
+    const nghContainer = ngh.data[CONTAINERS]?.[index]!;
     ngDevMode &&
         assertDefined(
             nghContainer, 'There is no hydration info available for this element container');
@@ -191,7 +191,9 @@ function locateOrCreateElementContainerNode(
       if (views.length > 0) {
         // Store dehydrated views info in ngh data structure for later reuse
         // while creating a ViewContainerRef instance, see `createContainerRef`.
-        nghContainer.dehydratedViews = views;
+        //
+        // FIXME: we *must* not store any info here.
+        (nghContainer as any).dehydratedViews = views;
       }
     } else {
       // This is a plain `<ng-container>`, which is *not* used
@@ -199,7 +201,9 @@ function locateOrCreateElementContainerNode(
       //
       // Store a reference to the first node in a container,
       // so it can be referenced while invoking further instructions.
-      nghContainer.firstChild = currentRNode as HTMLElement;
+      //
+      // FIXME: we *must* not store any info here.
+      (nghContainer as any).firstChild = currentRNode as HTMLElement;
 
       comment = siblingAfter<RComment>(nghContainer[NUM_ROOT_NODES]!, currentRNode!)!;
     }

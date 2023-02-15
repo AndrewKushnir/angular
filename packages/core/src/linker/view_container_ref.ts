@@ -8,7 +8,7 @@
 
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
-import {CONTAINERS, NghContainer, NghDom, NghView} from '../hydration/interfaces';
+import {CONTAINERS, NghContainer, NghContainerInstance, NghDom, NghDomInstance, NghView, NghViewInstance} from '../hydration/interfaces';
 import {isInSkipHydrationBlock} from '../hydration/skip_hydration';
 import {isNodeDisconnected, markRNodeAsClaimedForHydration, retrieveNghInfo} from '../hydration/utils';
 import {findMatchingDehydratedView, locateDehydratedViewsInContainer} from '../hydration/views';
@@ -308,7 +308,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       injector = indexOrOptions.injector;
     }
 
-    let hydrationInfo: NghView|null = null;
+    let hydrationInfo: NghViewInstance|null = null;
     const ssrId = (templateRef as unknown as {ssrId: string | null}).ssrId;
     if (ssrId) {
       hydrationInfo = findMatchingDehydratedView(this._lContainer, ssrId);
@@ -434,7 +434,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     const componentDef = getComponentDef(componentFactory.componentType)!;
     const dehydratedView = findMatchingDehydratedView(this._lContainer, componentDef.id);
     let rNode;
-    let hydrationInfo: NghDom|null = null;
+    let hydrationInfo: NghDomInstance|null = null;
 
     if (dehydratedView) {
       // Pointer to a host DOM element.
@@ -635,13 +635,13 @@ let _locateOrCreateContainerRefImpl = (hostLView: LView, hostTNode: TNode, slotV
 function locateOrCreateContainerRefImpl(
     hostLView: LView, hostTNode: TNode, slotValue: any): LContainer {
   let nghContainer: NghContainer;
-  let dehydratedViews: NghView[] = [];
+  let dehydratedViews: NghViewInstance[] = [];
   const ngh = hostLView[HYDRATION_INFO];
   const isCreating = !ngh || isInSkipHydrationBlock(hostTNode, hostLView) ||
       isNodeDisconnected(ngh, hostTNode.index - HEADER_OFFSET);
   if (!isCreating) {
     const index = hostTNode.index - HEADER_OFFSET;
-    nghContainer = ngh![CONTAINERS]![index];
+    nghContainer = ngh!.data[CONTAINERS]![index];
     ngDevMode &&
         assertDefined(nghContainer, 'There is no hydration info available for this container');
   }
@@ -653,12 +653,13 @@ function locateOrCreateContainerRefImpl(
   // it again.
   if (hostTNode.type & TNodeType.ElementContainer) {
     commentNode = unwrapRNode(slotValue) as RComment;
-    if (!isCreating && nghContainer! && Array.isArray(nghContainer.dehydratedViews)) {
+    // FIXME: we *must* avoid storing `dehydratedViews` on readonly ngh data.
+    if (!isCreating && nghContainer! && Array.isArray((nghContainer as any).dehydratedViews)) {
       // When we create an LContainer based on `<ng-container>`, the container
       // is already processed, including dehydrated views info. Reuse this info
       // and erase it in the ngh data to avoid memory leaks.
-      dehydratedViews = nghContainer.dehydratedViews!;
-      nghContainer.dehydratedViews = [];
+      dehydratedViews = (nghContainer as any).dehydratedViews!;
+      (nghContainer as any).dehydratedViews = [];
     }
   } else {
     if (isCreating) {

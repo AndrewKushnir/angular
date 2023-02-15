@@ -13,7 +13,7 @@ import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer} from '../render3/
 import {isLContainer} from '../render3/interfaces/type_checks';
 import {HEADER_OFFSET, HOST, LView, TVIEW} from '../render3/interfaces/view';
 
-import {NghView, NUM_ROOT_NODES} from './interfaces';
+import {NghViewInstance, NUM_ROOT_NODES} from './interfaces';
 import {getComponentLView} from './utils';
 
 export function cleanupDehydratedViews(appRef: ApplicationRef) {
@@ -78,11 +78,11 @@ function cleanupLView(lView: LView) {
 /**
  * Helper function to remove all nodes from a dehydrated view.
  */
-function removeDehydratedView(dehydratedView: NghView) {
+function removeDehydratedView(dehydratedView: NghViewInstance) {
   let nodesRemoved = 0;
   let currentRNode = dehydratedView.firstChild;
   if (currentRNode) {
-    const numNodes = dehydratedView[NUM_ROOT_NODES];
+    const numNodes = dehydratedView.data[NUM_ROOT_NODES];
     while (nodesRemoved < numNodes) {
       const nextSibling = currentRNode.nextSibling as HTMLElement;
       currentRNode.remove();
