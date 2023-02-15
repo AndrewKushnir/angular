@@ -7,7 +7,7 @@
  */
 
 import {Injector} from '../di/injector';
-import {NghView} from '../hydration/interfaces';
+import {NghView, NghViewInstance} from '../hydration/interfaces';
 import {assertLContainer} from '../render3/assert';
 import {createLView, renderView} from '../render3/instructions/shared';
 import {TContainerNode, TNode, TNodeType} from '../render3/interfaces/node';
@@ -70,8 +70,8 @@ export abstract class TemplateRef<C> {
    *
    * @internal
    */
-  abstract createEmbeddedViewImpl(context: C, injector?: Injector, hydrationInfo?: NghView|null):
-      EmbeddedViewRef<C>;
+  abstract createEmbeddedViewImpl(
+      context: C, injector?: Injector, hydrationInfo?: NghViewInstance|null): EmbeddedViewRef<C>;
 
   /**
    * @internal
@@ -103,7 +103,7 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
   /**
    * @internal
    */
-  createEmbeddedViewImpl(context: T, injector?: Injector, hydrationInfo?: NghView|null):
+  createEmbeddedViewImpl(context: T, injector?: Injector, hydrationInfo?: NghViewInstance|null):
       EmbeddedViewRef<T> {
     const embeddedTView = this._declarationTContainer.tViews as TView;
     const embeddedLView = createLView(

@@ -13,7 +13,7 @@ import {InjectFlags, InjectOptions} from '../di/interface/injector';
 import {ProviderToken} from '../di/provider_token';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {RuntimeError, RuntimeErrorCode} from '../errors';
-import {NghDom} from '../hydration/interfaces';
+import {NghDom, NghDomInstance} from '../hydration/interfaces';
 import {retrieveNghInfo} from '../hydration/utils';
 import {Type} from '../interface/type';
 import {ComponentFactory as AbstractComponentFactory, ComponentRef as AbstractComponentRef} from '../linker/component_factory';
@@ -156,7 +156,7 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
   createImpl(
       injector: Injector, projectableNodes?: any[][]|undefined, rootSelectorOrNode?: any,
       environmentInjector?: NgModuleRef<any>|EnvironmentInjector|undefined,
-      hydrationInfo?: NghDom|null): AbstractComponentRef<T> {
+      hydrationInfo?: NghDomInstance|null): AbstractComponentRef<T> {
     environmentInjector = environmentInjector || this.ngModule;
 
     let realEnvironmentInjector = environmentInjector instanceof EnvironmentInjector ?
@@ -352,7 +352,8 @@ function createRootComponentTNode(lView: LView, rNode: RNode): TElementNode {
 function createRootComponentView(
     tNode: TElementNode, rNode: RElement|null, rootComponentDef: ComponentDef<any>,
     rootDirectives: DirectiveDef<any>[], rootView: LView, rendererFactory: RendererFactory,
-    hostRenderer: Renderer, sanitizer?: Sanitizer|null, hydrationInfo?: NghDom|null): LView {
+    hostRenderer: Renderer, sanitizer?: Sanitizer|null,
+    hydrationInfo?: NghDomInstance|null): LView {
   const tView = rootView[TVIEW];
   applyRootComponentStyling(rootDirectives, tNode, rNode, hostRenderer);
 
