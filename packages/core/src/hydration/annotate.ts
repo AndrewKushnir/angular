@@ -43,6 +43,32 @@ class TViewSsrIdRegistry {
 }
 
 /**
+ * Keeps track of all produced `ngh` annotations and avoids
+ * duplication. If the same annotation is being added, the collection
+ * remains the same and an index of that annotation is returned instead.
+ * This helps minimize the amount of annotations needed on a page.
+ */
+class NghAnnotationCollection {
+  private data: NghDom[] = [];
+  private indexByContent = new Map<string, number>();
+
+  add(ngh: NghDom): number {
+    const nghAsString = JSON.stringify(ngh);
+    if (!this.indexByContent.has(nghAsString)) {
+      const index = this.data.length;
+      this.data.push(ngh);
+      this.indexByContent.set(nghAsString, index);
+      return index;
+    }
+    return this.indexByContent.get(nghAsString)!;
+  }
+
+  getAllAnnotations() {
+    return this.data;
+  }
+}
+
+/**
  * Describes a context available during the serialization
  * process. The context is used to share and collect information
  * during the serialization.
@@ -51,7 +77,7 @@ interface HydrationContext {
   ssrIdRegistry: TViewSsrIdRegistry;
   corruptedTextNodes: Map<string, HTMLElement>;
   profiler: SsrProfiler|null;
-  transferState: TransferState;
+  annotationCollection: NghAnnotationCollection;
 }
 
 type StateKey<T> = string&{
@@ -118,6 +144,7 @@ export function annotateForHydration(
     profiler: SsrProfiler|null) {
   const ssrIdRegistry = new TViewSsrIdRegistry();
   const corruptedTextNodes = new Map<string, HTMLElement>();
+  const annotationCollection = new NghAnnotationCollection();
   const viewRefs = retrieveViewsFromApplicationRef(appRef);
   for (const viewRef of viewRefs) {
     const lView = getComponentLView(viewRef);
@@ -129,12 +156,16 @@ export function annotateForHydration(
         ssrIdRegistry,
         corruptedTextNodes,
         profiler,
-        transferState,
+        annotationCollection,
       };
       annotateHostElementForHydration(hostElement, lView, context);
       insertTextNodeMarkers(corruptedTextNodes, doc);
       profiler?.incrementMetricValue(SsrPerfMetrics.EmptyTextNodeCount, corruptedTextNodes.size);
     }
+  }
+  const allAnnotations = annotationCollection.getAllAnnotations();
+  if (allAnnotations.length > 0) {
+    transferState.set(NGH_DATA_KEY, allAnnotations);
   }
 }
 
@@ -446,14 +477,10 @@ export const NGH_DATA_KEY = makeStateKey<Array<NghDom>>(TRANSFER_STATE_TOKEN_ID)
 
 export function annotateHostElementForHydration(
     element: Element, lView: LView, context: HydrationContext): void {
-  const rawNgh = serializeLView(lView, context);
-  // TODO: figure out how to deduplicate entries.
-  const storage = context.transferState.get(NGH_DATA_KEY, []);
-  const index = storage.length;
-  storage.push(rawNgh);
-  context.transferState.set(NGH_DATA_KEY, storage);
+  const ngh = serializeLView(lView, context);
+  const index = context.annotationCollection.add(ngh);
   if (context.profiler) {
-    if (Object.keys(rawNgh).length === 0) {
+    if (Object.keys(ngh).length === 0) {
       context.profiler.incrementMetricValue(SsrPerfMetrics.ComponentsWithEmptyNgh, 1);
     }
     context.profiler.incrementMetricValue(
