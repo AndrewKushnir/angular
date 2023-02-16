@@ -9,7 +9,7 @@
 import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet} from '@angular/common';
-import {APP_ID, ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, PLATFORM_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵdisableSsrPeformanceProfiler as disableSsrPeformanceProfiler, ɵenableSsrPeformanceProfiler as enableSsrPeformanceProfiler, ɵgetSsrProfiler as getSsrProfiler, ɵsetDocument, ɵSsrProfiler as SsrProfiler, ɵTRANSFER_STATE_TOKEN_ID as TRANSFER_STATE_TOKEN_ID} from '@angular/core';
+import {APP_ID, ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, Input, PLATFORM_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵdisableSsrPeformanceProfiler as disableSsrPeformanceProfiler, ɵenableSsrPeformanceProfiler as enableSsrPeformanceProfiler, ɵgetSsrProfiler as getSsrProfiler, ɵsetDocument, ɵSsrProfiler as SsrProfiler, ɵTRANSFER_STATE_TOKEN_ID as TRANSFER_STATE_TOKEN_ID} from '@angular/core';
 import {CONTAINERS, NghDom, VIEWS} from '@angular/core/src/hydration/interfaces';
 import {SsrPerfMetrics} from '@angular/core/src/hydration/profiler';
 import {TestBed} from '@angular/core/testing';
@@ -1294,6 +1294,55 @@ fdescribe('platform-server integration', () => {
         expect(postCleanupContents)
             .toContain(
                 '<span> 50 <b>is bigger than 15!</b><!--bindings={ "ng-reflect-ng-if": "true" }--></span>');
+      });
+    });
+
+    describe('transplanted views', () => {
+      it('should work when passing TemplateRef to a different component', async () => {
+        @Component({
+          standalone: true,
+          imports: [CommonModule],
+          selector: 'insertion-component',
+          template: `
+            <ng-container [ngTemplateOutlet]="template"></ng-container>
+          `
+        })
+        class InsertionComponent {
+          @Input() template!: TemplateRef<unknown>;
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [InsertionComponent, CommonModule],
+          template: `
+            <ng-template #template>
+              This is a transplanted view!
+              <div *ngIf="true">With more nested views!</div>
+            </ng-template>
+            <insertion-component [template]="template" />
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
       });
     });
 
