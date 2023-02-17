@@ -50,8 +50,10 @@ function cleanupLContainer(lContainer: LContainer) {
       if (firstChild &&
           (firstChild.nodeType !== Node.ELEMENT_NODE || !firstChild.hasAttribute('lazy'))) {
         removeDehydratedView(view);
+        ngDevMode && ngDevMode.postHydrationCleanedViews++;
       } else {
         retainedViews.push(view);
+        ngDevMode && ngDevMode.postHydrationRetainedViews++;
       }
     }
     lContainer[DEHYDRATED_VIEWS] = retainedViews.length > 0 ? retainedViews : null;
