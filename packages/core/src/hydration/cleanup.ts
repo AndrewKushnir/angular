@@ -13,7 +13,7 @@ import {CONTAINER_HEADER_OFFSET, DEHYDRATED_VIEWS, LContainer} from '../render3/
 import {isLContainer} from '../render3/interfaces/type_checks';
 import {HEADER_OFFSET, HOST, LView, TVIEW} from '../render3/interfaces/view';
 
-import {NghViewInstance, NUM_ROOT_NODES} from './interfaces';
+import {LAZY, NghViewInstance, NUM_ROOT_NODES} from './interfaces';
 import {getComponentLView} from './utils';
 
 export function cleanupDehydratedViews(appRef: ApplicationRef) {
@@ -34,26 +34,28 @@ export function cleanupDehydratedViews(appRef: ApplicationRef) {
   });
 }
 
+/**
+ * Checks whether a given node exists and if it's annotated with a lazy attribute.
+ */
+function isNodeAnnotatedAsLazy(node?: Node) {
+  // TODO: this method should not be needed, we keep it for testing purposes only.
+  return !!node &&
+      (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).hasAttribute('lazy'));
+}
+
 function cleanupLContainer(lContainer: LContainer) {
   // TODO: should we consider logging a warning here for cases
   // where there is something to cleanup, i.e. there was a delta
   // between a server and a client?
   if (lContainer[DEHYDRATED_VIEWS]) {
-    const retainedViews = [];
+    const retainedViews: NghViewInstance[] = [];
     for (const view of lContainer[DEHYDRATED_VIEWS]) {
-      // FIXME: this is a temporary check to keep "lazy" components
-      // from being removed. This code is **only** needed for testing
-      // purposes and must be removed. Instead, we should rely on
-      // a flag (like `lazy: true`) that should be included into
-      // the dehydrated view object (added as a part of serialization).
-      const firstChild = view.firstChild;
-      if (firstChild &&
-          (firstChild.nodeType !== Node.ELEMENT_NODE || !firstChild.hasAttribute('lazy'))) {
-        removeDehydratedView(view);
-        ngDevMode && ngDevMode.postHydrationCleanedViews++;
-      } else {
+      if (view.data[LAZY] || isNodeAnnotatedAsLazy(view.firstChild)) {
         retainedViews.push(view);
         ngDevMode && ngDevMode.postHydrationRetainedViews++;
+      } else {
+        removeDehydratedView(view);
+        ngDevMode && ngDevMode.postHydrationCleanedViews++;
       }
     }
     lContainer[DEHYDRATED_VIEWS] = retainedViews.length > 0 ? retainedViews : null;

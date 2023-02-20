@@ -326,13 +326,16 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
     const childContexts = this.parentContexts.getOrCreateContext(this.name).children;
     const injector = new OutletInjector(activatedRoute, childContexts, location.injector);
 
+    const routeConfig = activatedRoute.routeConfig;
+    const lazy = !!routeConfig?.loadComponent || !!routeConfig?.loadChildren;
     if (resolverOrInjector && isComponentFactoryResolver(resolverOrInjector)) {
       const factory = resolverOrInjector.resolveComponentFactory(component);
-      this.activated = location.createComponent(factory, location.length, injector);
+      this.activated =
+          location.createComponent(factory, location.length, injector, undefined, undefined, lazy);
     } else {
       const environmentInjector = resolverOrInjector ?? this.environmentInjector;
       this.activated = location.createComponent(
-          component, {index: location.length, injector, environmentInjector});
+          component, {index: location.length, injector, environmentInjector, lazy});
     }
     // Calling `markForCheck` to make sure we will run the change detection when the
     // `RouterOutlet` is inside a `ChangeDetectionStrategy.OnPush` component.
