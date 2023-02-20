@@ -13,12 +13,12 @@ import {getComponentDef, getComponentId} from '../render3/definition';
 import {CONTAINER_HEADER_OFFSET, LContainer} from '../render3/interfaces/container';
 import {TContainerNode, TNode, TNodeFlags, TNodeType} from '../render3/interfaces/node';
 import {isComponentHost, isLContainer, isProjectionTNode, isRootView} from '../render3/interfaces/type_checks';
-import {CONTEXT, HEADER_OFFSET, HOST, LView, TView, TVIEW, TViewType} from '../render3/interfaces/view';
+import {CONTEXT, FLAGS, HEADER_OFFSET, HOST, LView, LViewFlags, TView, TVIEW, TViewType} from '../render3/interfaces/view';
 import {getFirstNativeNode} from '../render3/node_manipulation';
 import {unwrapRNode} from '../render3/util/view_utils';
 
 import {TRANSFER_STATE_TOKEN_ID} from './api';
-import {CONTAINERS, MULTIPLIER, NghContainer, NghDom, NghView, NODES, NUM_ROOT_NODES, TEMPLATE, TEMPLATES, VIEWS} from './interfaces';
+import {CONTAINERS, LAZY, MULTIPLIER, NghContainer, NghDom, NghView, NODES, NUM_ROOT_NODES, TEMPLATE, TEMPLATES, VIEWS} from './interfaces';
 import {calcPathBetween, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
 import {SsrPerfMetrics, SsrProfiler} from './profiler';
 import {isInSkipHydrationBlock, SKIP_HYDRATION_ATTR_NAME} from './skip_hydration';
@@ -449,6 +449,10 @@ function serializeLContainer(lContainer: LContainer, context: HydrationContext):
       [NUM_ROOT_NODES]: numRootNodes,
       ...serializeLView(lContainer[i] as LView, context),
     };
+    // Add annotation if a view is lazy.
+    if ((childLView[FLAGS] & LViewFlags.Lazy) === LViewFlags.Lazy) {
+      view[LAZY] = 1;  // use number instead of true, because it's shorter
+    }
     container[VIEWS] ??= [];
     if (container[VIEWS].length > 0) {
       const prevView = container[VIEWS].at(-1)!;  // the last element in array
