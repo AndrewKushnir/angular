@@ -13,6 +13,7 @@ export const TEMPLATES = 't';
 export const TEMPLATE = 'i';  // as it's also an "id"
 export const VIEWS = 'v';
 export const MULTIPLIER = 'x';  // similar to "x10" as in 10 copies
+export const LAZY = 'l';
 
 /**
  * TODO: add docs here and for each field.
@@ -21,6 +22,7 @@ export interface NghDom {
   [NODES]?: Record<number, string>;
   [CONTAINERS]?: Record<number, NghContainer>;
   [TEMPLATES]?: Record<number, string>;
+  [LAZY]?: number;
 }
 
 /**

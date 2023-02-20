@@ -145,6 +145,8 @@ export abstract class ViewContainerRef {
    *                 replace the `ngModuleRef` parameter.
    *  * projectableNodes: list of DOM nodes that should be projected through
    *                      [`<ng-content>`](api/core/ng-content) of the new component instance.
+   *  * lazy: boolean flag that indicates whether this component instance was created after an
+   *          initial rendering after lazy-loading component's code.
    *
    * @returns The new `ComponentRef` which contains the component instance and the host view.
    */
@@ -154,6 +156,7 @@ export abstract class ViewContainerRef {
     ngModuleRef?: NgModuleRef<unknown>,
     environmentInjector?: EnvironmentInjector|NgModuleRef<unknown>,
     projectableNodes?: Node[][],
+    lazy?: boolean,
   }): ComponentRef<C>;
 
   /**
@@ -167,6 +170,8 @@ export abstract class ViewContainerRef {
    *     [`<ng-content>`](api/core/ng-content) of the new component instance.
    * @param ngModuleRef An instance of the NgModuleRef that represent an NgModule.
    * This information is used to retrieve corresponding NgModule injector.
+   * @param lazy A flag that indicates whether this component instance was created after an
+   *          initial rendering after lazy-loading component's code.
    *
    * @returns The new `ComponentRef` which contains the component instance and the host view.
    *
@@ -176,8 +181,8 @@ export abstract class ViewContainerRef {
    */
   abstract createComponent<C>(
       componentFactory: ComponentFactory<C>, index?: number, injector?: Injector,
-      projectableNodes?: any[][],
-      environmentInjector?: EnvironmentInjector|NgModuleRef<any>): ComponentRef<C>;
+      projectableNodes?: any[][], environmentInjector?: EnvironmentInjector|NgModuleRef<any>,
+      lazy?: boolean): ComponentRef<C>;
 
   /**
    * Inserts a view into this container.
@@ -325,6 +330,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     injector?: Injector,
     projectableNodes?: Node[][],
     ngModuleRef?: NgModuleRef<unknown>,
+    lazy?: boolean,
   }): ComponentRef<C>;
   /**
    * @deprecated Angular no longer requires component factories to dynamically create components.
@@ -334,7 +340,8 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
   override createComponent<C>(
       componentFactory: ComponentFactory<C>, index?: number|undefined,
       injector?: Injector|undefined, projectableNodes?: any[][]|undefined,
-      environmentInjector?: EnvironmentInjector|NgModuleRef<any>|undefined): ComponentRef<C>;
+      environmentInjector?: EnvironmentInjector|NgModuleRef<any>|undefined,
+      lazy?: boolean): ComponentRef<C>;
   override createComponent<C>(
       componentFactoryOrType: ComponentFactory<C>|Type<C>, indexOrOptions?: number|undefined|{
         index?: number,
@@ -342,9 +349,11 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
         ngModuleRef?: NgModuleRef<unknown>,
         environmentInjector?: EnvironmentInjector|NgModuleRef<unknown>,
         projectableNodes?: Node[][],
+        lazy?: boolean,
       },
       injector?: Injector|undefined, projectableNodes?: any[][]|undefined,
-      environmentInjector?: EnvironmentInjector|NgModuleRef<any>|undefined): ComponentRef<C> {
+      environmentInjector?: EnvironmentInjector|NgModuleRef<any>|undefined,
+      lazy?: boolean): ComponentRef<C> {
     const isComponentFactory = componentFactoryOrType && !isType(componentFactoryOrType);
     let index: number|undefined;
 
@@ -383,6 +392,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
         ngModuleRef?: NgModuleRef<unknown>,
         environmentInjector?: EnvironmentInjector | NgModuleRef<unknown>,
         projectableNodes?: Node[][],
+        lazy?: boolean,
       };
       if (ngDevMode && options.environmentInjector && options.ngModuleRef) {
         throwError(
@@ -392,6 +402,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
       injector = options.injector;
       projectableNodes = options.projectableNodes;
       environmentInjector = options.environmentInjector || options.ngModuleRef;
+      lazy = options.lazy;
     }
 
     const componentFactory: ComponentFactory<C> = isComponentFactory ?
@@ -445,7 +456,7 @@ const R3ViewContainerRef = class ViewContainerRef extends VE_ViewContainerRef {
     }
 
     const componentRef = componentFactory.createImpl(
-        contextInjector, projectableNodes, rNode, environmentInjector, hydrationInfo);
+        contextInjector, projectableNodes, rNode, environmentInjector, hydrationInfo, lazy);
     this.insertImpl(componentRef.hostView, index, !!hydrationInfo);
     return componentRef;
   }

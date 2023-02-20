@@ -156,7 +156,7 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
   createImpl(
       injector: Injector, projectableNodes?: any[][]|undefined, rootSelectorOrNode?: any,
       environmentInjector?: NgModuleRef<any>|EnvironmentInjector|undefined,
-      hydrationInfo?: NghDomInstance|null): AbstractComponentRef<T> {
+      hydrationInfo?: NghDomInstance|null, lazy?: boolean): AbstractComponentRef<T> {
     environmentInjector = environmentInjector || this.ngModule;
 
     let realEnvironmentInjector = environmentInjector instanceof EnvironmentInjector ?
@@ -227,7 +227,7 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
       const hostTNode = createRootComponentTNode(rootLView, hostRNode);
       const componentView = createRootComponentView(
           hostTNode, hostRNode, rootComponentDef, rootDirectives, rootLView, rendererFactory,
-          hostRenderer, null, hydrationInfo);
+          hostRenderer, null, hydrationInfo, lazy);
 
       tElementNode = getTNode(rootTView, HEADER_OFFSET) as TElementNode;
 
@@ -352,15 +352,18 @@ function createRootComponentTNode(lView: LView, rNode: RNode): TElementNode {
 function createRootComponentView(
     tNode: TElementNode, rNode: RElement|null, rootComponentDef: ComponentDef<any>,
     rootDirectives: DirectiveDef<any>[], rootView: LView, rendererFactory: RendererFactory,
-    hostRenderer: Renderer, sanitizer?: Sanitizer|null,
-    hydrationInfo?: NghDomInstance|null): LView {
+    hostRenderer: Renderer, sanitizer?: Sanitizer|null, hydrationInfo?: NghDomInstance|null,
+    lazy?: boolean): LView {
   const tView = rootView[TVIEW];
   applyRootComponentStyling(rootDirectives, tNode, rNode, hostRenderer);
 
   const viewRenderer = rendererFactory.createRenderer(rNode, rootComponentDef);
+  let flags = rootComponentDef.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways;
+  if (lazy) {
+    flags |= LViewFlags.Lazy;
+  }
   const componentView = createLView(
-      rootView, getOrCreateComponentTView(rootComponentDef), null,
-      rootComponentDef.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways, rootView[tNode.index],
+      rootView, getOrCreateComponentTView(rootComponentDef), null, flags, rootView[tNode.index],
       tNode, rendererFactory, viewRenderer, sanitizer || null, null, null, hydrationInfo);
 
   if (rNode !== null && componentView[HYDRATION_INFO] === null) {
