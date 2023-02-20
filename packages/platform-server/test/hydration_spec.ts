@@ -90,14 +90,17 @@ function verifyClientAndSSRContentsMatch(ssrContents: string, clientAppRootEleme
   expect(clientContents).toBe(ssrContents, 'Client and server contents mismatch');
 }
 
-function verifyAllNodesClaimedForHydration(el: any) {
-  if (el.nodeType === Node.ELEMENT_NODE && el.hasAttribute('ngskiphydration')) return;
+function verifyAllNodesClaimedForHydration(el: any, exceptions?: Node[]) {
+  exceptions ??= [];
+  if ((el.nodeType === Node.ELEMENT_NODE && el.hasAttribute('ngskiphydration')) ||
+      exceptions.includes(el))
+    return;
   if (!el.__claimed) {
     fail('Hydration error: the node is *not* hydrated: ' + el.outerHTML);
   }
   let current = el.firstChild;
   while (current) {
-    verifyAllNodesClaimedForHydration(current);
+    verifyAllNodesClaimedForHydration(current, exceptions);
     current = current.nextSibling;
   }
 }
@@ -1503,6 +1506,80 @@ fdescribe('platform-server integration', () => {
            expect(clientContents).toContain('<i>This is a CLIENT-ONLY content</i>');
            expect(clientContents).not.toContain('<b>This is a SERVER-ONLY content</b>');
          });
+
+      it('should retain lazy views and hydrate them later', async () => {
+        @Component({
+          standalone: true,
+          selector: 'dynamic',
+          template: `
+              <span>This is a content of a dynamic component.</span>
+            `,
+        })
+        class DynamicComponent {
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [NgIf, NgFor],
+          template: `
+              <div #target></div>
+              <main>Hi! This is the main content.</main>
+            `,
+        })
+        class SimpleComponent {
+          @ViewChild('target', {read: ViewContainerRef}) vcr!: ViewContainerRef;
+
+          isServer = isPlatformServer(inject(PLATFORM_ID));
+
+          createDynamicComponent() {
+            const compRef = this.vcr.createComponent(DynamicComponent, {lazy: true});
+            compRef.changeDetectorRef.detectChanges();
+          }
+
+          ngAfterViewInit() {
+            if (this.isServer) {
+              this.createDynamicComponent();
+            }
+          }
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent, DynamicComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        await whenStable(appRef);
+
+        const clientRootNode = compRef.location.nativeElement;
+
+        // Verify that a lazy view is *not* removed in post-hydration cleanup.
+        const dynamicCmpHost = clientRootNode.querySelector('dynamic');
+        expect(dynamicCmpHost).toBeDefined();
+        // Also expect that the `ngh` attribute is still present, since
+        // that view was not hydrated.
+        expect(dynamicCmpHost.getAttribute('ngh')).toBeDefined();
+
+        verifyAllNodesClaimedForHydration(clientRootNode, [dynamicCmpHost]);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+
+        // Invoke component creation logic after post-hydration cleanup,
+        // verify that all nodes are now hydrated.
+        compRef.instance.createDynamicComponent();
+
+        // We now expect all nodes to be hydrated.
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        // ... and the `ngh` is removed from the dynamic component's host.
+        expect(dynamicCmpHost.getAttribute('ngh')).toBeNull();
+      });
     });
   });
 });

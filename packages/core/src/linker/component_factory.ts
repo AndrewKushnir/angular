@@ -131,5 +131,5 @@ export abstract class ComponentFactory<C> {
   abstract createImpl(
       injector: Injector, projectableNodes?: any[][], rootSelectorOrNode?: string|any,
       environmentInjector?: EnvironmentInjector|NgModuleRef<any>,
-      hydrationInfo?: NghDomInstance|null): ComponentRef<C>;
+      hydrationInfo?: NghDomInstance|null, lazy?: boolean): ComponentRef<C>;
 }
