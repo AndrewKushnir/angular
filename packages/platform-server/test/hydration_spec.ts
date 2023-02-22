@@ -9,7 +9,7 @@
 import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet} from '@angular/common';
-import {APP_ID, ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, getPlatform, inject, Input, PLATFORM_ID, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵdisableSsrPeformanceProfiler as disableSsrPeformanceProfiler, ɵenableSsrPeformanceProfiler as enableSsrPeformanceProfiler, ɵgetSsrProfiler as getSsrProfiler, ɵsetDocument, ɵSsrProfiler as SsrProfiler, ɵTRANSFER_STATE_TOKEN_ID as TRANSFER_STATE_TOKEN_ID} from '@angular/core';
+import {APP_ID, ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, ErrorHandler, getPlatform, inject, Input, PLATFORM_ID, Provider, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵdisableSsrPeformanceProfiler as disableSsrPeformanceProfiler, ɵenableSsrPeformanceProfiler as enableSsrPeformanceProfiler, ɵgetSsrProfiler as getSsrProfiler, ɵsetDocument, ɵSsrProfiler as SsrProfiler, ɵTRANSFER_STATE_TOKEN_ID as TRANSFER_STATE_TOKEN_ID} from '@angular/core';
 import {CONTAINERS, NghDom, VIEWS} from '@angular/core/src/hydration/interfaces';
 import {SsrPerfMetrics} from '@angular/core/src/hydration/profiler';
 import {TestBed} from '@angular/core/testing';
@@ -52,6 +52,18 @@ function getAnnotationFromTransferState(input: string): {} {
 
 function whenStable(appRef: ApplicationRef): Promise<boolean> {
   return appRef.isStable.pipe(first((isStable: boolean) => isStable)).toPromise();
+}
+
+function withNoopErrorHandler() {
+  class NoopErrorHandler extends ErrorHandler {
+    override handleError(error: any): void {
+      // noop
+    }
+  }
+  return [{
+    provide: ErrorHandler,
+    useClass: NoopErrorHandler,
+  }];
 }
 
 /**
@@ -139,7 +151,8 @@ fdescribe('platform-server integration', () => {
       return renderApplication(component, {document: doc, appId, providers});
     }
 
-    async function hydrate(html: string, component: Type<unknown>): Promise<ApplicationRef> {
+    async function hydrate(html: string, component: Type<unknown>, envProviders?: Provider[]):
+        Promise<ApplicationRef> {
       // Destroy existing platform, a new one will be created later in `hydrateApplication`.
       destroyPlatform();
 
@@ -154,6 +167,7 @@ fdescribe('platform-server integration', () => {
       }
 
       const providers = [
+        ...(envProviders ?? []),
         {provide: APP_ID, useValue: appId},
         {provide: DOCUMENT, useFactory: _document, deps: []},
         provideHydrationSupport(),
@@ -1579,6 +1593,80 @@ fdescribe('platform-server integration', () => {
         verifyAllNodesClaimedForHydration(clientRootNode);
         // ... and the `ngh` is removed from the dynamic component's host.
         expect(dynamicCmpHost.getAttribute('ngh')).toBeNull();
+      });
+    });
+
+    describe('error handling', () => {
+      it('should handle text node mismatch', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            <div id="abc">This is an original content</div>
+        `,
+        })
+        class SimpleComponent {
+          private doc = inject(DOCUMENT);
+          ngAfterViewInit() {
+            const div = this.doc.querySelector('div');
+            div!.innerHTML = '<span title="Hi!">This is an extra span causing a problem!</span>';
+          }
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        hydrate(html, SimpleComponent, withNoopErrorHandler()).catch((err: unknown) => {
+          const message = (err as Error).message;
+          expect(message).toContain('During hydration Angular expected Text Node but found <span>');
+          expect(message).toContain('#text(This is an original content)  <-- AT THIS LOCATION');
+          expect(message).toContain('<span title="Hi!">…</span>  <-- AT THIS LOCATION');
+        });
+      });
+
+      it('should handle element node mismatch', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            <div id="abc">
+              <p>This is an original content</p>
+              <b>Bold text</b>
+              <i>Italic text</i>
+            </div>
+        `,
+        })
+        class SimpleComponent {
+          private doc = inject(DOCUMENT);
+          ngAfterViewInit() {
+            const b = this.doc.querySelector('b');
+            const span = this.doc.createElement('span');
+            span.textContent = 'This is an eeeeevil span causing a problem!'
+            b?.parentNode?.replaceChild(span, b);
+          }
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        hydrate(html, SimpleComponent, withNoopErrorHandler()).catch((err: unknown) => {
+          const message = (err as Error).message;
+          expect(message).toContain('During hydration Angular expected <b> but found <span>');
+          expect(message).toContain('<b>…</b>  <-- AT THIS LOCATION');
+          expect(message).toContain('<span>…</span>  <-- AT THIS LOCATION');
+        });
       });
     });
   });
