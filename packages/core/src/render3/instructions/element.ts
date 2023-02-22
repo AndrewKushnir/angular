@@ -6,11 +6,12 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {validateMatchingNode} from '../../hydration/error_handling';
 import {locateNextRNode} from '../../hydration/node_lookup_utils';
 import {hasNgSkipHydrationAttr} from '../../hydration/skip_hydration';
 import {isNodeDisconnected, markRNodeAsClaimedForHydration} from '../../hydration/utils';
 import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert';
-import {assertFirstCreatePass, assertHasParent, assertRElement} from '../assert';
+import {assertFirstCreatePass, assertHasParent} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {hasClassInput, hasStyleInput, TAttributes, TElementNode, TNode, TNodeFlags, TNodeType} from '../interfaces/node';
@@ -212,9 +213,9 @@ function locateOrCreateElementNodeImpl(
     native =
         locateNextRNode<RElement>(ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
     ngDevMode &&
-        assertRElement(
-            native, name,
-            `Expecting an element node with ${name} tag name in the elementStart instruction`);
+        validateMatchingNode(
+            native as unknown as Node, Node.ELEMENT_NODE, name, tNode,
+            previousTNodeParent ? null : previousTNode);
     ngDevMode && markRNodeAsClaimedForHydration(native);
   }
   if (ngh && hasNgSkipHydrationAttr(tNode)) {
