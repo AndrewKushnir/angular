@@ -5,12 +5,13 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+import {validateMatchingNode} from '../../hydration/error_handling';
 import {CONTAINERS, NghViewInstance, TEMPLATES} from '../../hydration/interfaces';
 import {locateNextRNode} from '../../hydration/node_lookup_utils';
 import {isNodeDisconnected, markRNodeAsClaimedForHydration} from '../../hydration/utils';
 import {locateDehydratedViewsInContainer} from '../../hydration/views';
 import {assertDefined} from '../../util/assert';
-import {assertFirstCreatePass, assertRComment} from '../assert';
+import {assertFirstCreatePass} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {DEHYDRATED_VIEWS, LContainer} from '../interfaces/container';
@@ -141,7 +142,10 @@ function locateOrCreateLContainerNodeImpl(
     comment = anchorRNode as RComment;
     dehydratedViews = views;
 
-    ngDevMode && assertRComment(comment, 'Expecting a comment node in template instruction');
+    ngDevMode &&
+        validateMatchingNode(
+            comment as unknown as Node, Node.COMMENT_NODE, null, tNode,
+            previousTNodeParent ? null : previousTNode);
     ngDevMode && markRNodeAsClaimedForHydration(comment);
   }
   const lContainer = createLContainer(comment, lView, comment, tNode);
