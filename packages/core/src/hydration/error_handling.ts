@@ -135,6 +135,8 @@ function describeExpectedDom(tNode: TNode, previousSiblingTNode: TNode|null): st
   if (previousSiblingTNode) {
     content += spacer + '…\n';
     content += spacer + describeTNode(previousSiblingTNode) + '\n';
+  } else if (tNode.type & TNodeType.AnyContainer) {
+    content += spacer + '…\n';
   }
   content += spacer + describeTNode(tNode) + `  ${AT_THIS_LOCATION}\n`;
   content += spacer + '…\n';
