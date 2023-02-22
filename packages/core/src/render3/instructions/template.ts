@@ -144,7 +144,7 @@ function locateOrCreateLContainerNodeImpl(
 
     ngDevMode &&
         validateMatchingNode(
-            comment as unknown as Node, Node.COMMENT_NODE, null, tNode,
+            comment as unknown as Node, Node.COMMENT_NODE, null, lView, tNode,
             previousTNodeParent ? null : previousTNode);
     ngDevMode && markRNodeAsClaimedForHydration(comment);
   }
