@@ -1624,7 +1624,8 @@ fdescribe('platform-server integration', () => {
 
         hydrate(html, SimpleComponent, withNoopErrorHandler()).catch((err: unknown) => {
           const message = (err as Error).message;
-          expect(message).toContain('During hydration Angular expected Text Node but found <span>');
+          expect(message).toContain(
+              'During hydration Angular expected a text node but found <span>');
           expect(message).toContain('#text(This is an original content)  <-- AT THIS LOCATION');
           expect(message).toContain('<span title="Hi!">…</span>  <-- AT THIS LOCATION');
         });
@@ -1668,6 +1669,87 @@ fdescribe('platform-server integration', () => {
           expect(message).toContain('<span>…</span>  <-- AT THIS LOCATION');
         });
       });
+
+      it('should handle <ng-container> node mismatch', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            <b>Bold text</b>
+            <ng-container>
+              <p>This is an original content</p>
+            </ng-container>
+          `,
+        })
+        class SimpleComponent {
+          private doc = inject(DOCUMENT);
+          ngAfterViewInit() {
+            const p = this.doc.querySelector('p');
+            const span = this.doc.createElement('span');
+            span.textContent = 'This is an eeeeevil span causing a problem!'
+            p?.parentNode?.insertBefore(span, p.nextSibling);
+          }
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        hydrate(html, SimpleComponent, withNoopErrorHandler()).catch((err: unknown) => {
+          const message = (err as Error).message;
+          expect(message).toContain(
+              'During hydration Angular expected a comment node but found <span>');
+          expect(message).toContain('<!-- ng-container -->  <-- AT THIS LOCATION');
+          expect(message).toContain('<span>…</span>  <-- AT THIS LOCATION');
+        });
+      });
+
+      it('should handle <ng-container> node mismatch ' +
+             '(when it is wrapped into a non-container node)',
+         async () => {
+           @Component({
+             standalone: true,
+             selector: 'app',
+             template: `
+              <div id="abc" class="wrapper">
+                <ng-container>
+                  <p>This is an original content</p>
+                </ng-container>
+              </div>
+            `,
+           })
+           class SimpleComponent {
+             private doc = inject(DOCUMENT);
+             ngAfterViewInit() {
+               const p = this.doc.querySelector('p');
+               const span = this.doc.createElement('span');
+               span.textContent = 'This is an eeeeevil span causing a problem!'
+               p?.parentNode?.insertBefore(span, p.nextSibling);
+             }
+           }
+
+           const html = await ssr(SimpleComponent);
+           const ssrContents = getAppContents(html);
+
+           // TODO: properly assert `ngh` attribute value once the `ngh`
+           // format stabilizes, for now we just check that it's present.
+           expect(ssrContents).toContain('<app ngh');
+
+           resetTViewsFor(SimpleComponent);
+
+           hydrate(html, SimpleComponent, withNoopErrorHandler()).catch((err: unknown) => {
+             const message = (err as Error).message;
+             expect(message).toContain(
+                 'During hydration Angular expected a comment node but found <span>');
+             expect(message).toContain('<!-- ng-container -->  <-- AT THIS LOCATION');
+             expect(message).toContain('<span>…</span>  <-- AT THIS LOCATION');
+           });
+         });
     });
   });
 });
