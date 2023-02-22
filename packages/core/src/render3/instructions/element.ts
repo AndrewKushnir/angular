@@ -214,7 +214,7 @@ function locateOrCreateElementNodeImpl(
         locateNextRNode<RElement>(ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
     ngDevMode &&
         validateMatchingNode(
-            native as unknown as Node, Node.ELEMENT_NODE, name, tNode,
+            native as unknown as Node, Node.ELEMENT_NODE, name, lView, tNode,
             previousTNodeParent ? null : previousTNode);
     ngDevMode && markRNodeAsClaimedForHydration(native);
   }

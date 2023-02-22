@@ -78,7 +78,7 @@ function locateOrCreateTextNodeImpl(
 
     ngDevMode &&
         validateMatchingNode(
-            textNative as Node, Node.TEXT_NODE, null, tNode,
+            textNative as Node, Node.TEXT_NODE, null, lView, tNode,
             previousTNodeParent ? null : previousTNode);
     ngDevMode && markRNodeAsClaimedForHydration(textNative);
   }
