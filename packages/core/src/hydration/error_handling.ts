@@ -158,7 +158,9 @@ function describeActualDom(node: Node): string {
     content += spacer + describeRNode(node.previousSibling) + '\n';
   }
   content += spacer + describeRNode(node) + `  ${AT_THIS_LOCATION}\n`;
-  content += spacer + '…\n';
+  if (node.nextSibling) {
+    content += spacer + '…\n';
+  }
   if (node.parentNode) {
     content = describeRNode(node.parentNode, '\n' + content);
   }
@@ -181,10 +183,29 @@ export function validateMatchingNode(
         describeExpectedDom(lView, tNode, previousSiblingTNode, isViewContainerAnchor)}\n\n`;
     const actual = `Actual DOM is:\n\n${describeActualDom(node)}\n\n`;
 
+    // TODO: we should get a reference to the current component instead!
+    // Check that we are handling correct lView type.
     const hostComponentDef = getDeclarationComponentDef(lView);
     const componentClassName = hostComponentDef?.type?.name;
-    const footer = `Please check "${componentClassName}" component for hydration related issues.`
+    const footer =
+        `Please check "${componentClassName}" component for hydration related issues.\n\n` +
+        'You can opt-out a component by adding the `ngSkipHydration` to the component ' +
+        'host node in a template';
+
     // TODO: use RuntimeError instead.
     throw new Error(header + expected + actual + footer);
+  }
+}
+
+export function validateSiblingNodeExists(node: Node): void {
+  if (!node.nextSibling) {
+    const header = 'During hydration Angular expected more sibling nodes to be present.\n\n';
+    const actual = `Actual DOM is:\n\n${describeActualDom(node)}\n\n`;
+    const footer = 'Please check for hydration related errors.\n\n' +
+        'You can opt-out a component by adding the `ngSkipHydration` to the component ' +
+        'host node in a template';
+
+    // TODO: use RuntimeError instead.
+    throw new Error(header + actual + footer);
   }
 }
