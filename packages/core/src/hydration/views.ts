@@ -8,8 +8,9 @@
 
 import {DEHYDRATED_VIEWS, LContainer} from '../render3/interfaces/container';
 import {RElement, RNode} from '../render3/interfaces/renderer_dom';
+import {LView} from '../render3/interfaces/view';
 
-import {MULTIPLIER, NghContainer, NghView, NghViewInstance, NUM_ROOT_NODES, TEMPLATE, VIEWS} from './interfaces';
+import {MULTIPLIER, NghContainer, NghViewInstance, NUM_ROOT_NODES, TEMPLATE, VIEWS} from './interfaces';
 import {siblingAfter} from './node_lookup_utils';
 
 
