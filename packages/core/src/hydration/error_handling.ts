@@ -9,10 +9,15 @@ import {TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
 import {RNode} from '../render3/interfaces/renderer_dom';
 import {assertEqual} from '../util/assert';
 
+function stripNewlines(input: string): string {
+  return input.replace(/\s+/gm, '');
+}
+
 function shorten(input: string|null, maxLength = 50): string {
   if (!input) {
     return '';
   }
+  input = stripNewlines(input);
   return input.length > maxLength ? `${input.substring(0, maxLength - 1)}…` : input;
 }
 
