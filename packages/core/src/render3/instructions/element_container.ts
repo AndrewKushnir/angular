@@ -6,12 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {validateMatchingNode} from '../../hydration/error_handling';
 import {CONTAINERS, NUM_ROOT_NODES, VIEWS} from '../../hydration/interfaces';
 import {locateNextRNode, siblingAfter} from '../../hydration/node_lookup_utils';
 import {isNodeDisconnected, markRNodeAsClaimedForHydration} from '../../hydration/utils';
 import {locateDehydratedViewsInContainer} from '../../hydration/views';
 import {assertDefined, assertEqual, assertIndexInRange} from '../../util/assert';
-import {assertHasParent, assertRComment} from '../assert';
+import {assertHasParent} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {TAttributes, TElementContainerNode, TNode, TNodeType} from '../interfaces/node';
@@ -208,7 +209,9 @@ function locateOrCreateElementContainerNode(
     }
 
     ngDevMode &&
-        assertRComment(comment, 'Expecting a comment node in elementContainer instruction');
+        validateMatchingNode(
+            comment as unknown as Node, Node.COMMENT_NODE, null, tNode,
+            previousTNodeParent ? null : previousTNode);
     ngDevMode && markRNodeAsClaimedForHydration(comment);
   }
   return [isCreating, comment];

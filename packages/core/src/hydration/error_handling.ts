@@ -22,11 +22,12 @@ function describeActualNode(node: Node): string {
       const tagName = (node as HTMLElement).tagName;
       return `<${tagName.toLowerCase()}>`;
     case Node.TEXT_NODE:
-      return `Text Node (with the "${shorten(node.textContent)}" content)`;
+      const content = node.textContent ? ` (with the "${shorten(node.textContent)}" content)` : '';
+      return `a text node${content}`;
     case Node.COMMENT_NODE:
-      return `<!-- ${shorten(node.textContent)} -->`;
+      return `a comment node (<!-- ${shorten(node.textContent ?? '')} -->)`;
     default:
-      return `#node(${node.nodeType})`;
+      return `#node(nodeType=${node.nodeType})`;
   }
 }
 
@@ -35,11 +36,13 @@ function describeExpectedNode(nodeType: number, tagName: string|null): string {
     case Node.ELEMENT_NODE:
       return `<${tagName!.toLowerCase()}>`;
     case Node.TEXT_NODE:
-      return 'Text Node';
+      return 'a text node';
     case Node.COMMENT_NODE:
-      return 'Comment Node';
+      return 'a comment node';
     default:
-      return `#node(${nodeType})`;
+      // Should never happen, since we pass an expected node type
+      // from instructions code.
+      throw new Error(`Unexpected node type: ${nodeType}.`);
   }
 }
 
@@ -56,11 +59,30 @@ function stringifyTNodeAttrs(tNode: TNode): string {
         break;
       }
       const attrValue = tNode.attrs[i++];
-      results.push(`${attrName}="${attrValue}"`);
+      results.push(`${attrName}="${shorten(attrValue as string)}"`);
     }
   }
   return results.join(' ');
 }
+
+function stringifyNodeAttrs(node: HTMLElement): string {
+  const results = [];
+  for (let i = 0; i < node.attributes.length; i++) {
+    const attr = node.attributes[i];
+    results.push(`${attr.name}="${shorten(attr.value)}"`);
+  }
+  return results.join(' ');
+}
+
+const TNODE_TYPE_TO_STRING: {[key: number]: string} = {
+  [TNodeType.Container]: 'view container',
+  [TNodeType.Element]: 'element',
+  [TNodeType.ElementContainer]: 'ng-container',
+  [TNodeType.Icu]: 'icu',
+  [TNodeType.Placeholder]: 'i18n',
+  [TNodeType.Projection]: 'projection',
+  [TNodeType.Text]: 'text'
+};
 
 function describeTNode(tNode: TNode, innerContent: string = '…'): string {
   switch (tNode.type) {
@@ -71,20 +93,14 @@ function describeTNode(tNode: TNode, innerContent: string = '…'): string {
       const attrs = stringifyTNodeAttrs(tNode);
       const tag = tNode.value.toLowerCase();
       return `<${tag}${attrs ? ' ' + attrs : ''}>${innerContent}</${tag}>`;
-    case TNodeType.AnyContainer:
+    case TNodeType.ElementContainer:
+      return '<!-- ng-container -->';
+    case TNodeType.Container:
       return '<!-- container -->';
     default:
-      return `#node(${tNode.type})`;
+      const typeAsString = TNODE_TYPE_TO_STRING[tNode.type];
+      return `#node(${typeAsString})`;
   }
-}
-
-function stringifyNodeAttrs(node: HTMLElement): string {
-  const results = [];
-  for (let i = 0; i < node.attributes.length; i++) {
-    const attr = node.attributes[i];
-    results.push(`${attr.name}="${attr.value}"`);
-  }
-  return results.join(' ');
 }
 
 function describeRNode(node: Node, innerContent: string = '…'): string {
@@ -122,6 +138,7 @@ function describeExpectedDom(tNode: TNode, previousSiblingTNode: TNode|null): st
   }
   content += spacer + describeTNode(tNode) + `  ${AT_THIS_LOCATION}\n`;
   content += spacer + '…\n';
+
   const parentNode = getRElementParentTNode(tNode);
   if (parentNode) {
     content = describeTNode(parentNode, '\n' + content);
