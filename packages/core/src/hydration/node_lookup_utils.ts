@@ -15,6 +15,7 @@ import {getNativeByTNode, unwrapRNode} from '../render3/util/view_utils';
 import {assertDefined} from '../util/assert';
 
 import {compressNodeLocation, decompressNodeLocation} from './compression';
+import {validateSiblingNodeExists} from './error_handling';
 
 export const REFERENCE_NODE_HOST = 'h';
 export const REFERENCE_NODE_BODY = 'b';
@@ -70,12 +71,7 @@ function navigateBetweenSiblings(start: Node, finish: Node): NodeNavigationStep[
   for (node = start; node != null && node !== finish; node = node.nextSibling) {
     nav.push(NodeNavigationStep.NextSibling);
   }
-  if (node === null) {
-    // throw new Error(`Is finish before start? Hit end of siblings before finding start`);
-    console.log(`Is finish before start? Hit end of siblings before finding start`);
-    return [];
-  }
-  return nav;
+  return node === null ? [] : nav;
 }
 
 export function calcPathBetween(from: Node, to: Node, parent: string): string|null {
@@ -190,8 +186,8 @@ export function locateNextRNode<T extends RNode>(
 export function siblingAfter<T extends RNode>(skip: number, from: RNode): T|null {
   let currentNode = from;
   for (let i = 0; i < skip; i++) {
+    ngDevMode && validateSiblingNodeExists(currentNode as Node);
     currentNode = currentNode.nextSibling!;
-    ngDevMode && assertDefined(currentNode, 'Expected more siblings to be present');
   }
   return currentNode as T;
 }

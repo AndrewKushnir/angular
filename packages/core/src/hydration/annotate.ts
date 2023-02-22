@@ -406,6 +406,7 @@ function calcPathForNode(lView: LView, tNode: TNode, parentTNode?: TNode|null): 
       // If path is still empty, it's likely that this node is detached and
       // won't be found during hydration.
       // TODO: add a better error message, potentially suggesting `ngSkipHydration`.
+      // TODO: improve an error message here!
       throw new Error('Unable to locate element on a page.');
     }
   }
