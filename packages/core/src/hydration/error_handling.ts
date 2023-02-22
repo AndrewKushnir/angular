@@ -5,9 +5,8 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+
 import {TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
-import {RNode} from '../render3/interfaces/renderer_dom';
-import {assertEqual} from '../util/assert';
 
 function stripNewlines(input: string): string {
   return input.replace(/\s+/gm, '');
@@ -21,33 +20,18 @@ function shorten(input: string|null, maxLength = 50): string {
   return input.length > maxLength ? `${input.substring(0, maxLength - 1)}…` : input;
 }
 
-function describeActualNode(node: Node): string {
-  switch (node.nodeType) {
-    case Node.ELEMENT_NODE:
-      const tagName = (node as HTMLElement).tagName;
-      return `<${tagName.toLowerCase()}>`;
-    case Node.TEXT_NODE:
-      const content = node.textContent ? ` (with the "${shorten(node.textContent)}" content)` : '';
-      return `a text node${content}`;
-    case Node.COMMENT_NODE:
-      return `a comment node (<!-- ${shorten(node.textContent ?? '')} -->)`;
-    default:
-      return `#node(nodeType=${node.nodeType})`;
-  }
-}
-
-function describeExpectedNode(nodeType: number, tagName: string|null): string {
+function shortRNodeDescription(
+    nodeType: number, tagName: string|null, textContent: string|null): string {
   switch (nodeType) {
     case Node.ELEMENT_NODE:
       return `<${tagName!.toLowerCase()}>`;
     case Node.TEXT_NODE:
-      return 'a text node';
+      const content = textContent ? ` (with the "${shorten(textContent)}" content)` : '';
+      return `a text node${content}`;
     case Node.COMMENT_NODE:
       return 'a comment node';
     default:
-      // Should never happen, since we pass an expected node type
-      // from instructions code.
-      throw new Error(`Unexpected node type: ${nodeType}.`);
+      return `#node(nodeType=${nodeType})`;
   }
 }
 
@@ -134,7 +118,8 @@ function getRElementParentTNode(tNode: TNode): TElementNode|null {
   return tNode.parent! as TElementNode;
 }
 
-function describeExpectedDom(tNode: TNode, previousSiblingTNode: TNode|null): string {
+function describeExpectedDom(
+    tNode: TNode, previousSiblingTNode: TNode|null, isViewContainerAnchor: boolean): string {
   const spacer = '  ';
   let content = '';
   if (previousSiblingTNode) {
@@ -143,7 +128,12 @@ function describeExpectedDom(tNode: TNode, previousSiblingTNode: TNode|null): st
   } else if (tNode.type & TNodeType.AnyContainer) {
     content += spacer + '…\n';
   }
-  content += spacer + describeTNode(tNode) + `  ${AT_THIS_LOCATION}\n`;
+  if (isViewContainerAnchor) {
+    content += spacer + describeTNode(tNode) + '\n';
+    content += spacer + `<!-- container -->  ${AT_THIS_LOCATION}\n`;
+  } else {
+    content += spacer + describeTNode(tNode) + `  ${AT_THIS_LOCATION}\n`;
+  }
   content += spacer + '…\n';
 
   const parentNode = getRElementParentTNode(tNode);
@@ -170,23 +160,21 @@ function describeActualDom(node: Node): string {
 
 export function validateMatchingNode(
     node: Node, nodeType: number, tagName: string|null, tNode: TNode,
-    previousSiblingTNode: TNode|null): void {
+    previousSiblingTNode: TNode|null, isViewContainerAnchor = false): void {
   if (node.nodeType !== nodeType ||
       (node.nodeType === Node.ELEMENT_NODE &&
        (node as HTMLElement).tagName.toLowerCase() !== tagName)) {
-    // TODO: use RuntimeError here instead.
-    const message = `During hydration Angular expected ` +
-        `${describeExpectedNode(nodeType, tagName)} but found ` +
-        `${describeActualNode(node)}.\n\n`;
-    const expected =
-        `Angular expected this DOM:\n\n${describeExpectedDom(tNode, previousSiblingTNode)}\n\n`;
-    const actual = `Actual DOM is this:\n\n${describeActualDom(node)}`;
-    throw new Error(message + expected + actual);
+    const expectedNode = shortRNodeDescription(nodeType, tagName, null);
+    const actualNode = shortRNodeDescription(
+        node.nodeType, (node as HTMLElement).tagName ?? null,
+        (node as HTMLElement).textContent ?? null);
+    const header = `During hydration Angular expected ` +
+        `${expectedNode} but found ${actualNode}.\n\n`;
+    const expected = `Angular expected this DOM:\n\n${
+        describeExpectedDom(tNode, previousSiblingTNode, isViewContainerAnchor)}\n\n`;
+    const actual = `Actual DOM is:\n\n${describeActualDom(node)}\n\n`;
+    const footer = `Please check component for hydration related issues.`
+    // TODO: use RuntimeError instead.
+    throw new Error(header + expected + actual + footer);
   }
-}
-
-export function assertRComment(native: RNode, errMessage?: string) {
-  assertEqual(
-      (native as HTMLElement).nodeType, Node.COMMENT_NODE,
-      errMessage ?? 'Expected this element to be a comment node');
 }
