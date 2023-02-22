@@ -8,12 +8,13 @@
 
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
+import {validateMatchingNode} from '../hydration/error_handling';
 import {CONTAINERS, NghContainer, NghDomInstance, NghViewInstance} from '../hydration/interfaces';
 import {isInSkipHydrationBlock} from '../hydration/skip_hydration';
 import {isNodeDisconnected, markRNodeAsClaimedForHydration, retrieveNghInfo} from '../hydration/utils';
 import {findMatchingDehydratedView, locateDehydratedViewsInContainer} from '../hydration/views';
 import {isType, Type} from '../interface/type';
-import {assertNodeInjector, assertRComment} from '../render3/assert';
+import {assertNodeInjector} from '../render3/assert';
 import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
 import {getComponentDef} from '../render3/definition';
 import {getParentInjectorLocation, NodeInjector} from '../render3/di';
@@ -689,7 +690,9 @@ function locateOrCreateContainerRefImpl(
       commentNode = anchorRNode as RComment;
       dehydratedViews = views;
 
-      ngDevMode && assertRComment(commentNode, 'Expecting a comment node in template instruction');
+      ngDevMode &&
+          validateMatchingNode(
+              commentNode as unknown as Node, Node.COMMENT_NODE, null, hostTNode, null);
       ngDevMode && markRNodeAsClaimedForHydration(commentNode);
     }
   }

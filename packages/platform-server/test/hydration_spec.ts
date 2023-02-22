@@ -1750,6 +1750,91 @@ fdescribe('platform-server integration', () => {
              expect(message).toContain('<span>…</span>  <-- AT THIS LOCATION');
            });
          });
+
+      it('should handle <ng-template> node mismatch', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [CommonModule],
+          template: `
+              <b *ngIf="true">Bold text</b>
+              <i *ngIf="false">Italic text</i>
+            `,
+        })
+        class SimpleComponent {
+          private doc = inject(DOCUMENT);
+          ngAfterViewInit() {
+            const b = this.doc.querySelector('b');
+            const firstCommentNode = b!.nextSibling;
+            const span = this.doc.createElement('span');
+            span.textContent = 'This is an eeeeevil span causing a problem!'
+            firstCommentNode?.parentNode?.insertBefore(span, firstCommentNode.nextSibling);
+          }
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        hydrate(html, SimpleComponent, withNoopErrorHandler()).catch((err: unknown) => {
+          const message = (err as Error).message;
+          expect(message).toContain(
+              'During hydration Angular expected a comment node but found <span>');
+          expect(message).toContain('<!-- container -->  <-- AT THIS LOCATION');
+          expect(message).toContain('<span>…</span>  <-- AT THIS LOCATION');
+        });
+      });
+
+      xit('should handle vcr node mismatch', async () => {
+        @Directive({
+          standalone: true,
+          selector: 'b',
+        })
+        class SimpleDir {
+          vcr = inject(ViewContainerRef);
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [CommonModule, SimpleDir],
+          template: `
+            <b>Bold text</b>
+          `,
+        })
+        class SimpleComponent {
+          private doc = inject(DOCUMENT);
+          ngAfterViewInit() {
+            const b = this.doc.querySelector('b');
+            const firstCommentNode = b!.nextSibling;
+            const span = this.doc.createElement('span');
+            span.textContent = 'This is an eeeeevil span causing a problem!'
+            firstCommentNode?.parentNode?.insertBefore(span, firstCommentNode);
+          }
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        hydrate(html, SimpleComponent, withNoopErrorHandler()).catch((err: unknown) => {
+          const message = (err as Error).message;
+          expect(message).toContain(
+              'During hydration Angular expected a comment node but found <span>');
+          expect(message).toContain('<!-- container -->  <-- AT THIS LOCATION');
+          expect(message).toContain('<span>…</span>  <-- AT THIS LOCATION');
+        });
+      });
     });
   });
 });
