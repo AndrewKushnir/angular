@@ -8,7 +8,7 @@
 
 import {getDeclarationComponentDef} from '../render3/instructions/element_validation';
 import {TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
-import {LView} from '../render3/interfaces/view';
+import {HOST, LView} from '../render3/interfaces/view';
 
 function stripNewlines(input: string): string {
   return input.replace(/\s+/gm, '');
@@ -121,7 +121,8 @@ function getRElementParentTNode(tNode: TNode): TElementNode|null {
 }
 
 function describeExpectedDom(
-    tNode: TNode, previousSiblingTNode: TNode|null, isViewContainerAnchor: boolean): string {
+    lView: LView, tNode: TNode, previousSiblingTNode: TNode|null,
+    isViewContainerAnchor: boolean): string {
   const spacer = '  ';
   let content = '';
   if (previousSiblingTNode) {
@@ -141,6 +142,10 @@ function describeExpectedDom(
   const parentNode = getRElementParentTNode(tNode);
   if (parentNode) {
     content = describeTNode(parentNode, '\n' + content);
+  } else {
+    // If no parent node found using TNode tree, this node is a root one
+    // in that component, so we can use a host node instead.
+    content = describeRNode(lView[HOST] as unknown as Node, '\n' + content);
   }
   return content;
 }
@@ -173,7 +178,7 @@ export function validateMatchingNode(
     const header = `During hydration Angular expected ` +
         `${expectedNode} but found ${actualNode}.\n\n`;
     const expected = `Angular expected this DOM:\n\n${
-        describeExpectedDom(tNode, previousSiblingTNode, isViewContainerAnchor)}\n\n`;
+        describeExpectedDom(lView, tNode, previousSiblingTNode, isViewContainerAnchor)}\n\n`;
     const actual = `Actual DOM is:\n\n${describeActualDom(node)}\n\n`;
 
     const hostComponentDef = getDeclarationComponentDef(lView);
