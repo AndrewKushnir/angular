@@ -6,7 +6,9 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {getDeclarationComponentDef} from '../render3/instructions/element_validation';
 import {TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
+import {LView} from '../render3/interfaces/view';
 
 function stripNewlines(input: string): string {
   return input.replace(/\s+/gm, '');
@@ -159,7 +161,7 @@ function describeActualDom(node: Node): string {
 }
 
 export function validateMatchingNode(
-    node: Node, nodeType: number, tagName: string|null, tNode: TNode,
+    node: Node, nodeType: number, tagName: string|null, lView: LView, tNode: TNode,
     previousSiblingTNode: TNode|null, isViewContainerAnchor = false): void {
   if (node.nodeType !== nodeType ||
       (node.nodeType === Node.ELEMENT_NODE &&
@@ -173,7 +175,10 @@ export function validateMatchingNode(
     const expected = `Angular expected this DOM:\n\n${
         describeExpectedDom(tNode, previousSiblingTNode, isViewContainerAnchor)}\n\n`;
     const actual = `Actual DOM is:\n\n${describeActualDom(node)}\n\n`;
-    const footer = `Please check component for hydration related issues.`
+
+    const hostComponentDef = getDeclarationComponentDef(lView);
+    const componentClassName = hostComponentDef?.type?.name;
+    const footer = `Please check "${componentClassName}" component for hydration related issues.`
     // TODO: use RuntimeError instead.
     throw new Error(header + expected + actual + footer);
   }
