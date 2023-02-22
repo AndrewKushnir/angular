@@ -5,10 +5,11 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+
+import {validateMatchingNode} from '../../hydration/error_handling';
 import {locateNextRNode} from '../../hydration/node_lookup_utils';
 import {isNodeDisconnected, markRNodeAsClaimedForHydration} from '../../hydration/utils';
 import {assertEqual, assertIndexInRange} from '../../util/assert';
-import {assertRText} from '../assert';
 import {TElementNode, TNode, TNodeType} from '../interfaces/node';
 import {RText} from '../interfaces/renderer_dom';
 import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
@@ -74,10 +75,11 @@ function locateOrCreateTextNodeImpl(
     // hydrating
     textNative =
         locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent) as RText;
+
     ngDevMode &&
-        assertRText(
-            textNative,
-            `Expecting a text node (with the '${value}' value) in the text instruction`);
+        validateMatchingNode(
+            textNative as Node, Node.TEXT_NODE, null, tNode,
+            previousTNodeParent ? null : previousTNode);
     ngDevMode && markRNodeAsClaimedForHydration(textNative);
   }
   return [isCreating, textNative];
