@@ -6,8 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {CONTAINERS, NghDom, NghDomInstance, NghView, NODES, NUM_ROOT_NODES, VIEWS} from '../hydration/interfaces';
-import {assertRComment} from '../render3/assert';
+import {CONTAINERS, NghDomInstance, NghView, NODES, NUM_ROOT_NODES, VIEWS} from '../hydration/interfaces';
 import {TNode, TNodeType} from '../render3/interfaces/node';
 import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {HEADER_OFFSET, LView, TView} from '../render3/interfaces/view';
@@ -166,9 +165,6 @@ export function locateNextRNode<T extends RNode>(
       }
       native = elementContainer!.firstChild!;
     } else {
-      // FIXME: this doesn't work for i18n :(
-      // In i18n case, previous tNode is a parent element,
-      // when in fact, it might be a text node in front of it.
       if (previousTNodeParent) {
         native = (previousRElement as any).firstChild;
       } else {
@@ -183,8 +179,6 @@ export function locateNextRNode<T extends RNode>(
           // `+1` stands for an anchor comment node after all the views in this container.
           const nodesToSkip = numRootNodesToSkip + 1;
           previousRElement = siblingAfter(nodesToSkip, previousRElement)!;
-
-          ngDevMode && assertRComment(previousRElement);
         }
         native = previousRElement.nextSibling as RElement;
       }

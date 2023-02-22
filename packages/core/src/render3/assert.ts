@@ -14,7 +14,6 @@ import {DirectiveDef} from './interfaces/definition';
 import {TIcu} from './interfaces/i18n';
 import {NodeInjectorOffset} from './interfaces/injector';
 import {TNode} from './interfaces/node';
-import {RNode} from './interfaces/renderer_dom';
 import {isLContainer, isLView} from './interfaces/type_checks';
 import {DECLARATION_COMPONENT_VIEW, HEADER_OFFSET, LView, T_HOST, TVIEW, TView} from './interfaces/view';
 
@@ -161,10 +160,4 @@ export function assertNodeInjector(lView: LView, injectorIndex: number) {
   assertNumber(
       lView[injectorIndex + NodeInjectorOffset.PARENT],
       'injectorIndex should point to parent injector');
-}
-
-export function assertRComment(native: RNode, errMessage?: string) {
-  assertEqual(
-      (native as HTMLElement).nodeType, Node.COMMENT_NODE,
-      errMessage ?? 'Expected this element to be a comment node');
 }
