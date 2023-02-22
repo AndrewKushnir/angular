@@ -6,7 +6,6 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {assertRComment} from '../render3/assert';
 import {DEHYDRATED_VIEWS, LContainer} from '../render3/interfaces/container';
 import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 
@@ -45,8 +44,6 @@ export function locateDehydratedViewsInContainer(
       }
     }
   }
-
-  ngDevMode && assertRComment(currentRNode, 'Expecting a comment node as a view container anchor');
 
   return [currentRNode, dehydratedViews];
 }
