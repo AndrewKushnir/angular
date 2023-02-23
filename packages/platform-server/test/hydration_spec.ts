@@ -1790,6 +1790,55 @@ fdescribe('platform-server integration', () => {
         });
       });
 
+      it('should handle node mismatches in nested components', async () => {
+        @Component({
+          standalone: true,
+          selector: 'nested-cmp',
+          imports: [CommonModule],
+          template: `
+              <b *ngIf="true">Bold text</b>
+              <i *ngIf="false">Italic text</i>
+            `,
+        })
+        class NestedComponent {
+          private doc = inject(DOCUMENT);
+          ngAfterViewInit() {
+            const b = this.doc.querySelector('b');
+            const firstCommentNode = b!.nextSibling;
+            const span = this.doc.createElement('span');
+            span.textContent = 'This is an eeeeevil span causing a problem!';
+            firstCommentNode?.parentNode?.insertBefore(span, firstCommentNode.nextSibling);
+          }
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [NestedComponent],
+          template: `<nested-cmp />`,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        hydrate(html, SimpleComponent, withNoopErrorHandler()).catch((err: unknown) => {
+          const message = (err as Error).message;
+          expect(message).toContain(
+              'During hydration Angular expected a comment node but found <span>');
+          expect(message).toContain('<!-- container -->  <-- AT THIS LOCATION');
+          expect(message).toContain('<span>…</span>  <-- AT THIS LOCATION');
+          expect(message).toContain('check the "NestedComponent" component');
+        });
+      });
+
       it('should handle sibling count mismatch', async () => {
         @Component({
           standalone: true,
