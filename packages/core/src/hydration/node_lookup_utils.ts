@@ -27,12 +27,6 @@ export enum NodeNavigationStep {
 
 export class NoPathFoundError extends Error {}
 
-function describeNode(node: Node): string {
-  // TODO: if it's a text node - output `#text(CONTENT)`,
-  // if it's a comment node - output `#comment(CONTENT)`.
-  return (node as Element).tagName ?? node.nodeType;
-}
-
 /**
  * Generate a list of DOM navigation operations to get from node `start` to node `finish`.
  *
@@ -44,11 +38,7 @@ export function navigateBetween(start: Node, finish: Node): NodeNavigationStep[]
   if (start === finish) {
     return [];
   } else if (start.parentElement == null || finish.parentElement == null) {
-    const startNodeInfo = describeNode(start);
-    const finishNodeInfo = describeNode(finish);
-    throw new NoPathFoundError(
-        `Ran off the top of the document when navigating between nodes: ` +
-        `'${startNodeInfo}' and '${finishNodeInfo}'.`);
+    throw new NoPathFoundError();
   } else if (start.parentElement === finish.parentElement) {
     return navigateBetweenSiblings(start, finish);
   } else {
@@ -144,6 +134,7 @@ export function locateNextRNode<T extends RNode>(
     // We create a first node in this view.
     native = hydrationInfo.firstChild as RNode;
   } else {
+    // Locate a node based on a previous sibling or a parent node.
     const previousTNodeParent = tNode.prev === null;
     const previousTNode = tNode.prev ?? tNode.parent;
     ngDevMode &&
@@ -153,8 +144,6 @@ export function locateNextRNode<T extends RNode>(
                 'to the previous node or a parent node.');
     const previousTNodeIndex = previousTNode!.index - HEADER_OFFSET;
     let previousRElement = getNativeByTNode(previousTNode!, lView) as RElement;
-    // TODO: we may want to use this instead?
-    // const closest = getClosestRElement(tView, previousTNode, lView);
     if (previousTNodeParent && previousTNode!.type === TNodeType.ElementContainer) {
       // Previous node was an `<ng-container>`, so this node is a first child
       // within an element container, so we can locate the container in ngh data

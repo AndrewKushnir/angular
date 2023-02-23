@@ -780,11 +780,9 @@ export function getComponentId(componentDef: Partial<ComponentDef<unknown>>): st
     // https://github.com/angular/components/blob/285f46dc2b4c5b127d356cb7c4714b221f03ce50/src/material/legacy-core/option/option.ts#L32
     componentDef.hostVars,
     componentDef.styles?.reduce<number>((prev, current) => current.length + prev, 0),
-    componentDef.consts, componentDef.vars, componentDef.decls,
-    // FIXME: relying on `directiveDefs` and `pipeDefs` would make
-    // component id different in JIT and AOT, we should probably just remove lines below.
-    // componentDef.directiveDefs?.length ?? 0,
-    // componentDef.pipeDefs?.length ?? 0,
+    componentDef.consts,
+    componentDef.vars,
+    componentDef.decls,
   ].join('|');
 
   for (const char of hashSelectors) {

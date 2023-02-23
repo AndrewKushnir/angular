@@ -326,8 +326,12 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
     const childContexts = this.parentContexts.getOrCreateContext(this.name).children;
     const injector = new OutletInjector(activatedRoute, childContexts, location.injector);
 
-    const routeConfig = activatedRoute.routeConfig;
-    const lazy = !!routeConfig?.loadComponent || !!routeConfig?.loadChildren;
+    // Indicate that a host view created for this component
+    // might be lazy-loaded and corresponding DOM nodes should be
+    // retained during the hydration. Note: a component might be
+    // eagerly loaded (via `component` field), but this route might
+    // have async guards and resolvers.
+    const lazy = true;
     if (resolverOrInjector && isComponentFactoryResolver(resolverOrInjector)) {
       const factory = resolverOrInjector.resolveComponentFactory(component);
       this.activated =
