@@ -10,6 +10,8 @@ import {getDeclarationComponentDef} from '../render3/instructions/element_valida
 import {TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
 import {HOST, LView} from '../render3/interfaces/view';
 
+import {NodeNavigationStep} from './node_lookup_utils';
+
 function stripNewlines(input: string): string {
   return input.replace(/\s+/gm, '');
 }
@@ -56,10 +58,17 @@ function stringifyTNodeAttrs(tNode: TNode): string {
   return results.join(' ');
 }
 
+/**
+ * The list of internal attributes that should be filtered out while
+ * producing an error message.
+ */
+const internalAttrs = new Set(['ngh', 'ng-version', 'ng-server-context']);
+
 function stringifyNodeAttrs(node: HTMLElement): string {
   const results = [];
   for (let i = 0; i < node.attributes.length; i++) {
     const attr = node.attributes[i];
+    if (internalAttrs.has(attr.name)) continue;
     results.push(`${attr.name}="${shorten(attr.value)}"`);
   }
   return results.join(' ');
@@ -216,4 +225,21 @@ export function nodeNotFoundError(lView: LView, tNode: TNode): Error {
 
   // TODO: use RuntimeError instead.
   return new Error(header + expected + footer);
+}
+
+function stringifyPath(path: NodeNavigationStep[]): string {
+  let container = [];
+  for (const op of path) {
+    container.push(op === NodeNavigationStep.FirstChild ? 'firstChild' : 'nextSibling');
+  }
+  return container.join('.');
+}
+
+export function nodeNotFoundAtPathError(host: Node, path: NodeNavigationStep[]): Error {
+  const header = `During hydration Angular was unable to locate a node ` +
+      `using the "${stringifyPath(path)}" path, starting from the ${describeRNode(host)} node.\n\n`;
+  const footer = getHydrationErrorFooter();
+
+  // TODO: use RuntimeError instead.
+  return new Error(header + footer);
 }
