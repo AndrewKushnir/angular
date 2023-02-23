@@ -252,14 +252,11 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
       const tNodeType = tNode.type;
       // <ng-container> case
       if (tNodeType & TNodeType.ElementContainer) {
-        const rootNodes: any[] = [];
-        collectNativeNodes(tView, lView, tNode.child, rootNodes);
-
         // This is an "element" container (vs "view" container),
         // so it's only represented by the number of top-level nodes
         // as a shift to get to a corresponding comment node.
         const container: NghContainer = {
-          [NUM_ROOT_NODES]: rootNodes.length,
+          [NUM_ROOT_NODES]: calcNumRootNodes(tView, lView, tNode.child),
         };
 
         ngh[CONTAINERS] ??= {};
@@ -411,6 +408,12 @@ function calcPathForNode(lView: LView, tNode: TNode): string {
   return path!;
 }
 
+function calcNumRootNodes(tView: TView, lView: LView, tNode: TNode|null): number {
+  const rootNodes: unknown[] = [];
+  collectNativeNodes(tView, lView, tNode, rootNodes);
+  return rootNodes.length;
+}
+
 function serializeLContainer(lContainer: LContainer, context: HydrationContext): NghContainer {
   const container: NghContainer = {};
 
@@ -434,13 +437,8 @@ function serializeLContainer(lContainer: LContainer, context: HydrationContext):
       // host node itself (other nodes would be inside that host node).
       numRootNodes = 1;
     } else {
-      template =
-          context.ssrIdRegistry.get(childTView);  // from which template did this lView originate?
-
-      // Collect root nodes within this view.
-      const rootNodes: unknown[] = [];
-      collectNativeNodes(childTView, childLView, childTView.firstChild, rootNodes);
-      numRootNodes = rootNodes.length;
+      template = context.ssrIdRegistry.get(childTView);
+      numRootNodes = calcNumRootNodes(childTView, childLView, childTView.firstChild);
     }
 
     const view: NghView = {

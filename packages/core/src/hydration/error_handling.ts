@@ -8,7 +8,8 @@
 
 import {getDeclarationComponentDef} from '../render3/instructions/element_validation';
 import {TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
-import {HOST, LView} from '../render3/interfaces/view';
+import {HOST, LView, TVIEW} from '../render3/interfaces/view';
+import {getParentRElement} from '../render3/node_manipulation';
 
 import {NodeNavigationStep} from './node_lookup_utils';
 
@@ -119,16 +120,6 @@ function describeRNode(node: Node, innerContent: string = '…'): string {
   }
 }
 
-function getRElementParentTNode(tNode: TNode): TElementNode|null {
-  // TODO: take the info below into account.
-  // parentTNode might be:
-  // - TNodeType.Element <-- (we have a tag name)
-  // - TNodeType.ElementContainer (<ng-container> case) <-- (we have an anchor comment node)
-  // <ng-container>Text</ng-container> -> Text <!-- container -->, we may still need to find a first
-  // non-container parent node.
-  return tNode.parent! as TElementNode;
-}
-
 function describeExpectedDom(lView: LView, tNode: TNode, isViewContainerAnchor: boolean): string {
   const spacer = '  ';
   let content = '';
@@ -146,13 +137,9 @@ function describeExpectedDom(lView: LView, tNode: TNode, isViewContainerAnchor: 
   }
   content += spacer + '…\n';
 
-  const parentNode = getRElementParentTNode(tNode);
+  const parentNode = getParentRElement(lView[TVIEW], tNode, lView);
   if (parentNode) {
-    content = describeTNode(parentNode, '\n' + content);
-  } else {
-    // If no parent node found using TNode tree, this node is a root one
-    // in that component, so we can use a host node instead.
-    content = describeRNode(lView[HOST] as unknown as Node, '\n' + content);
+    content = describeRNode(parentNode as unknown as Node, '\n' + content);
   }
   return content;
 }
