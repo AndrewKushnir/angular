@@ -165,6 +165,14 @@ function describeActualDom(node: Node): string {
   return content;
 }
 
+function getHydrationErrorFooter(componentClassName?: string) {
+  const componentInfo = componentClassName ? `the "${componentClassName}"` : 'corresponding';
+  return `To fix this problem:\n` +
+      `  * check ${componentInfo} component for hydration-related issues\n` +
+      `  * or skip hydration by adding the \`ngSkipHydration\` attribute ` +
+      `to its host node in a template`;
+}
+
 export function validateMatchingNode(
     node: Node, nodeType: number, tagName: string|null, lView: LView, tNode: TNode,
     isViewContainerAnchor = false): void {
@@ -183,10 +191,7 @@ export function validateMatchingNode(
 
     const hostComponentDef = getDeclarationComponentDef(lView);
     const componentClassName = hostComponentDef?.type?.name;
-    const footer = `To fix this problem:\n` +
-        `  * check the "${componentClassName}" component for hydration-related issues\n` +
-        `  * or skip hydration by adding the \`ngSkipHydration\` attribute ` +
-        `to its host node in a template`;
+    const footer = getHydrationErrorFooter(componentClassName);
 
     // TODO: use RuntimeError instead.
     throw new Error(header + expected + actual + footer);
@@ -197,12 +202,18 @@ export function validateSiblingNodeExists(node: Node): void {
   if (!node.nextSibling) {
     const header = 'During hydration Angular expected more sibling nodes to be present.\n\n';
     const actual = `Actual DOM is:\n\n${describeActualDom(node)}\n\n`;
-    const footer = `To fix this problem:\n` +
-        `  * check corresponding component for hydration-related issues\n` +
-        `  * or skip hydration by adding the \`ngSkipHydration\` attribute ` +
-        `to its host node in a template`;
+    const footer = getHydrationErrorFooter();
 
     // TODO: use RuntimeError instead.
     throw new Error(header + actual + footer);
   }
+}
+
+export function nodeNotFoundError(lView: LView, tNode: TNode): Error {
+  const header = 'During serialization, Angular was unable to find an element in the DOM:\n\n';
+  const expected = `${describeExpectedDom(lView, tNode, false)}\n\n`;
+  const footer = getHydrationErrorFooter();
+
+  // TODO: use RuntimeError instead.
+  return new Error(header + expected + footer);
 }
