@@ -1969,6 +1969,42 @@ fdescribe('platform-server integration', () => {
              expect(message).toContain('<span>…</span>  <-- AT THIS LOCATION');
            });
          });
+
+      it('should handle a case when a node is not found (detached)', async () => {
+        @Component({
+          standalone: true,
+          selector: 'projector-cmp',
+          template: '<ng-content />',
+        })
+        class ProjectorComponent {
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [CommonModule, ProjectorComponent],
+          template: `
+            <projector-cmp>
+              <b>Bold text</b>
+              <i>Italic text</i>
+            </projector-cmp>
+          `,
+        })
+        class SimpleComponent {
+          private doc = inject(DOCUMENT);
+          ngAfterContentInit() {
+            this.doc.querySelector('b')?.remove();
+            this.doc.querySelector('i')?.remove();
+          }
+        }
+
+        ssr(SimpleComponent).catch((err: unknown) => {
+          const message = (err as Error).message;
+          expect(message).toContain(
+              'During serialization, Angular was unable to find an element in the DOM');
+          expect(message).toContain('<b>…</b>  <-- AT THIS LOCATION');
+        });
+      });
     });
   });
 });
