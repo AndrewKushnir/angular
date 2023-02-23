@@ -18,6 +18,7 @@ import {getFirstNativeNode} from '../render3/node_manipulation';
 import {unwrapRNode} from '../render3/util/view_utils';
 
 import {TRANSFER_STATE_TOKEN_ID} from './api';
+import {nodeNotFoundError} from './error_handling';
 import {CONTAINERS, LAZY, MULTIPLIER, NghContainer, NghDom, NghView, NODES, NUM_ROOT_NODES, TEMPLATE, TEMPLATES, VIEWS} from './interfaces';
 import {calcPathBetween, REFERENCE_NODE_BODY, REFERENCE_NODE_HOST} from './node_lookup_utils';
 import {SsrPerfMetrics, SsrProfiler} from './profiler';
@@ -404,9 +405,7 @@ function calcPathForNode(lView: LView, tNode: TNode): string {
     if (path === null) {
       // If the path is still empty, it's likely that this node is detached and
       // won't be found during hydration.
-      // TODO: add a better error message, potentially suggesting `ngSkipHydration`.
-      // TODO: improve an error message here!
-      throw new Error('Unable to locate element on a page.');
+      throw nodeNotFoundError(lView, tNode);
     }
   }
   return path!;
