@@ -554,6 +554,12 @@ export interface TNode {
   tViews: TView|TView[]|null;
 
   /**
+   * The previous sibling node.
+   * This simplifies operations when we need a pointer to the previous node.
+   */
+  prev: TNode|null;
+
+  /**
    * The next sibling node. Necessary so we can propagate through the root nodes of a view
    * to insert them or remove them from the DOM.
    */

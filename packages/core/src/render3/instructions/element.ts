@@ -86,15 +86,13 @@ export function ɵɵelementStart(
   ngDevMode && assertIndexInRange(lView, adjustedIndex);
 
   const renderer = lView[RENDERER];
-  const previousTNode = getCurrentTNode();
-  const previousTNodeParent = isCurrentTNodeParent();
 
   const tNode = tView.firstCreatePass ?
       elementStartFirstCreatePass(adjustedIndex, tView, lView, name, attrsIndex, localRefsIndex) :
       tView.data[adjustedIndex] as TElementNode;
 
-  const [isNewlyCreatedNode, native] = _locateOrCreateElementNode(
-      tView, lView, tNode, renderer, adjustedIndex, name, previousTNode!, previousTNodeParent);
+  const [isNewlyCreatedNode, native] =
+      _locateOrCreateElementNode(tView, lView, tNode, renderer, adjustedIndex, name);
   lView[adjustedIndex] = native;
 
   const hasDirectives = isDirectiveHost(tNode);
@@ -195,13 +193,13 @@ export function ɵɵelement(
 
 let _locateOrCreateElementNode: typeof locateOrCreateElementNodeImpl =
     (tView: TView, lView: LView, tNode: TNode, renderer: Renderer, adjustedIndex: number,
-     name: string, previousTNode: TNode, previousTNodeParent: boolean) => {
+     name: string) => {
       return [true, createElementNode(renderer, name, getNamespace())];
     }
 
 function locateOrCreateElementNodeImpl(
     tView: TView, lView: LView, tNode: TNode, renderer: Renderer, adjustedIndex: number,
-    name: string, previousTNode: TNode, previousTNodeParent: boolean): [boolean, RElement] {
+    name: string): [boolean, RElement] {
   const ngh = lView[HYDRATION_INFO];
   const index = adjustedIndex - HEADER_OFFSET;
   const isCreating = !ngh || isInSkipHydrationBlock() || isNodeDisconnected(ngh, index);
@@ -210,12 +208,9 @@ function locateOrCreateElementNodeImpl(
     native = createElementNode(renderer, name, getNamespace());
   } else {
     // hydrating
-    native =
-        locateNextRNode<RElement>(ngh, tView, lView, tNode, previousTNode, previousTNodeParent)!;
+    native = locateNextRNode<RElement>(ngh, tView, lView, tNode)!;
     ngDevMode &&
-        validateMatchingNode(
-            native as unknown as Node, Node.ELEMENT_NODE, name, lView, tNode,
-            previousTNodeParent ? null : previousTNode);
+        validateMatchingNode(native as unknown as Node, Node.ELEMENT_NODE, name, lView, tNode);
     ngDevMode && markRNodeAsClaimedForHydration(native);
   }
   if (ngh && hasNgSkipHydrationAttr(tNode)) {

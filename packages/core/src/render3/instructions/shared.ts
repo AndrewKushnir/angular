@@ -243,7 +243,7 @@ export function createTNodeAtIndex(
         // In the case of i18n the `currentTNode` may already be linked, in which case we don't want
         // to break the links which i18n created.
         currentTNode.next = tNode;
-        // tNode.prev = currentTNode;
+        tNode.prev = currentTNode;
       }
     }
   }
@@ -784,6 +784,7 @@ export function createTNode(
     inputs: null,
     outputs: null,
     tViews: null,
+    prev: null,
     next: null,
     projectionNext: null,
     child: null,

@@ -83,16 +83,13 @@ export function ɵɵtemplate(
   const tView = getTView();
   const adjustedIndex = index + HEADER_OFFSET;
 
-  const previousTNode = getCurrentTNode();
-  const previousTNodeParent = isCurrentTNodeParent();
-
   const tNode = tView.firstCreatePass ?
       templateFirstCreatePass(
           index, tView, lView, templateFn, decls, vars, tagName, attrsIndex, localRefsIndex) :
       tView.data[adjustedIndex] as TContainerNode;
 
-  const [isNewlyCreatedNode, comment, lContainer] = _locateOrCreateLContainerNode(
-      tView, lView, tNode, adjustedIndex, previousTNode!, previousTNodeParent);
+  const [isNewlyCreatedNode, comment, lContainer] =
+      _locateOrCreateLContainerNode(tView, lView, tNode, adjustedIndex);
 
   setCurrentTNode(tNode, false);
   isNewlyCreatedNode && appendChild(tView, lView, comment, tNode);
@@ -112,48 +109,44 @@ export function ɵɵtemplate(
 }
 
 let _locateOrCreateLContainerNode: typeof locateOrCreateLContainerNodeImpl =
-    (tView: TView, lView: LView, tNode: TNode, adjustedIndex: number, previousTNode: TNode,
-     previousTNodeParent: boolean) => {
+    (tView: TView, lView: LView, tNode: TNode, adjustedIndex: number) => {
       const comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
       const lContainer = createLContainer(comment, lView, comment, tNode);
       return [true, comment, lContainer];
     }
 
 function locateOrCreateLContainerNodeImpl(
-    tView: TView, lView: LView, tNode: TNode, adjustedIndex: number, previousTNode: TNode,
-    previousTNodeParent: boolean): [boolean, RComment, LContainer] {
-  let comment: RComment;
-  let dehydratedViews: NghViewInstance[] = [];
-  const ngh = lView[HYDRATION_INFO];
-  const index = adjustedIndex - HEADER_OFFSET;
-  const isCreating = !ngh || isInSkipHydrationBlock() || isNodeDisconnected(ngh, index);
-  if (isCreating) {
-    comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
-  } else {
-    let currentRNode =
-        locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
+    tView: TView, lView: LView, tNode: TNode, adjustedIndex: number):
+    [boolean, RComment, LContainer] {
+      let comment: RComment;
+      let dehydratedViews: NghViewInstance[] = [];
+      const ngh = lView[HYDRATION_INFO];
+      const index = adjustedIndex - HEADER_OFFSET;
+      const isCreating = !ngh || isInSkipHydrationBlock() || isNodeDisconnected(ngh, index);
+      if (isCreating) {
+        comment = lView[RENDERER].createComment(ngDevMode ? 'container' : '');
+      } else {
+        let currentRNode = locateNextRNode(ngh, tView, lView, tNode);
 
-    const nghContainer = ngh.data[CONTAINERS]?.[index]!;
-    ngDevMode &&
-        assertDefined(nghContainer, 'There is no hydration info available for this template');
+        const nghContainer = ngh.data[CONTAINERS]?.[index]!;
+        ngDevMode &&
+            assertDefined(nghContainer, 'There is no hydration info available for this template');
 
-    const [anchorRNode, views] = locateDehydratedViewsInContainer(currentRNode!, nghContainer);
+        const [anchorRNode, views] = locateDehydratedViewsInContainer(currentRNode!, nghContainer);
 
-    comment = anchorRNode as RComment;
-    dehydratedViews = views;
+        comment = anchorRNode as RComment;
+        dehydratedViews = views;
 
-    ngDevMode &&
-        validateMatchingNode(
-            comment as unknown as Node, Node.COMMENT_NODE, null, lView, tNode,
-            previousTNodeParent ? null : previousTNode);
-    ngDevMode && markRNodeAsClaimedForHydration(comment);
-  }
-  const lContainer = createLContainer(comment, lView, comment, tNode);
-  if (ngh && dehydratedViews.length > 0) {
-    lContainer[DEHYDRATED_VIEWS] = dehydratedViews;
-  }
-  return [isCreating, comment, lContainer];
-}
+        ngDevMode &&
+            validateMatchingNode(comment as unknown as Node, Node.COMMENT_NODE, null, lView, tNode);
+        ngDevMode && markRNodeAsClaimedForHydration(comment);
+      }
+      const lContainer = createLContainer(comment, lView, comment, tNode);
+      if (ngh && dehydratedViews.length > 0) {
+        lContainer[DEHYDRATED_VIEWS] = dehydratedViews;
+      }
+      return [isCreating, comment, lContainer];
+    }
 
 export function enableLocateOrCreateLContainerNodeImpl() {
   _locateOrCreateLContainerNode = locateOrCreateLContainerNodeImpl;
