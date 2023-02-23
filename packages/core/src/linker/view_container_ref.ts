@@ -692,8 +692,7 @@ function locateOrCreateContainerRefImpl(
 
       ngDevMode &&
           validateMatchingNode(
-              commentNode as unknown as Node, Node.COMMENT_NODE, null, hostLView, hostTNode, null,
-              true);
+              commentNode as unknown as Node, Node.COMMENT_NODE, null, hostLView, hostTNode, true);
       ngDevMode && markRNodeAsClaimedForHydration(commentNode);
     }
   }

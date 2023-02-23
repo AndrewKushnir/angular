@@ -132,8 +132,7 @@ function calcViewContainerSize(views: NghView[]): number {
 }
 
 export function locateNextRNode<T extends RNode>(
-    hydrationInfo: NghDomInstance, tView: TView, lView: LView<unknown>, tNode: TNode,
-    previousTNode: TNode|null, previousTNodeParent: boolean): T|null {
+    hydrationInfo: NghDomInstance, tView: TView, lView: LView<unknown>, tNode: TNode): T|null {
   let native: RNode|null = null;
   const adjustedIndex = tNode.index - HEADER_OFFSET;
   const nodes = hydrationInfo.data[NODES];
@@ -145,7 +144,13 @@ export function locateNextRNode<T extends RNode>(
     // We create a first node in this view.
     native = hydrationInfo.firstChild as RNode;
   } else {
-    ngDevMode && assertDefined(previousTNode, 'Unexpected state: no current TNode found.');
+    const previousTNodeParent = tNode.prev === null;
+    const previousTNode = tNode.prev ?? tNode.parent;
+    ngDevMode &&
+        assertDefined(
+            previousTNode,
+            'Unexpected state: current TNode does not have a connection ' +
+                'to the previous node or a parent node.');
     const previousTNodeIndex = previousTNode!.index - HEADER_OFFSET;
     let previousRElement = getNativeByTNode(previousTNode!, lView) as RElement;
     // TODO: we may want to use this instead?
@@ -155,10 +160,11 @@ export function locateNextRNode<T extends RNode>(
       // within an element container, so we can locate the container in ngh data
       // structure and use its first child.
       const elementContainer = hydrationInfo.elementContainers?.[previousTNodeIndex];
-      if (ngDevMode && !elementContainer) {
-        // TODO: add better error message.
-        throw new Error('Invalid state.');
-      }
+      ngDevMode &&
+          assertDefined(
+              elementContainer,
+              'Unexpected state: current TNode is a container, but it does not have ' +
+                  'an associated hydration info.');
       native = elementContainer!.firstChild!;
     } else {
       if (previousTNodeParent) {
