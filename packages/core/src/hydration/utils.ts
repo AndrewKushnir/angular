@@ -16,9 +16,9 @@ import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isRootView} from '../render3/interfaces/type_checks';
 import {HEADER_OFFSET} from '../render3/interfaces/view';
 
-import {NGH_DATA_KEY, TransferState} from './annotate';
+import {NGH_DATA_KEY} from './annotate';
 import {IS_HYDRATION_FEATURE_ENABLED} from './api';
-import {NghDom, NghDomInstance, NODES} from './interfaces';
+import {NghDomInstance, NODES} from './interfaces';
 
 export const NGH_ATTR_NAME = 'ngh';
 export const EMPTY_TEXT_NODE_COMMENT = 'ngetn';
