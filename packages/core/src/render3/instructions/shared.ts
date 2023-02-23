@@ -784,6 +784,7 @@ export function createTNode(
     inputs: null,
     outputs: null,
     tViews: null,
+    prev: null,
     next: null,
     prev: null,
     projectionNext: null,

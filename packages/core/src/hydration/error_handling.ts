@@ -120,14 +120,12 @@ function getRElementParentTNode(tNode: TNode): TElementNode|null {
   return tNode.parent! as TElementNode;
 }
 
-function describeExpectedDom(
-    lView: LView, tNode: TNode, previousSiblingTNode: TNode|null,
-    isViewContainerAnchor: boolean): string {
+function describeExpectedDom(lView: LView, tNode: TNode, isViewContainerAnchor: boolean): string {
   const spacer = '  ';
   let content = '';
-  if (previousSiblingTNode) {
+  if (tNode.prev) {
     content += spacer + '…\n';
-    content += spacer + describeTNode(previousSiblingTNode) + '\n';
+    content += spacer + describeTNode(tNode.prev) + '\n';
   } else if (tNode.type & TNodeType.AnyContainer) {
     content += spacer + '…\n';
   }
@@ -169,7 +167,7 @@ function describeActualDom(node: Node): string {
 
 export function validateMatchingNode(
     node: Node, nodeType: number, tagName: string|null, lView: LView, tNode: TNode,
-    previousSiblingTNode: TNode|null, isViewContainerAnchor = false): void {
+    isViewContainerAnchor = false): void {
   if (node.nodeType !== nodeType ||
       (node.nodeType === Node.ELEMENT_NODE &&
        (node as HTMLElement).tagName.toLowerCase() !== tagName)) {
@@ -180,7 +178,7 @@ export function validateMatchingNode(
     const header = `During hydration Angular expected ` +
         `${expectedNode} but found ${actualNode}.\n\n`;
     const expected = `Angular expected this DOM:\n\n${
-        describeExpectedDom(lView, tNode, previousSiblingTNode, isViewContainerAnchor)}\n\n`;
+        describeExpectedDom(lView, tNode, isViewContainerAnchor)}\n\n`;
     const actual = `Actual DOM is:\n\n${describeActualDom(node)}\n\n`;
 
     // TODO: we should get a reference to the current component instead!

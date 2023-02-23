@@ -80,16 +80,13 @@ export function ɵɵelementContainerStart(
           getBindingIndex(), tView.bindingStartIndex,
           'element containers should be created before any bindings');
 
-  const previousTNode = getCurrentTNode();
-  const previousTNodeParent = isCurrentTNodeParent();
-
   const tNode = tView.firstCreatePass ?
       elementContainerStartFirstCreatePass(
           adjustedIndex, tView, lView, attrsIndex, localRefsIndex) :
       tView.data[adjustedIndex] as TElementContainerNode;
 
-  const [isNewlyCreatedNode, comment] = _locateOrCreateElementContainerNode(
-      tView, lView, tNode, adjustedIndex, previousTNode!, previousTNodeParent);
+  const [isNewlyCreatedNode, comment] =
+      _locateOrCreateElementContainerNode(tView, lView, tNode, adjustedIndex);
   lView[adjustedIndex] = comment;
 
   setCurrentTNode(tNode, true);
@@ -156,15 +153,13 @@ export function ɵɵelementContainer(
 }
 
 let _locateOrCreateElementContainerNode: typeof locateOrCreateElementContainerNode =
-    (tView: TView, lView: LView, tNode: TNode, adjustedIndex: number, previousTNode: TNode,
-     previousTNodeParent: boolean) => {
+    (tView: TView, lView: LView, tNode: TNode, adjustedIndex: number) => {
       const comment = lView[RENDERER].createComment(ngDevMode ? 'ng-container' : '');
       return [true, comment];
     }
 
 function locateOrCreateElementContainerNode(
-    tView: TView, lView: LView, tNode: TNode, adjustedIndex: number, previousTNode: TNode,
-    previousTNodeParent: boolean): [boolean, RComment] {
+    tView: TView, lView: LView, tNode: TNode, adjustedIndex: number): [boolean, RComment] {
   let comment: RComment;
   const index = adjustedIndex - HEADER_OFFSET;
   const ngh = lView[HYDRATION_INFO];
@@ -180,8 +175,7 @@ function locateOrCreateElementContainerNode(
         assertDefined(
             nghContainer, 'There is no hydration info available for this element container');
 
-    const currentRNode =
-        locateNextRNode(ngh, tView, lView, tNode, previousTNode, previousTNodeParent);
+    const currentRNode = locateNextRNode(ngh, tView, lView, tNode);
 
     if (nghContainer[VIEWS] && nghContainer[VIEWS].length > 0) {
       // This <ng-container> is also annotated as a view container.
@@ -209,9 +203,7 @@ function locateOrCreateElementContainerNode(
     }
 
     ngDevMode &&
-        validateMatchingNode(
-            comment as unknown as Node, Node.COMMENT_NODE, null, lView, tNode,
-            previousTNodeParent ? null : previousTNode);
+        validateMatchingNode(comment as unknown as Node, Node.COMMENT_NODE, null, lView, tNode);
     ngDevMode && markRNodeAsClaimedForHydration(comment);
   }
   return [isCreating, comment];
