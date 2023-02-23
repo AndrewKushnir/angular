@@ -15,7 +15,7 @@ import {getNativeByTNode, unwrapRNode} from '../render3/util/view_utils';
 import {assertDefined} from '../util/assert';
 
 import {compressNodeLocation, decompressNodeLocation} from './compression';
-import {validateSiblingNodeExists} from './error_handling';
+import {nodeNotFoundAtPathError, validateSiblingNodeExists} from './error_handling';
 
 export const REFERENCE_NODE_HOST = 'h';
 export const REFERENCE_NODE_BODY = 'b';
@@ -79,9 +79,8 @@ export function calcPathBetween(from: Node, to: Node, parent: string): string|nu
 function findExistingNode(host: Node, path: NodeNavigationStep[]): RNode {
   let node = host;
   for (const op of path) {
-    if (!node) {
-      // TODO: add a dev-mode assertion here.
-      throw new Error(`findExistingNode: failed to find node at ${path}.`);
+    if (ngDevMode && !node) {
+      throw nodeNotFoundAtPathError(host, path);
     }
     switch (op) {
       case NodeNavigationStep.FirstChild:
@@ -92,9 +91,8 @@ function findExistingNode(host: Node, path: NodeNavigationStep[]): RNode {
         break;
     }
   }
-  if (!node) {
-    // TODO: add a dev-mode assertion here.
-    throw new Error(`findExistingNode: failed to find node at ${path}.`);
+  if (ngDevMode && !node) {
+    throw nodeNotFoundAtPathError(host, path);
   }
   return node as unknown as RNode;
 }

@@ -2005,6 +2005,53 @@ fdescribe('platform-server integration', () => {
           expect(message).toContain('<b>…</b>  <-- AT THIS LOCATION');
         });
       });
+
+      it('should handle a case when a node is not found (detached)', async () => {
+        @Component({
+          standalone: true,
+          selector: 'projector-cmp',
+          template: '<ng-content />',
+        })
+        class ProjectorComponent {
+        }
+
+        @Component({
+          standalone: true,
+          selector: 'app',
+          imports: [CommonModule, ProjectorComponent],
+          template: `
+            <projector-cmp>
+              <b>Bold text</b>
+            </projector-cmp>
+          `,
+        })
+        class SimpleComponent {
+          private doc = inject(DOCUMENT);
+          isServer = isPlatformServer(inject(PLATFORM_ID));
+
+          constructor() {
+            if (!this.isServer) {
+              this.doc.querySelector('b')?.remove();
+            }
+          }
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        hydrate(html, SimpleComponent, withNoopErrorHandler()).catch((err: unknown) => {
+          const message = (err as Error).message;
+          expect(message).toContain(
+              'During hydration Angular was unable to locate a node using the "firstChild" path, ' +
+              'starting from the <projector-cmp>…</projector-cmp> node');
+        });
+      });
     });
   });
 });
