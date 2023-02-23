@@ -15,10 +15,11 @@ import {Renderer} from '../render3/interfaces/renderer';
 import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isRootView} from '../render3/interfaces/type_checks';
 import {HEADER_OFFSET} from '../render3/interfaces/view';
+import {assertDefined} from '../util/assert';
 
 import {NGH_DATA_KEY} from './annotate';
 import {IS_HYDRATION_FEATURE_ENABLED} from './api';
-import {NghDomInstance, NODES} from './interfaces';
+import {NghDom, NghDomInstance, NODES} from './interfaces';
 
 export const NGH_ATTR_NAME = 'ngh';
 export const EMPTY_TEXT_NODE_COMMENT = 'ngetn';
@@ -38,8 +39,18 @@ function retrieveNghInfoImpl(rNode: RElement, injector: Injector): NghDomInstanc
   if (transferState !== null) {
     const nghData = transferState.get(NGH_DATA_KEY, []) ?? [];
     if (nghAttrValue != null) {
+      let data: NghDom = {};
+      if (nghAttrValue !== '') {
+        data = nghData[Number(nghAttrValue)];
+
+        // If the `ngh` attribute exists and has a non-empty value,
+        // the hydration info *must* be present in the TransferState.
+        // If there is no data for some reasons, this is an error.
+        ngDevMode &&
+            assertDefined(data, 'Unable to retrieve hydration info from the TransferState.');
+      }
       const nghDomInstance: NghDomInstance = {
-        data: nghAttrValue !== '' ? nghData[Number(nghAttrValue)] : {},
+        data,
         firstChild: (rNode as HTMLElement).firstChild as HTMLElement,
       };
       rNode.removeAttribute(NGH_ATTR_NAME);
