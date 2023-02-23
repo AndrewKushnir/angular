@@ -94,20 +94,19 @@ export function applyCreateOpCodes(
     lView: LView, createOpCodes: I18nCreateOpCodes, parentRNode: RElement|null,
     insertInFrontOf: RElement|null): void {
   const renderer = lView[RENDERER];
-  debugger;
   for (let i = 0; i < createOpCodes.length; i++) {
     const opCode = createOpCodes[i++] as any;
     const text = createOpCodes[i] as string;
     const isComment = (opCode & I18nCreateOpCode.COMMENT) === I18nCreateOpCode.COMMENT;
-    let appendNow = (opCode & I18nCreateOpCode.APPEND_EAGERLY) === I18nCreateOpCode.APPEND_EAGERLY;
+    const appendNow =
+        (opCode & I18nCreateOpCode.APPEND_EAGERLY) === I18nCreateOpCode.APPEND_EAGERLY;
     const index = opCode >>> I18nCreateOpCode.SHIFT;
     let rNode = lView[index];
     if (rNode === null) {
-      let native;
       // We only create new DOM nodes if they don't already exist: If ICU switches case back to a
       // case which was already instantiated, no need to create new DOM nodes.
-      native = isComment ? renderer.createComment(text) : createTextNode(renderer, text);
-      rNode = lView[index] = native;
+      rNode = lView[index] =
+          isComment ? renderer.createComment(text) : createTextNode(renderer, text);
     }
     if (appendNow && parentRNode !== null) {
       nativeInsertBefore(renderer, parentRNode, rNode, insertInFrontOf, false);

@@ -244,8 +244,9 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
         annotateHostElementForHydration(targetNode as Element, lView[i], context);
       }
     } else if (isTI18nNode(tNode) || tNode.insertBeforeIndex) {
-      // TODO: implement hydration for i18n nodes
-      throw new Error('Hydration for i18n nodes is not implemented.');
+      // TODO: improve this error message to suggest possible solutions
+      // (ngSkipHydration?).
+      throw new Error('Hydration for i18n nodes is not yet supported.');
     } else {
       const tNodeType = tNode.type;
       // <ng-container> case
@@ -370,11 +371,9 @@ function isDroppedProjectedNode(tNode: TNode): boolean {
   return seenComponentHost;
 }
 
-function calcPathForNode(lView: LView, tNode: TNode, parentTNode?: TNode|null): string {
+function calcPathForNode(lView: LView, tNode: TNode): string {
   const index = tNode.index;
-  // If `null` is passed explicitly, use this as a signal that we want to calculate
-  // the path starting from `lView[HOST]`.
-  parentTNode = parentTNode === null ? null : (parentTNode || tNode.parent!);
+  const parentTNode = tNode.parent;
   const parentIndex = parentTNode === null ? REFERENCE_NODE_HOST : parentTNode.index;
   const parentRNode =
       parentTNode === null ? lView[HOST] : unwrapRNode(lView[parentIndex as number]);
@@ -403,7 +402,7 @@ function calcPathForNode(lView: LView, tNode: TNode, parentTNode?: TNode|null): 
     path = calcPathBetween(body, rNode as Node, REFERENCE_NODE_BODY);
 
     if (path === null) {
-      // If path is still empty, it's likely that this node is detached and
+      // If the path is still empty, it's likely that this node is detached and
       // won't be found during hydration.
       // TODO: add a better error message, potentially suggesting `ngSkipHydration`.
       // TODO: improve an error message here!
