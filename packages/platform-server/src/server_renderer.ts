@@ -14,6 +14,7 @@ import {EventManager, ɵNAMESPACE_URIS as NAMESPACE_URIS, ɵSharedStylesHost as 
 const EMPTY_ARRAY: any[] = [];
 
 const DEFAULT_SCHEMA = new DomElementSchemaRegistry();
+const COMPONENT_REGEX = /%COMP%/g;
 
 @Injectable()
 export class ServerRendererFactory2 implements RendererFactory2 {
@@ -252,6 +253,10 @@ function isTemplateNode(node: any): node is HTMLTemplateElement {
   return node.tagName === 'TEMPLATE' && node.content !== undefined;
 }
 
+function injectComponentId(styles: string[], compId: string): string[] {
+  return styles.map(s => s.replace(COMPONENT_REGEX, compId));
+}
+
 class EmulatedEncapsulationServerRenderer2 extends DefaultServerRenderer2 {
   private contentAttr: string;
   private hostAttr: string;
@@ -260,9 +265,10 @@ class EmulatedEncapsulationServerRenderer2 extends DefaultServerRenderer2 {
       eventManager: EventManager, document: any, ngZone: NgZone, sharedStylesHost: SharedStylesHost,
       schema: DomElementSchemaRegistry, private component: RendererType2, appId: string) {
     super(eventManager, document, ngZone, schema);
-    sharedStylesHost.addStyles(component.styles);
-
     const componentShortId = appId + '-' + this.component.id;
+
+    sharedStylesHost.addStyles(injectComponentId(component.styles, componentShortId));
+
     this.contentAttr = shimContentAttribute(componentShortId);
     this.hostAttr = shimHostAttribute(componentShortId);
   }
