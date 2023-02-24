@@ -141,7 +141,68 @@ export function provideProtractorTestingSupport(): Provider[] {
 }
 
 /**
- * TODO: add docs
+ * # Enable Hydration Support
+ *
+ * Returns a set of providers required to setup hydration support for an application that is
+ * server side rendered. It can be safely added to both server and client providers lists.
+ *
+ * ## NgModule-based bootstrap
+ *
+ * You can add the function call to the root AppModule of an application:
+ * ```
+ * import {provideHydrationSupport} from '@angular/platform-browser';
+ *
+ * @NgModule({
+ *   providers: [
+ *     // ... other providers ...
+ *     provideHydrationSupport()
+ *   ],
+ *   declarations: [AppComponent],
+ *   bootstrap: [AppComponent]
+ * })
+ * class AppModule {}
+ * ```
+ *
+ * ## Standalone-based bootstrap
+ *
+ * Add the function to the `bootstrapApplication` call:
+ * ```
+ * import {provideHydrationSupport} from '@angular/platform-browser';
+ *
+ * bootstrapApplication(RootComponent, {
+ *   providers: [
+ *     // ... other providers ...
+ *     provideHydrationSupport()
+ *   ]
+ * });
+ * ```
+ *
+ * The function sets up an internal flag that would be recognized during SSR time as well,
+ * so there is no need to configure or change anything in NgUniversal to enable the feature.
+ *
+ * ## How to skip hydration for a particular component?
+ *
+ * If you need to disable hydration for a component for any reason (errors, DOM Manipulation,
+ *   etc), you can add `ngSkipHydration` to the host element. You can either add it as an
+ *   attribute or set it as a host binding.
+ *
+ * To opt-out a specific instance of a component, you can use the flag in a template:
+ * ```
+ * <greetings-cmp ngSkipHydration />
+ * ```
+ *
+ * To opt-out all component instances, you can set this flag via host bindings:
+ * ```
+ * @Component({
+ *   selector: 'greetings-cmp',
+ *   template: `<h1>Hi!</h1>`,
+ *   host: {'ngSkipHydration': 'true'}
+ * })
+ * class GreetingComponent {}
+ * ```
+ *
+ * @returns An array of providers required to setup and enable hydration for a server side
+ *     rendered application.
  *
  * @publicApi
  * @developerPreview
