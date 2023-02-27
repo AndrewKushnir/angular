@@ -9,7 +9,7 @@
 import '@angular/localize/init';
 
 import {CommonModule, DOCUMENT, isPlatformServer, NgFor, NgIf, NgTemplateOutlet} from '@angular/common';
-import {APP_ID, ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, ErrorHandler, getPlatform, inject, Input, PLATFORM_ID, Provider, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵdisableSsrPeformanceProfiler as disableSsrPeformanceProfiler, ɵenableSsrPeformanceProfiler as enableSsrPeformanceProfiler, ɵgetSsrProfiler as getSsrProfiler, ɵsetDocument, ɵSsrProfiler as SsrProfiler, ɵTRANSFER_STATE_TOKEN_ID as TRANSFER_STATE_TOKEN_ID, ɵunescapeTransferStateContent} from '@angular/core';
+import {APP_ID, ApplicationRef, Component, ComponentRef, ContentChildren, createComponent, destroyPlatform, Directive, ElementRef, EnvironmentInjector, ErrorHandler, getPlatform, inject, Input, PLATFORM_ID, Provider, QueryList, TemplateRef, Type, ViewChild, ViewContainerRef, ɵdisableSsrPeformanceProfiler as disableSsrPeformanceProfiler, ɵenableSsrPeformanceProfiler as enableSsrPeformanceProfiler, ɵgetSsrProfiler as getSsrProfiler, ɵsetDocument, ɵSsrProfiler as SsrProfiler, ɵTRANSFER_STATE_TOKEN_ID as TRANSFER_STATE_TOKEN_ID, ɵunescapeTransferStateContent as unescapeTransferStateContent} from '@angular/core';
 import {CONTAINERS, NghDom, VIEWS} from '@angular/core/src/hydration/interfaces';
 import {SsrPerfMetrics} from '@angular/core/src/hydration/profiler';
 import {TestBed} from '@angular/core/testing';
@@ -45,7 +45,7 @@ function getAppContents(html: string): string {
 
 function getAnnotationFromTransferState(input: string): {} {
   const rawContents = input.match(/<script[^>]+>(.*?)<\/script>/)![1];
-  const contents = ɵunescapeTransferStateContent(rawContents);
+  const contents = unescapeTransferStateContent(rawContents);
   const data = JSON.parse(contents) as any;
   return data[TRANSFER_STATE_TOKEN_ID];
 }
@@ -142,9 +142,11 @@ fdescribe('platform-server integration', () => {
       }
     });
 
-    async function ssr(component: Type<unknown>, doc?: string): Promise<string> {
+    async function ssr(
+        component: Type<unknown>, doc?: string, envProviders?: Provider[]): Promise<string> {
       doc ||= '<html><head></head><body><app></app></body></html>';
       const providers = [
+        ...(envProviders ?? []),
         {provide: APP_ID, useValue: appId},
         provideHydrationSupport(),
       ];
@@ -1998,7 +2000,7 @@ fdescribe('platform-server integration', () => {
           }
         }
 
-        ssr(SimpleComponent).catch((err: unknown) => {
+        ssr(SimpleComponent, undefined, withNoopErrorHandler()).catch((err: unknown) => {
           const message = (err as Error).message;
           expect(message).toContain(
               'During serialization, Angular was unable to find an element in the DOM');
