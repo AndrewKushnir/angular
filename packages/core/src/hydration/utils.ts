@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {PLATFORM_ID, TRANSFER_STATE} from '../application_tokens';
+import {PLATFORM_ID} from '../application_tokens';
 import {Injector} from '../di/injector';
 import {ViewRef} from '../linker';
 import {ViewEncapsulation} from '../metadata/view';
@@ -15,6 +15,7 @@ import {Renderer} from '../render3/interfaces/renderer';
 import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isRootView} from '../render3/interfaces/type_checks';
 import {HEADER_OFFSET} from '../render3/interfaces/view';
+import {TransferState} from '../transfer_state';
 import {assertDefined} from '../util/assert';
 
 import {NGH_DATA_KEY} from './annotate';
@@ -35,7 +36,7 @@ let _retrieveNghInfoImpl: typeof retrieveNghInfoImpl = (rNode: RElement, injecto
 
 function retrieveNghInfoImpl(rNode: RElement, injector: Injector): NghDomInstance|null {
   const nghAttrValue = (rNode as HTMLElement).getAttribute(NGH_ATTR_NAME);
-  const transferState = injector.get(TRANSFER_STATE, null, {optional: true});
+  const transferState = injector.get(TransferState, null, {optional: true});
   if (transferState !== null) {
     const nghData = transferState.get(NGH_DATA_KEY, []) ?? [];
     if (nghAttrValue != null) {

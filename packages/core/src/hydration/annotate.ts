@@ -16,6 +16,7 @@ import {isComponentHost, isLContainer, isProjectionTNode, isRootView} from '../r
 import {CONTEXT, FLAGS, HEADER_OFFSET, HOST, LView, LViewFlags, TView, TVIEW, TViewType} from '../render3/interfaces/view';
 import {getFirstNativeNode} from '../render3/node_manipulation';
 import {unwrapRNode} from '../render3/util/view_utils';
+import {makeStateKey, TransferState} from '../transfer_state';
 
 import {TRANSFER_STATE_TOKEN_ID} from './api';
 import {nodeNotFoundError} from './error_handling';
@@ -79,58 +80,6 @@ interface HydrationContext {
   corruptedTextNodes: Map<string, HTMLElement>;
   profiler: SsrProfiler|null;
   annotationCollection: NghAnnotationCollection;
-}
-
-type StateKey<T> = string&{
-  __not_a_string: never,
-  __value_type?: T,
-};
-
-export function makeStateKey<T = void>(key: string): StateKey<T> {
-  return key as StateKey<T>;
-}
-
-/**
- * This is an interface that represents the `TransferState` class
- * from the `platform-browser` package.
- * TODO: the `TransferState` from the `platform-browser` package
- * should implement this interface (to avoid divergence).
- */
-export interface TransferState {
-  /**
-   * Get the value corresponding to a key. Return `defaultValue` if key is not found.
-   */
-  get<T>(key: StateKey<T>, defaultValue: T): T;
-
-  /**
-   * Set the value corresponding to a key.
-   */
-  set<T>(key: StateKey<T>, value: T): void;
-
-  /**
-   * Remove a key from the store.
-   */
-  remove<T>(key: StateKey<T>): void;
-
-  /**
-   * Test whether a key exists in the store.
-   */
-  hasKey<T>(key: StateKey<T>): boolean;
-
-  /**
-   * Indicates whether the state is empty.
-   */
-  get isEmpty(): boolean;
-
-  /**
-   * Register a callback to provide the value for a key when `toJson` is called.
-   */
-  onSerialize<T>(key: StateKey<T>, callback: () => T): void;
-
-  /**
-   * Serialize the current state of the store to JSON.
-   */
-  toJson(): string;
 }
 
 /**
