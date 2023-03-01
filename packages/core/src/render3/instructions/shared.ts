@@ -35,7 +35,7 @@ import {Renderer, RendererFactory} from '../interfaces/renderer';
 import {RComment, RElement, RNode, RText} from '../interfaces/renderer_dom';
 import {SanitizerFn} from '../interfaces/sanitization';
 import {isComponentDef, isComponentHost, isContentQueryHost, isRootView} from '../interfaces/type_checks';
-import {CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_COMPONENT_VIEW, DECLARATION_VIEW, EMBEDDED_VIEW_INJECTOR, FLAGS, HEADER_OFFSET, HOST, HostBindingOpCodes, HYDRATION_INFO, ID, InitPhaseState, INJECTOR, LView, LViewFlags, NEXT, PARENT, RENDERER, RENDERER_FACTORY, SANITIZER, T_HOST, TData, TRANSPLANTED_VIEWS_TO_REFRESH, TVIEW, TView, TViewType} from '../interfaces/view';
+import {CHILD_HEAD, CHILD_TAIL, CLEANUP, CONTEXT, DECLARATION_COMPONENT_VIEW, DECLARATION_VIEW, EMBEDDED_VIEW_INJECTOR, FLAGS, HEADER_OFFSET, HOST, HostBindingOpCodes, HYDRATION, ID, InitPhaseState, INJECTOR, LView, LViewFlags, NEXT, PARENT, RENDERER, RENDERER_FACTORY, SANITIZER, T_HOST, TData, TRANSPLANTED_VIEWS_TO_REFRESH, TVIEW, TView, TViewType} from '../interfaces/view';
 import {assertPureTNodeType, assertTNodeType} from '../node_assert';
 import {updateTextNode} from '../node_manipulation';
 import {isInlineTemplate, isNodeMatchingSelectorList} from '../node_selector_matcher';
@@ -145,7 +145,7 @@ export function createLView<T>(
   lView[ID] = getUniqueLViewId();
   lView[EMBEDDED_VIEW_INJECTOR as any] = embeddedViewInjector;
   if (hydrationInfo) {
-    lView[HYDRATION_INFO] = hydrationInfo;
+    lView[HYDRATION] = hydrationInfo;
   }
   ngDevMode &&
       assertEqual(
@@ -347,7 +347,7 @@ export function renderView<T>(tView: TView, lView: LView<T>, context: T): void {
 
     throw error;
   } finally {
-    // TODO: should we cleanup lView[HYDRATION_INFO] here as well?
+    // TODO: should we cleanup lView[HYDRATION] here as well?
     // Note: we may want to do it after first update block due to ICUs.
     lView[FLAGS] &= ~LViewFlags.CreationMode;
     leaveView();
@@ -1695,8 +1695,8 @@ function renderComponent(hostLView: LView, componentHostIdx: number) {
   syncViewWithBlueprint(componentTView, componentView);
 
   const hostRNode = componentView[HOST];
-  if (hostRNode !== null && componentView[HYDRATION_INFO] === null) {
-    componentView[HYDRATION_INFO] = retrieveNghInfo(hostRNode, componentView[INJECTOR]!);
+  if (hostRNode !== null && componentView[HYDRATION] === null) {
+    componentView[HYDRATION] = retrieveNghInfo(hostRNode, componentView[INJECTOR]!);
   }
 
   renderView(componentTView, componentView, componentView[CONTEXT]);

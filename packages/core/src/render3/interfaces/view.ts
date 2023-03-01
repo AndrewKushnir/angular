@@ -50,7 +50,7 @@ export const QUERIES = 19;
 export const ID = 20;
 export const EMBEDDED_VIEW_INJECTOR = 21;
 export const ON_DESTROY_HOOKS = 22;
-export const HYDRATION_INFO = 23;
+export const HYDRATION = 23;
 /**
  * Size of LView's header. Necessary to adjust for it when setting slots.
  *
@@ -328,7 +328,7 @@ export interface LView<T = unknown> extends Array<any> {
   /**
    * TODO: add docs!
    */
-  [HYDRATION_INFO]: NghDomInstance|null;
+  [HYDRATION]: NghDomInstance|null;
 
   /**
    * Optional injector assigned to embedded views that takes

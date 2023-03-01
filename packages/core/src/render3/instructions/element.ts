@@ -18,7 +18,7 @@ import {hasClassInput, hasStyleInput, TAttributes, TElementNode, TNode, TNodeFla
 import {Renderer} from '../interfaces/renderer';
 import {RElement} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
-import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
+import {HEADER_OFFSET, HYDRATION, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
 import {appendChild, createElementNode, setupStaticAttributes} from '../node_manipulation';
 import {decreaseElementDepthCount, enterSkipHydrationBlock, getBindingIndex, getCurrentTNode, getElementDepthCount, getLView, getNamespace, getTView, increaseElementDepthCount, isCurrentTNodeParent, isInSkipHydrationBlock, isSkipHydrationRootTNode, leaveSkipHydrationBlock, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
@@ -200,7 +200,7 @@ let _locateOrCreateElementNode: typeof locateOrCreateElementNodeImpl =
 function locateOrCreateElementNodeImpl(
     tView: TView, lView: LView, tNode: TNode, renderer: Renderer, adjustedIndex: number,
     name: string): [boolean, RElement] {
-  const ngh = lView[HYDRATION_INFO];
+  const ngh = lView[HYDRATION];
   const index = adjustedIndex - HEADER_OFFSET;
   const isCreating = !ngh || isInSkipHydrationBlock() || isNodeDisconnected(ngh, index);
   let native: RElement;

@@ -24,7 +24,7 @@ import {NodeInjectorOffset} from '../render3/interfaces/injector';
 import {TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
 import {RComment, RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isLContainer} from '../render3/interfaces/type_checks';
-import {HEADER_OFFSET, HYDRATION_INFO, LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
+import {HEADER_OFFSET, HYDRATION, LView, PARENT, RENDERER, T_HOST, TVIEW} from '../render3/interfaces/view';
 import {assertTNodeType} from '../render3/node_assert';
 import {addViewToContainer, destroyLView, detachView, getBeforeNodeForView, insertView, nativeInsertBefore, nativeNextSibling, nativeParentNode} from '../render3/node_manipulation';
 import {getCurrentTNode, getLView} from '../render3/state';
@@ -645,7 +645,7 @@ function locateOrCreateContainerRefImpl(
     hostLView: LView, hostTNode: TNode, slotValue: any): LContainer {
   let nghContainer: NghContainer;
   let dehydratedViews: NghViewInstance[] = [];
-  const ngh = hostLView[HYDRATION_INFO];
+  const ngh = hostLView[HYDRATION];
   const index = hostTNode.index - HEADER_OFFSET;
   const isCreating =
       !ngh || isInSkipHydrationBlock(hostTNode, hostLView) || isNodeDisconnected(ngh, index);

@@ -19,7 +19,7 @@ import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TNode, TNodeType} from '../interfaces/node';
 import {RComment} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
-import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView, TViewType} from '../interfaces/view';
+import {HEADER_OFFSET, HYDRATION, LView, RENDERER, TView, TViewType} from '../interfaces/view';
 import {appendChild} from '../node_manipulation';
 import {getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInSkipHydrationBlock, setCurrentTNode} from '../state';
 import {getConstant} from '../util/view_utils';
@@ -34,7 +34,7 @@ function templateFirstCreatePass(
   ngDevMode && ngDevMode.firstCreatePass++;
   const tViewConsts = tView.consts;
   const adjustedIndex = index + HEADER_OFFSET;
-  const ngh = lView[HYDRATION_INFO];
+  const ngh = lView[HYDRATION];
   let ssrId = (ngh && ngh.data[TEMPLATES]?.[index]) || null;
   // TODO(pk): refactor getOrCreateTNode to have the "create" only version
   const tNode = getOrCreateTNode(
@@ -120,7 +120,7 @@ function locateOrCreateLContainerNodeImpl(
     [boolean, RComment, LContainer] {
       let comment: RComment;
       let dehydratedViews: NghViewInstance[] = [];
-      const ngh = lView[HYDRATION_INFO];
+      const ngh = lView[HYDRATION];
       const index = adjustedIndex - HEADER_OFFSET;
       const isCreating = !ngh || isInSkipHydrationBlock() || isNodeDisconnected(ngh, index);
       if (isCreating) {

@@ -18,7 +18,7 @@ import {registerPostOrderHooks} from '../hooks';
 import {TAttributes, TElementContainerNode, TNode, TNodeType} from '../interfaces/node';
 import {RComment} from '../interfaces/renderer_dom';
 import {isContentQueryHost, isDirectiveHost} from '../interfaces/type_checks';
-import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
+import {HEADER_OFFSET, HYDRATION, LView, RENDERER, TView} from '../interfaces/view';
 import {assertTNodeType} from '../node_assert';
 import {appendChild} from '../node_manipulation';
 import {getBindingIndex, getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInSkipHydrationBlock, setCurrentTNode, setCurrentTNodeAsNotParent} from '../state';
@@ -162,7 +162,7 @@ function locateOrCreateElementContainerNode(
     tView: TView, lView: LView, tNode: TNode, adjustedIndex: number): [boolean, RComment] {
   let comment: RComment;
   const index = adjustedIndex - HEADER_OFFSET;
-  const ngh = lView[HYDRATION_INFO];
+  const ngh = lView[HYDRATION];
   const isCreating = !ngh || isInSkipHydrationBlock() || isNodeDisconnected(ngh, index);
   if (isCreating) {
     ngDevMode && ngDevMode.rendererCreateComment++;

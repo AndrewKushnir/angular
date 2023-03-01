@@ -12,7 +12,7 @@ import {isNodeDisconnected, markRNodeAsClaimedForHydration} from '../../hydratio
 import {assertEqual, assertIndexInRange} from '../../util/assert';
 import {TElementNode, TNode, TNodeType} from '../interfaces/node';
 import {RText} from '../interfaces/renderer_dom';
-import {HEADER_OFFSET, HYDRATION_INFO, LView, RENDERER, TView} from '../interfaces/view';
+import {HEADER_OFFSET, HYDRATION, LView, RENDERER, TView} from '../interfaces/view';
 import {appendChild, createTextNode} from '../node_manipulation';
 import {getBindingIndex, getLView, getTView, isInSkipHydrationBlock, setCurrentTNode} from '../state';
 
@@ -61,7 +61,7 @@ let _locateOrCreateTextNode: typeof locateOrCreateTextNodeImpl =
 function locateOrCreateTextNodeImpl(
     tView: TView, lView: LView, tNode: TNode, adjustedIndex: number, value: string):
     [boolean, RText] {
-      const ngh = lView[HYDRATION_INFO];
+      const ngh = lView[HYDRATION];
       const index = adjustedIndex - HEADER_OFFSET;
       const isCreating = !ngh || isInSkipHydrationBlock() || isNodeDisconnected(ngh, index);
       let textNative: RText;
