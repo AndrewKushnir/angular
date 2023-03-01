@@ -302,7 +302,12 @@ function isRootLevelProjectionNode(tNode: TNode): boolean {
 function isDroppedProjectedNode(tNode: TNode): boolean {
   let currentTNode = tNode;
   let seenComponentHost = false;
-  while (currentTNode !== null) {
+  // The `currentTNode` becomes `undefined` in some cases
+  // (despite the typings saying it can only be `null`), so we
+  // take both `null` and `undefined` into account.
+  // FIXME: identify when `currentTNode` becomes `undefined` and
+  // switch to strict check (`!== null`).
+  while (currentTNode != null) {
     if (isComponentHost(currentTNode)) {
       seenComponentHost = true;
       break;
