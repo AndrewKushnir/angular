@@ -302,7 +302,7 @@ function isRootLevelProjectionNode(tNode: TNode): boolean {
 function isDroppedProjectedNode(tNode: TNode): boolean {
   let currentTNode = tNode;
   let seenComponentHost = false;
-  while (currentTNode !== null) {
+  while (currentTNode != null) {
     if (isComponentHost(currentTNode)) {
       seenComponentHost = true;
       break;
