@@ -195,7 +195,8 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
                                                  LViewFlags.CheckAlways | LViewFlags.IsRoot;
 
     // Create the root view. Uses empty TView and ContentTemplate.
-    const rootTView = createTView(TViewType.Root, null, null, 1, 0, null, null, null, null, null);
+    const rootTView =
+        createTView(TViewType.Root, null, null, 1, 0, null, null, null, null, null, null);
     const rootLView = createLView(
         null, rootTView, null, rootFlags, null, null, rendererFactory, hostRenderer, sanitizer,
         rootViewInjector, null);

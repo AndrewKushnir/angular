@@ -789,6 +789,11 @@ export interface TView {
    * view. This means that the view is likely corrupted and we should try to recover it.
    */
   incompleteFirstPass: boolean;
+
+  /**
+   * TODO: add docs.
+   */
+  ssrId: string|null;
 }
 
 /** Single hook callback function. */

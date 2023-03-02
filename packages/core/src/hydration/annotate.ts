@@ -7,13 +7,11 @@
  */
 
 import {ApplicationRef, retrieveViewsFromApplicationRef} from '../application_ref';
-import {Type} from '../interface/type';
 import {collectNativeNodes} from '../render3/collect_native_nodes';
-import {getComponentDef, getComponentId} from '../render3/definition';
 import {CONTAINER_HEADER_OFFSET, LContainer} from '../render3/interfaces/container';
 import {TContainerNode, TNode, TNodeFlags, TNodeType} from '../render3/interfaces/node';
 import {isComponentHost, isLContainer, isProjectionTNode, isRootView} from '../render3/interfaces/type_checks';
-import {CONTEXT, FLAGS, HEADER_OFFSET, HOST, LView, LViewFlags, TView, TVIEW, TViewType} from '../render3/interfaces/view';
+import {FLAGS, HEADER_OFFSET, HOST, LView, LViewFlags, TView, TVIEW, TViewType} from '../render3/interfaces/view';
 import {getFirstNativeNode} from '../render3/node_manipulation';
 import {unwrapRNode} from '../render3/util/view_utils';
 import {makeStateKey, TransferState} from '../transfer_state';
@@ -378,9 +376,7 @@ function serializeLContainer(lContainer: LContainer, context: HydrationContext):
     let template;
     let numRootNodes = 0;
     if (childTView.type === TViewType.Component) {
-      const ctx = childLView[CONTEXT];
-      const componentDef = getComponentDef(ctx!.constructor as Type<unknown>)!;
-      template = getComponentId(componentDef);
+      template = childTView.ssrId!;
 
       // This is a component view, which has only 1 root node: the component
       // host node itself (other nodes would be inside that host node).

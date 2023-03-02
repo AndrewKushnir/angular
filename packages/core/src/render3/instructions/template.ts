@@ -21,7 +21,7 @@ import {RComment} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION, LView, RENDERER, TView, TViewType} from '../interfaces/view';
 import {appendChild} from '../node_manipulation';
-import {getCurrentTNode, getLView, getTView, isCurrentTNodeParent, isInSkipHydrationBlock, setCurrentTNode} from '../state';
+import {getLView, getTView, isInSkipHydrationBlock, setCurrentTNode} from '../state';
 import {getConstant} from '../util/view_utils';
 
 import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
@@ -44,9 +44,10 @@ function templateFirstCreatePass(
   resolveDirectives(tView, lView, tNode, getConstant<string[]>(tViewConsts, localRefsIndex));
   registerPostOrderHooks(tView, tNode);
 
+  // TODO: we can probably just move `ssrId` from TNode -> TView?
   const embeddedTView = tNode.tViews = createTView(
       TViewType.Embedded, tNode, templateFn, decls, vars, tView.directiveRegistry,
-      tView.pipeRegistry, null, tView.schemas, tViewConsts);
+      tView.pipeRegistry, null, tView.schemas, tViewConsts, null);
 
   if (tView.queries !== null) {
     tView.queries.template(tView, tNode);

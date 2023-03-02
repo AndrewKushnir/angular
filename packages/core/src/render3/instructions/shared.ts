@@ -581,7 +581,7 @@ export function getOrCreateComponentTView(def: ComponentDef<any>): TView {
     const declTNode = null;
     return def.tView = createTView(
                TViewType.Component, declTNode, def.template, def.decls, def.vars, def.directiveDefs,
-               def.pipeDefs, def.viewQuery, def.schemas, def.consts);
+               def.pipeDefs, def.viewQuery, def.schemas, def.consts, def.id);
   }
 
   return tView;
@@ -605,7 +605,7 @@ export function createTView(
     type: TViewType, declTNode: TNode|null, templateFn: ComponentTemplate<any>|null, decls: number,
     vars: number, directives: DirectiveDefListOrFactory|null, pipes: PipeDefListOrFactory|null,
     viewQuery: ViewQueriesFunction<any>|null, schemas: SchemaMetadata[]|null,
-    constsOrFactory: TConstantsOrFactory|null): TView {
+    constsOrFactory: TConstantsOrFactory|null, ssrId: string|null): TView {
   ngDevMode && ngDevMode.tView++;
   const bindingStartIndex = HEADER_OFFSET + decls;
   // This length does not yet contain host bindings from child directives because at this point,
@@ -644,7 +644,8 @@ export function createTView(
     firstChild: null,
     schemas: schemas,
     consts: consts,
-    incompleteFirstPass: false
+    incompleteFirstPass: false,
+    ssrId,
   };
   if (ngDevMode) {
     // For performance reasons it is important that the tView retains the same shape during runtime.
