@@ -765,25 +765,24 @@ export function getNgModuleDef<T>(type: any, throwNotFound?: boolean): NgModuleD
 /**
  * A method can returns a component ID from the component definition using a variant of DJB2 hash
  * algorithm.
- *
  */
 export function getComponentId(componentDef: Partial<ComponentDef<unknown>>): string {
   let hash = 0;
 
   const hashSelectors = [
-    ...(componentDef.selectors || []),
+    componentDef.selectors,
 
     // We cannot rely solely on the component selector as the same selector can be used in different
     // modules.
     // Example:
     // https://github.com/angular/components/blob/d9f82c8f95309e77a6d82fd574c65871e91354c2/src/material/core/option/option.ts#L248
     // https://github.com/angular/components/blob/285f46dc2b4c5b127d356cb7c4714b221f03ce50/src/material/legacy-core/option/option.ts#L32
-    componentDef.hostVars,
-    componentDef.styles?.reduce<number>((prev, current) => current.length + prev, 0),
-    componentDef.consts,
-    componentDef.vars,
+    componentDef.ngContentSelectors, componentDef.hostVars, componentDef.consts, componentDef.vars,
     componentDef.decls,
-  ].join('|');
+    // FIXME: investigate whether including styles makes component id unstable
+    // (i.e. different on a server and on a client).
+    // componentDef.styles?.map(s => s.length),
+  ].flat().join('|');
 
   for (const char of hashSelectors) {
     hash = Math.imul(31, hash) + char.charCodeAt(0) << 0;
