@@ -174,13 +174,15 @@ export function validateMatchingNode(
     isViewContainerAnchor = false): void {
   if (node.nodeType !== nodeType ||
       (node.nodeType === Node.ELEMENT_NODE &&
-       (node as HTMLElement).tagName.toLowerCase() !== tagName)) {
+       (node as HTMLElement).tagName.toLowerCase() !== tagName?.toLowerCase())) {
     const expectedNode = shortRNodeDescription(nodeType, tagName, null);
     const actualNode = shortRNodeDescription(
         node.nodeType, (node as HTMLElement).tagName ?? null,
         (node as HTMLElement).textContent ?? null);
     const header = `During hydration Angular expected ` +
         `${expectedNode} but found ${actualNode}.\n\n`;
+    const note = 'Note: attributes are only displayed to better represent the DOM' +
+        ' but have no effect on hydration mismatches.\n\n';
     const expected = `Angular expected this DOM:\n\n${
         describeExpectedDom(lView, tNode, isViewContainerAnchor)}\n\n`;
     const actual = `Actual DOM is:\n\n${describeActualDom(node)}\n\n`;
@@ -190,7 +192,7 @@ export function validateMatchingNode(
     const footer = getHydrationErrorFooter(componentClassName);
 
     // TODO: use RuntimeError instead.
-    throw new Error(header + expected + actual + footer);
+    throw new Error(header + note + expected + actual + footer);
   }
 }
 
