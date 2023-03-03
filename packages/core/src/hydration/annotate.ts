@@ -75,7 +75,7 @@ class NghAnnotationCollection {
  */
 interface HydrationContext {
   ssrIdRegistry: TViewSsrIdRegistry;
-  corruptedTextNodes: Map<string, HTMLElement>;
+  corruptedTextNodes: Map<HTMLElement, string>;
   profiler: SsrProfiler|null;
   annotationCollection: NghAnnotationCollection;
 }
@@ -91,7 +91,7 @@ export function annotateForHydration(
     appRef: ApplicationRef, doc: Document, transferState: TransferState,
     profiler: SsrProfiler|null) {
   const ssrIdRegistry = new TViewSsrIdRegistry();
-  const corruptedTextNodes = new Map<string, HTMLElement>();
+  const corruptedTextNodes = new Map<HTMLElement, string>();
   const annotationCollection = new NghAnnotationCollection();
   const viewRefs = retrieveViewsFromApplicationRef(appRef);
   for (const viewRef of viewRefs) {
@@ -261,10 +261,10 @@ function serializeLView(lView: LView, context: HydrationContext): NghDom {
           //     live DOM has exactly the same state as it was before serialization.
           if (tNodeType & TNodeType.Text) {
             const rNode = unwrapRNode(lView[i]) as HTMLElement;
-            if (rNode.textContent === '') {
-              context.corruptedTextNodes.set(EMPTY_TEXT_NODE_COMMENT, rNode);
+            if (rNode.textContent?.replace(/\s/gm, '') === '') {
+              context.corruptedTextNodes.set(rNode, EMPTY_TEXT_NODE_COMMENT);
             } else if (rNode.nextSibling?.nodeType === Node.TEXT_NODE) {
-              context.corruptedTextNodes.set(TEXT_NODE_SEPARATOR_COMMENT, rNode);
+              context.corruptedTextNodes.set(rNode, TEXT_NODE_SEPARATOR_COMMENT);
             }
           }
 
@@ -438,8 +438,8 @@ export function annotateHostElementForHydration(
   element.setAttribute(NGH_ATTR_NAME, index.toString());
 }
 
-function insertTextNodeMarkers(corruptedTextNodes: Map<string, HTMLElement>, doc: Document) {
-  for (let [marker, textNode] of corruptedTextNodes) {
+function insertTextNodeMarkers(corruptedTextNodes: Map<HTMLElement, string>, doc: Document) {
+  for (let [textNode, marker] of corruptedTextNodes) {
     textNode.after(doc.createComment(marker));
   }
 }

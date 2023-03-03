@@ -99,11 +99,18 @@ export function processTextNodeMarkersBeforeHydration(node: HTMLElement) {
     }
   });
   let currentNode: Comment;
+  // We cannot modify the DOM while using the commentIterator
+  // So we have to grab each node and then follow up with a
+  // replacement of the node with the new empty text node.
+  const nodes = [];
   while (currentNode = commentIterator.nextNode() as Comment) {
-    if (currentNode.textContent === EMPTY_TEXT_NODE_COMMENT) {
-      currentNode.replaceWith(doc.createTextNode(''));
+    nodes.push(currentNode);
+  }
+  for (let node of nodes) {
+    if (node.textContent === EMPTY_TEXT_NODE_COMMENT) {
+      node.replaceWith(doc.createTextNode(''));
     } else {
-      currentNode.remove();
+      node.remove();
     }
   }
 }
