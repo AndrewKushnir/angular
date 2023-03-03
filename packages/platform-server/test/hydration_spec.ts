@@ -403,10 +403,14 @@ fdescribe('platform-server integration', () => {
           selector: 'app',
           template: `
             This is hydrated content.<span>{{spanText}}</span>.
+            <p>{{pText}}</p>
+            <div>{{anotherText}}</div>
           `,
         })
         class SimpleComponent {
           spanText = ''
+          pText = ''
+          anotherText = ''
         }
 
         const html = await ssr(SimpleComponent);
@@ -415,7 +419,6 @@ fdescribe('platform-server integration', () => {
         // TODO: properly assert `ngh` attribute value once the `ngh`
         // format stabilizes, for now we just check that it's present.
         expect(ssrContents).toContain('<app ngh');
-
         resetTViewsFor(SimpleComponent);
 
         const appRef = await hydrate(html, SimpleComponent);
@@ -432,12 +435,16 @@ fdescribe('platform-server integration', () => {
           standalone: true,
           selector: 'app',
           template: `
-            This is hydrated content.<span>{{emptyText}}{{moreText}}</span>.
+            This is hydrated content.<span>{{emptyText}}{{moreText}}{{andMoreText}}</span>.
+            <p>{{secondEmptyText}}{{secondMoreText}}</p>
           `,
         })
         class SimpleComponent {
           emptyText = ''
           moreText = ''
+          andMoreText = ''
+          secondEmptyText = ''
+          secondMoreText = ''
         }
 
         const html = await ssr(SimpleComponent);
@@ -446,7 +453,6 @@ fdescribe('platform-server integration', () => {
         // TODO: properly assert `ngh` attribute value once the `ngh`
         // format stabilizes, for now we just check that it's present.
         expect(ssrContents).toContain('<app ngh');
-
         resetTViewsFor(SimpleComponent);
 
         const appRef = await hydrate(html, SimpleComponent);
@@ -464,7 +470,7 @@ fdescribe('platform-server integration', () => {
           selector: 'app',
           imports: [NgIf],
           template: `
-            <div>Hello <ng-container *ngIf="true">World</ng-container></div>
+            <div>Hello <ng-container *ngIf="true">Angular</ng-container> <ng-container *ngIf="true">World</ng-container></div>
           `,
         })
         class SimpleComponent {
