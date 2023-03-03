@@ -7,8 +7,8 @@
  */
 
 import {getDeclarationComponentDef} from '../render3/instructions/element_validation';
-import {TElementNode, TNode, TNodeType} from '../render3/interfaces/node';
-import {HOST, LView, TVIEW} from '../render3/interfaces/view';
+import {TNode, TNodeType} from '../render3/interfaces/node';
+import {LView, TVIEW} from '../render3/interfaces/view';
 import {getParentRElement} from '../render3/node_manipulation';
 
 import {NodeNavigationStep} from './node_lookup_utils';
@@ -172,7 +172,24 @@ function getHydrationErrorFooter(componentClassName?: string) {
 export function validateMatchingNode(
     node: Node, nodeType: number, tagName: string|null, lView: LView, tNode: TNode,
     isViewContainerAnchor = false): void {
-  if (node.nodeType !== nodeType ||
+  // TODO: consider merging two code blocks into one, moving this `if` inside.
+  if (!node) {
+    // No node found during hydration.
+    const expectedNode = shortRNodeDescription(nodeType, tagName, null);
+    const header = `During hydration Angular expected ` +
+        `${expectedNode} but the node was not found.\n\n`;
+    const expected = `Angular expected this DOM:\n\n${
+        describeExpectedDom(lView, tNode, isViewContainerAnchor)}\n\n`;
+    const hostComponentDef = getDeclarationComponentDef(lView);
+    const componentClassName = hostComponentDef?.type?.name;
+    const note = 'Note: attributes are only displayed to better represent the DOM' +
+        ' but have no effect on hydration mismatches.\n\n';
+    const footer = getHydrationErrorFooter(componentClassName);
+
+    // TODO: use RuntimeError instead.
+    throw new Error(header + expected + note + footer);
+  } else if (
+      node.nodeType !== nodeType ||
       (node.nodeType === Node.ELEMENT_NODE &&
        (node as HTMLElement).tagName.toLowerCase() !== tagName?.toLowerCase())) {
     const expectedNode = shortRNodeDescription(nodeType, tagName, null);
@@ -192,7 +209,7 @@ export function validateMatchingNode(
     const footer = getHydrationErrorFooter(componentClassName);
 
     // TODO: use RuntimeError instead.
-    throw new Error(header + note + expected + actual + footer);
+    throw new Error(header + expected + actual + note + footer);
   }
 }
 

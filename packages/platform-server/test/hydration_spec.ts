@@ -1639,6 +1639,43 @@ fdescribe('platform-server integration', () => {
         });
       });
 
+      it('should not crash when a node can not be found during hydration', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            Some text.
+            <div id="abc">This is an original content</div>
+        `,
+        })
+        class SimpleComponent {
+          private doc = inject(DOCUMENT);
+          private isServer = isPlatformServer(inject(PLATFORM_ID));
+          ngAfterViewInit() {
+            if (this.isServer) {
+              const div = this.doc.querySelector('div');
+              div!.remove();
+            }
+          }
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        hydrate(html, SimpleComponent, withNoopErrorHandler()).catch((err: unknown) => {
+          const message = (err as Error).message;
+          expect(message).toContain(
+              'During hydration Angular expected <div> but the node was not found');
+          expect(message).toContain('<div id="abc">…</div>  <-- AT THIS LOCATION');
+        });
+      });
+
       it('should handle element node mismatch', async () => {
         @Component({
           standalone: true,
