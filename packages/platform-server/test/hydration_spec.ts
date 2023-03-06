@@ -1604,6 +1604,45 @@ fdescribe('platform-server integration', () => {
       });
     });
 
+    describe('<ng-template>', () => {
+      it('should support unused <ng-template>s', async () => {
+        @Component({
+          standalone: true,
+          selector: 'app',
+          template: `
+            <ng-template #a>Some content</ng-template>
+            <div>Tag in between</div>
+            <ng-template #b>Some content</ng-template>
+            <p>Tag in between</p>
+            <ng-template #c>
+              Some content
+              <ng-template #d>
+                Nested template content.
+              </ng-template>
+            </ng-template>
+          `,
+        })
+        class SimpleComponent {
+        }
+
+        const html = await ssr(SimpleComponent);
+        const ssrContents = getAppContents(html);
+        // TODO: properly assert `ngh` attribute value once the `ngh`
+        // format stabilizes, for now we just check that it's present.
+        expect(ssrContents).toContain('<app ngh');
+
+        resetTViewsFor(SimpleComponent);
+
+        const appRef = await hydrate(html, SimpleComponent);
+        const compRef = getComponentRef<SimpleComponent>(appRef);
+        appRef.tick();
+
+        const clientRootNode = compRef.location.nativeElement;
+        verifyAllNodesClaimedForHydration(clientRootNode);
+        verifyClientAndSSRContentsMatch(ssrContents, clientRootNode);
+      });
+    });
+
     describe('error handling', () => {
       it('should handle text node mismatch', async () => {
         @Component({
