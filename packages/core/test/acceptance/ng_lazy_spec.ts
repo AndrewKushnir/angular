@@ -6,14 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {CommonModule, NgIf, NgLazy, ɵgetDOM as getDOM} from '@angular/common';
-import {Component, ɵɵdefineComponent as defineComponent, ɵɵelement as element, ɵɵlazy as lazy} from '@angular/core';
-import {ComponentFixture, TestBed, waitForAsync} from '@angular/core/testing';
-import {By} from '@angular/platform-browser/src/dom/debug/by';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
+import {Component, ɵɵtemplateRefExtractor, ɵɵreference, ɵɵproperty as property, ɵɵdefineComponent as defineComponent, ɵɵtemplate as template, ɵɵelement as element, ɵɵlazy as lazy, ɵɵtext as text} from '@angular/core';
+import {TestBed} from '@angular/core/testing';
+
+import {NgLazy} from '../../src/ng_lazy';
 
 describe('ngLazy directive', () => {
-  fit('should be really cool', async () => {
+  fit('should work with basic cases', async () => {
     @Component({
       selector: 'my-lazy-cmp',
       standalone: true,
@@ -22,9 +21,17 @@ describe('ngLazy directive', () => {
     class MyLazyCmp {
     }
 
+    // <my-lazy-cmp />
     function LazyTemplate(rf: number, ctx: unknown) {
       if (rf & 1) {
         element(0, 'my-lazy-cmp');
+      }
+    }
+
+    // Loading...
+    function LoadingTemplate(rf: number, ctx: unknown) {
+      if (rf & 1) {
+        text(0, 'Loading...');
       }
     }
 
@@ -35,7 +42,11 @@ describe('ngLazy directive', () => {
     }
 
     /**
-     * <my-lazy-cmp *ngLazy />
+     * {#lazy}
+     *   <my-lazy-cmp />
+     * {:loading}
+     *   Loading...
+     * {/#lazy}
      */
     class MyCmp {
       static ɵfac = () => new MyCmp();
@@ -43,17 +54,20 @@ describe('ngLazy directive', () => {
         selectors: [['my-cmp']],
         consts: [[4 as any, 'ngLazy']],
         type: MyCmp,
-        decls: 1,
+        decls: 2,
         vars: 0,
         standalone: true,
         template:
             function Template(rf: number, ctx: MyCmp) {
               if (rf & 1) {
                 lazy(0, LazyTemplate, LazyTemplateDeps, 1, 0, null, 0);
+                template(1, LoadingTemplate, 1, 0);
               }
               if (rf & 2) {
+                property('loadingTmpl', ɵɵreference(1));
               }
             },
+        // TODO: this should be added elsewhere?
         dependencies: [NgLazy],
       });
     }
