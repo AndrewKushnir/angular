@@ -1058,6 +1058,56 @@ import {ParseLocation, ParseSourceFile, ParseSourceSpan} from '../../src/parse_u
       });
     });
 
+    describe('control flow', () => {
+      it('should parse simple #lazy', () => {
+        const result = tokenizeAndHumanizeParts('{#lazy [when]="visible"}<cmp />{/#lazy}');
+        expect(result).toEqual([
+          [TokenType.CONTROL_FLOW_OPEN_START, 'lazy'],
+          [TokenType.ATTR_NAME, '', '[when]'],
+          [TokenType.ATTR_QUOTE, '"'],
+          [TokenType.ATTR_VALUE_TEXT, 'visible'],
+          [TokenType.ATTR_QUOTE, '"'],
+          [TokenType.CONTROL_FLOW_OPEN_END, '}'],
+          [TokenType.TAG_OPEN_START, '', 'cmp'],
+          [TokenType.TAG_OPEN_END_VOID],
+          [TokenType.CONTROL_FLOW_CLOSE, 'lazy'],
+          [TokenType.EOF],
+        ]);
+      });
+
+      it('should parse #lazy with conditions', () => {
+        const result = tokenizeAndHumanizeParts(
+            '{#lazy [when]="visible"}' +
+            '<cmp />' +
+            '{:loading}Loading...' +
+            '{:error}Error' +
+            '{:placeholder}<img />' +
+            '{/#lazy}');
+        expect(result).toEqual([
+          [TokenType.CONTROL_FLOW_OPEN_START, 'lazy'],
+          [TokenType.ATTR_NAME, '', '[when]'],
+          [TokenType.ATTR_QUOTE, '"'],
+          [TokenType.ATTR_VALUE_TEXT, 'visible'],
+          [TokenType.ATTR_QUOTE, '"'],
+          [TokenType.CONTROL_FLOW_OPEN_END, '}'],
+          [TokenType.TAG_OPEN_START, '', 'cmp'],
+          [TokenType.TAG_OPEN_END_VOID],
+          [TokenType.CONTROL_FLOW_CASE_START, 'loading'],
+          [TokenType.CONTROL_FLOW_CASE_END, '}'],
+          [TokenType.TEXT, 'Loading...'],
+          [TokenType.CONTROL_FLOW_CASE_START, 'error'],
+          [TokenType.CONTROL_FLOW_CASE_END, '}'],
+          [TokenType.TEXT, 'Error'],
+          [TokenType.CONTROL_FLOW_CASE_START, 'placeholder'],
+          [TokenType.CONTROL_FLOW_CASE_END, '}'],
+          [TokenType.TAG_OPEN_START, '', 'img'],
+          [TokenType.TAG_OPEN_END_VOID],
+          [TokenType.CONTROL_FLOW_CLOSE, 'lazy'],
+          [TokenType.EOF],
+        ]);
+      });
+    });
+
     describe('expansion forms', () => {
       it('should parse an expansion form', () => {
         expect(

@@ -33,7 +33,12 @@ export const enum TokenType {
   EXPANSION_CASE_EXP_START,
   EXPANSION_CASE_EXP_END,
   EXPANSION_FORM_END,
-  EOF
+  EOF,
+  CONTROL_FLOW_OPEN_START,
+  CONTROL_FLOW_OPEN_END,
+  CONTROL_FLOW_CASE_START,
+  CONTROL_FLOW_CASE_END,
+  CONTROL_FLOW_CLOSE
 }
 
 export type Token = TagOpenStartToken|TagOpenEndToken|TagOpenEndVoidToken|TagCloseToken|

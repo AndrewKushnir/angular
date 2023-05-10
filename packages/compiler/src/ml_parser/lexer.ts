@@ -197,6 +197,12 @@ class _Tokenizer {
           } else {
             this._consumeTagOpen(start);
           }
+        } else if (this._attemptStr('{#')) {
+          this._consumeControlFlowStart();
+        } else if (this._attemptStr('{/#')) {
+          this._consumeControlFlowEnd();
+        } else if (this._attemptStr('{:')) {
+          this._consumeControlFlowCase();
         } else if (!(this._tokenizeIcu && this._tokenizeExpansionForm())) {
           // In (possibly interpolated) text the end of the text is given by `isTextEnd()`, while
           // the premature end of an interpolation is given by the start of a new HTML element.
@@ -493,6 +499,69 @@ class _Tokenizer {
     this._requireCharCodeUntilFn(isNameEnd, prefix === '' ? 0 : 1);
     const name = this._cursor.getChars(nameStart);
     return [prefix, name];
+  }
+
+  private _consumeControlFlowStart() {
+    // Handle start of control flow opening tag...
+    this._beginToken(TokenType.CONTROL_FLOW_OPEN_START);
+    const start = this._cursor.clone();
+    this._attemptCharCodeUntilFn(
+        (code: number) => chars.isWhitespace(code) || code === chars.$RBRACE);
+    const name = this._cursor.getChars(start);
+    this._endToken([name]) as TagOpenStartToken;
+    this._attemptCharCodeUntilFn(isNotWhitespace);
+
+    // Handle attributes inside control flow opening tag...
+    while (this._cursor.peek() !== chars.$RBRACE && this._cursor.peek() !== chars.$EOF) {
+      this._consumeAttributeName();
+      this._attemptCharCodeUntilFn(isNotWhitespace);
+      if (this._attemptCharCode(chars.$EQ)) {
+        this._attemptCharCodeUntilFn(isNotWhitespace);
+        this._consumeAttributeValue();
+      }
+      this._attemptCharCodeUntilFn(isNotWhitespace);
+    }
+
+    // Handle end of control flow opening tag...
+    this._beginToken(TokenType.CONTROL_FLOW_OPEN_END);
+    this._requireCharCode(chars.$RBRACE);
+    this._endToken(['}']) as TagOpenStartToken;
+  }
+
+  private _consumeControlFlowCase() {
+    this._beginToken(TokenType.CONTROL_FLOW_CASE_START);
+    const start = this._cursor.clone();
+    this._attemptCharCodeUntilFn(
+        (code: number) => chars.isWhitespace(code) || code === chars.$RBRACE);
+    const name = this._cursor.getChars(start);
+    this._endToken([name]) as TagOpenStartToken;
+    this._attemptCharCodeUntilFn(isNotWhitespace);
+
+    // Handle attributes inside control flow opening tag...
+    while (this._cursor.peek() !== chars.$RBRACE && this._cursor.peek() !== chars.$EOF) {
+      this._consumeAttributeName();
+      this._attemptCharCodeUntilFn(isNotWhitespace);
+      if (this._attemptCharCode(chars.$EQ)) {
+        this._attemptCharCodeUntilFn(isNotWhitespace);
+        this._consumeAttributeValue();
+      }
+      this._attemptCharCodeUntilFn(isNotWhitespace);
+    }
+
+    // Handle end of control flow opening tag...
+    this._beginToken(TokenType.CONTROL_FLOW_CASE_END);
+    this._requireCharCode(chars.$RBRACE);
+    this._endToken(['}']) as TagOpenStartToken;
+  }
+
+  private _consumeControlFlowEnd() {
+    this._beginToken(TokenType.CONTROL_FLOW_CLOSE);
+    const start = this._cursor.clone();
+    this._attemptCharCodeUntilFn(
+        (code: number) => chars.isWhitespace(code) || code === chars.$RBRACE);
+    const name = this._cursor.getChars(start);
+    this._requireCharCode(chars.$RBRACE);
+    this._endToken([name]) as TagOpenStartToken;
   }
 
   private _consumeTagOpen(start: CharacterCursor) {
@@ -795,7 +864,7 @@ class _Tokenizer {
   }
 
   private _isTextEnd(): boolean {
-    if (this._isTagStart() || this._cursor.peek() === chars.$EOF) {
+    if (this._isTagStart() || this._isControlFlowStart() || this._cursor.peek() === chars.$EOF) {
       return true;
     }
 
@@ -827,6 +896,19 @@ class _Tokenizer {
       const code = tmp.peek();
       if ((chars.$a <= code && code <= chars.$z) || (chars.$A <= code && code <= chars.$Z) ||
           code === chars.$SLASH || code === chars.$BANG) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private _isControlFlowStart(): boolean {
+    if (this._cursor.peek() === chars.$LBRACE) {
+      const tmp = this._cursor.clone();
+      tmp.advance();
+      // Checking for `{#`, `{/#` and `{:`
+      const code = tmp.peek();
+      if (code === chars.$COLON || code === chars.$SLASH || code == chars.$HASH) {
         return true;
       }
     }
