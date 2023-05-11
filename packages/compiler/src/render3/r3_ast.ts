@@ -106,6 +106,26 @@ export class BoundEvent implements Node {
   }
 }
 
+export class ControlFlow implements Node {
+  constructor(
+      public name: string, public attributes: TextAttribute[], public inputs: BoundAttribute[],
+      public outputs: BoundEvent[], public children: Node[], public sourceSpan: ParseSourceSpan,
+      public startSourceSpan: ParseSourceSpan, public endSourceSpan: ParseSourceSpan|null) {}
+  visit<Result>(visitor: Visitor<Result>): Result {
+    return visitor.visitControlFlow(this);
+  }
+}
+
+export class ControlFlowCase implements Node {
+  constructor(
+      public name: string, public children: Node[], public sourceSpan: ParseSourceSpan,
+      public startSourceSpan: ParseSourceSpan, public endSourceSpan: ParseSourceSpan|null) {}
+  visit<Result>(visitor: Visitor<Result>): Result {
+    return visitor.visitControlFlowCase(this);
+  }
+}
+
+
 export class Element implements Node {
   constructor(
       public name: string, public attributes: TextAttribute[], public inputs: BoundAttribute[],
@@ -186,6 +206,8 @@ export interface Visitor<Result = any> {
   visit?(node: Node): Result;
 
   visitElement(element: Element): Result;
+  visitControlFlow(controlFlow: ControlFlow): Result;
+  visitControlFlowCase(controlFlowCase: ControlFlowCase): Result;
   visitTemplate(template: Template): Result;
   visitContent(content: Content): Result;
   visitVariable(variable: Variable): Result;
@@ -213,6 +235,15 @@ export class RecursiveVisitor implements Visitor<void> {
     visitAll(this, template.children);
     visitAll(this, template.references);
     visitAll(this, template.variables);
+  }
+  visitControlFlow(controlFlow: ControlFlow): void {
+    visitAll(this, controlFlow.attributes);
+    visitAll(this, controlFlow.inputs);
+    visitAll(this, controlFlow.outputs);
+    visitAll(this, controlFlow.children);
+  }
+  visitControlFlowCase(controlFlowCase: ControlFlowCase): void {
+    visitAll(this, controlFlowCase.children);
   }
   visitContent(content: Content): void {}
   visitVariable(variable: Variable): void {}

@@ -8,6 +8,7 @@
 
 import {ParseSourceSpan} from '../../src/parse_util';
 import * as t from '../../src/render3/r3_ast';
+
 import {parseR3 as parse} from './view/util';
 
 
@@ -103,6 +104,16 @@ class R3AstSourceSpans implements t.Visitor<void> {
       this.result.push(['Icu:Placeholder', humanizeSpan(icu.placeholders[key].sourceSpan)]);
     }
   }
+
+  visitControlFlow(controlFlow: t.ControlFlow) {
+    this.result.push([
+      'ControlFlow', controlFlow.name, controlFlow.attributes, controlFlow.inputs,
+      controlFlow.outputs, controlFlow.children, controlFlow.sourceSpan,
+      controlFlow.startSourceSpan, controlFlow.endSourceSpan
+    ]);
+  }
+
+  visitControlFlowCase(controlFlowCase: t.ControlFlowCase) {}
 
   private visitAll(nodes: t.Node[][]) {
     nodes.forEach(node => t.visitAll(this, node));

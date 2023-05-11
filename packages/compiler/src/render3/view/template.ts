@@ -619,6 +619,14 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
   }
 
+  visitControlFlow(controlFlow: t.ControlFlow): void {
+    // TODO: implement this!
+  }
+
+  visitControlFlowCase(controlFlowCase: t.ControlFlowCase): void {
+    // TODO: implement this!
+  }
+
   visitElement(element: t.Element) {
     const elementIndex = this.allocateDataSlot();
     const stylingBuilder = new StylingBuilder(null);

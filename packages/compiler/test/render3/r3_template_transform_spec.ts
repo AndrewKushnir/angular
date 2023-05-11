@@ -88,6 +88,25 @@ class R3AstHumanizer implements t.Visitor<void> {
     return null;
   }
 
+  visitControlFlow(controlFlow: t.ControlFlow) {
+    const inputs = controlFlow.inputs.map(
+        (attr) =>
+            ['BoundAttribute',
+             attr.type,
+             attr.name,
+             unparse(attr.value),
+    ]);
+
+    this.result.push([
+      'ControlFlow', controlFlow.name, controlFlow.attributes, inputs, controlFlow.outputs,
+      controlFlow.children
+    ]);
+  }
+
+  visitControlFlowCase(controlFlowCase: t.ControlFlowCase) {
+    // {};
+  }
+
   private visitAll(nodes: t.Node[][]) {
     nodes.forEach(node => t.visitAll(this, node));
   }
@@ -247,6 +266,20 @@ describe('R3 template transform', () => {
       expectFromHtml('<div [style.someStyle]="v"></div>').toEqual([
         ['Element', 'div'],
         ['BoundAttribute', BindingType.Style, 'someStyle', 'v'],
+      ]);
+    });
+  });
+
+  describe('control flow', () => {
+    fit('should support simple cases', () => {
+      const html =
+          '{#lazy [when]="isVisible"}<my-cmp />{:loading}Loading...{:placeholder}Placeholder{/#lazy}';
+      debugger;
+      const res = parse(html, {ignoreError: false});
+      debugger;
+      const boundWhen = ['BoundAttribute', BindingType.Attribute, 'when', 'isVisible']
+      expectFromHtml(html).toEqual([
+        ['ControlFlow', 'lazy', [], [boundWhen], [], [Object({}), Object({}), Object({})]],
       ]);
     });
   });

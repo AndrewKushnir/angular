@@ -167,10 +167,12 @@ export class I18nMetaVisitor implements html.Visitor {
 
   visitControlFlow(controlFlow: html.ControlFlow, context: any) {
     html.visitAll(this, controlFlow.children, context);
+    return controlFlow;
   }
 
   visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
     html.visitAll(this, controlFlowCase.children, context);
+    return controlFlowCase;
   }
 
   /**

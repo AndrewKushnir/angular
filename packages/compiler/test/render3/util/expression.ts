@@ -146,6 +146,14 @@ class ExpressionSourceHumanizer extends e.RecursiveAstVisitor implements t.Visit
       ast.placeholders[key].visit(this);
     }
   }
+  visitControlFlow(ast: t.ControlFlow) {
+    t.visitAll(this, ast.children);
+    t.visitAll(this, ast.inputs);
+    t.visitAll(this, ast.outputs);
+  }
+  visitControlFlowCase(ast: t.ControlFlowCase) {
+    t.visitAll(this, ast.children);
+  }
 }
 
 /**

@@ -259,12 +259,39 @@ class HtmlAstToIvyAst implements html.Visitor {
     return this._visitTextWithInterpolation(text.value, text.sourceSpan, text.tokens, text.i18n);
   }
 
-  visitControlFlow(controlFlow: html.ControlFlow, context: any) {
+  visitControlFlow(controlFlow: html.ControlFlow, context: any): t.ControlFlow {
     // TODO: implement!
+    const children: t.Node[] = html.visitAll(this, controlFlow.children);
+    debugger;
+    const attrs: t.TextAttribute[] = [];
+    const parsedProperties: ParsedProperty[] = [];
+    const boundEvents: t.BoundEvent[] = [];
+
+    for (const attribute of controlFlow.attrs) {
+      // Check for variables, events, property bindings, interpolation
+      const hasBinding =
+          this.parseAttribute(false, attribute, [], parsedProperties, boundEvents, [], []);
+
+      // ???
+      if (!hasBinding) {
+        // don't include the bindings as attributes as well in the AST
+        attrs.push(this.visitAttribute(attribute));
+      }
+    }
+
+    const _attrs = this.extractAttributes(controlFlow.name, parsedProperties, {});
+
+    debugger;
+
+    return new t.ControlFlow(
+        controlFlow.name, _attrs.literal, _attrs.bound, boundEvents, children,
+        controlFlow.sourceSpan, controlFlow.startSourceSpan, controlFlow.endSourceSpan);
   }
 
-  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
+  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any): t.ControlFlowCase {
     // TODO: implement!
+    debugger;
+    return {} as any;
   }
 
   visitExpansion(expansion: html.Expansion): t.Icu|null {

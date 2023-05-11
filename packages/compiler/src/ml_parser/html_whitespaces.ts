@@ -88,10 +88,12 @@ export class WhitespaceVisitor implements html.Visitor {
 
   visitControlFlow(controlFlow: html.ControlFlow, context: any) {
     html.visitAll(this, controlFlow.children);
+    return controlFlow;
   }
 
   visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
     html.visitAll(this, controlFlowCase.children);
+    return controlFlowCase;
   }
 
   visitComment(comment: html.Comment, context: any): any {

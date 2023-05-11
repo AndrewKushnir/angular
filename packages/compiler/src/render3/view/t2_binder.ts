@@ -8,7 +8,7 @@
 
 import {AST, BindingPipe, ImplicitReceiver, PropertyRead, PropertyWrite, RecursiveAstVisitor, SafePropertyRead} from '../../expression_parser/ast';
 import {SelectorMatcher} from '../../selector';
-import {BoundAttribute, BoundEvent, BoundText, Content, Element, Icu, Node, Reference, Template, Text, TextAttribute, Variable, Visitor} from '../r3_ast';
+import {BoundAttribute, BoundEvent, BoundText, Content, ControlFlow, ControlFlowCase, Element, Icu, Node, Reference, Template, Text, TextAttribute, Variable, Visitor} from '../r3_ast';
 
 import {BoundTarget, DirectiveMeta, Target, TargetBinder} from './t2_api';
 import {createCssSelector} from './template';
@@ -106,6 +106,16 @@ class Scope implements Visitor {
       // No overarching `Template` instance, so process the nodes directly.
       template.forEach(node => node.visit(this));
     }
+  }
+
+  visitControlFlow(controlFlow: ControlFlow) {
+    // Recurse into the `ControlFlow`'s children.
+    controlFlow.children.forEach(node => node.visit(this));
+  }
+
+  visitControlFlowCase(controlFlowCase: ControlFlowCase) {
+    // Recurse into the `ControlFlowCase`'s children.
+    controlFlowCase.children.forEach(node => node.visit(this));
   }
 
   visitElement(element: Element) {
@@ -317,6 +327,8 @@ class DirectiveBinder<DirectiveT extends DirectiveMeta> implements Visitor {
   visitText(text: Text): void {}
   visitBoundText(text: BoundText): void {}
   visitIcu(icu: Icu): void {}
+  visitControlFlow(controlFlow: ControlFlow): void {}
+  visitControlFlowCase(controlFlowCase: ControlFlowCase): void {}
 }
 
 /**
@@ -403,6 +415,16 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     element.inputs.forEach(this.visitNode);
     element.outputs.forEach(this.visitNode);
     element.children.forEach(this.visitNode);
+  }
+
+  visitControlFlow(controlFlow: ControlFlow) {
+    controlFlow.inputs.forEach(this.visitNode);
+    controlFlow.outputs.forEach(this.visitNode);
+    controlFlow.children.forEach(this.visitNode);
+  }
+
+  visitControlFlowCase(controlFlowCase: ControlFlowCase) {
+    controlFlowCase.children.forEach(this.visitNode);
   }
 
   visitTemplate(template: Template) {
