@@ -273,6 +273,14 @@ class Xliff2Parser implements ml.Visitor {
     }
   }
 
+  visitControlFlow(controlFlow: ml.ControlFlow, context: any) {
+    ml.visitAll(this, controlFlow.children, null);
+  }
+
+  visitControlFlowCase(controlFlowCase: ml.ControlFlowCase, context: any) {
+    ml.visitAll(this, controlFlowCase.children, null);
+  }
+
   visitAttribute(attribute: ml.Attribute, context: any): any {}
 
   visitText(text: ml.Text, context: any): any {}
@@ -348,6 +356,14 @@ class XmlToI18n implements ml.Visitor {
     }
 
     return null;
+  }
+
+  visitControlFlow(controlFlow: ml.ControlFlow, context: any) {
+    ml.visitAll(this, controlFlow.children, null);
+  }
+
+  visitControlFlowCase(controlFlowCase: ml.ControlFlowCase, context: any) {
+    ml.visitAll(this, controlFlowCase.children, null);
   }
 
   visitExpansion(icu: ml.Expansion, context: any) {

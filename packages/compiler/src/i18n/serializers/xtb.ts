@@ -142,6 +142,14 @@ class XtbParser implements ml.Visitor {
     }
   }
 
+  visitControlFlow(controlFlow: ml.ControlFlow, context: any) {
+    ml.visitAll(this, controlFlow.children, null);
+  }
+
+  visitControlFlowCase(controlFlowCase: ml.ControlFlowCase, context: any) {
+    ml.visitAll(this, controlFlowCase.children, null);
+  }
+
   visitAttribute(attribute: ml.Attribute, context: any): any {}
 
   visitText(text: ml.Text, context: any): any {}
@@ -178,6 +186,14 @@ class XmlToI18n implements ml.Visitor {
 
   visitText(text: ml.Text, context: any) {
     return new i18n.Text(text.value, text.sourceSpan);
+  }
+
+  visitControlFlow(controlFlow: ml.ControlFlow, context: any) {
+    ml.visitAll(this, controlFlow.children);
+  }
+
+  visitControlFlowCase(controlFlowCase: ml.ControlFlowCase, context: any) {
+    ml.visitAll(this, controlFlowCase.children);
   }
 
   visitExpansion(icu: ml.Expansion, context: any) {

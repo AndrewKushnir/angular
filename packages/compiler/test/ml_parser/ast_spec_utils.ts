@@ -51,6 +51,17 @@ class _Humanizer implements html.Visitor {
     this.elDepth--;
   }
 
+  visitControlFlow(controlFlow: html.ControlFlow, context: any) {
+    this.result.push([html.ControlFlow, controlFlow.name]);
+    html.visitAll(this, controlFlow.attrs);
+    html.visitAll(this, controlFlow.children);
+  }
+
+  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
+    this.result.push([html.ControlFlow, controlFlowCase.name]);
+    html.visitAll(this, controlFlowCase.children);
+  }
+
   visitAttribute(attribute: html.Attribute, context: any): any {
     const valueTokens = attribute.valueTokens ?? [];
     const res = this._appendContext(attribute, [

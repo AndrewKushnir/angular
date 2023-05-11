@@ -39,6 +39,16 @@ class _SerializerVisitor implements html.Visitor {
     return ` ${expansionCase.value} {${this._visitAll(expansionCase.expression)}}`;
   }
 
+  visitControlFlow(controlFlow: html.ControlFlow, context: any) {
+    // TODO: implement it better.
+    return this._visitAll(controlFlow.children);
+  }
+
+  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
+    // TODO: implement it better.
+    return this._visitAll(controlFlowCase.children);
+  }
+
   private _visitAll(nodes: html.Node[], join: string = ''): string {
     if (nodes.length == 0) {
       return '';

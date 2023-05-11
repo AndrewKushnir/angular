@@ -87,6 +87,10 @@ class _Expander implements html.Visitor {
   visitExpansionCase(icuCase: html.ExpansionCase, context: any): any {
     throw new Error('Should not be reached');
   }
+
+  visitControlFlow(controlFlow: html.ControlFlow, context: any) {}
+
+  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {}
 }
 
 // Plural forms are expanded to `NgPlural` and `NgPluralCase`s

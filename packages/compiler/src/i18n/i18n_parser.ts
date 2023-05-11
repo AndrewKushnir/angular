@@ -125,6 +125,14 @@ class _I18nVisitor implements html.Visitor {
     return null;
   }
 
+  visitControlFlow(controlFlow: html.ControlFlow, context: any) {
+    html.visitAll(this, controlFlow.children, context);
+  }
+
+  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
+    html.visitAll(this, controlFlowCase.children, context);
+  }
+
   visitExpansion(icu: html.Expansion, context: I18nMessageVisitorContext): i18n.Node {
     context.icuDepth++;
     const i18nIcuCases: {[k: string]: i18n.Node} = {};

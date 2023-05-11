@@ -259,6 +259,33 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
         });
       });
 
+      describe('control flow', () => {
+        it('should support simple structures', () => {
+          const rawResult = parser.parse('{#lazy}<my-cmp />{/#lazy}', 'TestComp');
+          expect(humanizeDom(rawResult)).toEqual([
+            [html.ControlFlow, 'lazy'],
+            [html.ControlFlowCase, 'default'],
+            [html.Element, 'my-cmp', 0],
+          ]);
+        });
+
+        it('should support cases structures', () => {
+          const rawResult = parser.parse(
+              '{#lazy [when]="isVisible"}<my-cmp />{:loading}Loading...{:placeholder}Placeholder{/#lazy}',
+              'TestComp');
+          expect(humanizeDom(rawResult)).toEqual([
+            [html.ControlFlow, 'lazy'],
+            [html.Attribute, '[when]', 'isVisible', ['isVisible']],
+            [html.ControlFlowCase, 'default'],
+            [html.Element, 'my-cmp', 0],
+            [html.ControlFlowCase, 'loading'],
+            [html.Text, 'Loading...', 0, ['Loading...']],
+            [html.ControlFlowCase, 'placeholder'],
+            [html.Text, 'Placeholder', 0, ['Placeholder']],
+          ]);
+        });
+      });
+
       describe('attributes', () => {
         it('should parse attributes on regular elements case sensitive', () => {
           expect(humanizeDom(parser.parse('<div kEy="v" key2=v2></div>', 'TestComp'))).toEqual([
@@ -972,6 +999,13 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
               html.visitAll(this, element.attrs);
               html.visitAll(this, element.children);
             }
+            visitControlFlow(controlFlow: html.ControlFlow, context: any) {
+              html.visitAll(this, controlFlow.attrs);
+              html.visitAll(this, controlFlow.children);
+            }
+            visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
+              html.visitAll(this, controlFlowCase.children);
+            }
             visitAttribute(attribute: html.Attribute, context: any): any {}
             visitText(text: html.Text, context: any): any {}
             visitComment(comment: html.Comment, context: any): any {}
@@ -1009,6 +1043,12 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
               throw Error('Unexpected');
             }
             visitExpansionCase(expansionCase: html.ExpansionCase, context: any): any {
+              throw Error('Unexpected');
+            }
+            visitControlFlow(controlFlow: html.ControlFlow, context: any) {
+              throw Error('Unexpected');
+            }
+            visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
               throw Error('Unexpected');
             }
           };

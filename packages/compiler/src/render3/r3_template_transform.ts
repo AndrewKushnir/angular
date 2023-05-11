@@ -259,6 +259,14 @@ class HtmlAstToIvyAst implements html.Visitor {
     return this._visitTextWithInterpolation(text.value, text.sourceSpan, text.tokens, text.i18n);
   }
 
+  visitControlFlow(controlFlow: html.ControlFlow, context: any) {
+    // TODO: implement!
+  }
+
+  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
+    // TODO: implement!
+  }
+
   visitExpansion(expansion: html.Expansion): t.Icu|null {
     if (!expansion.i18n) {
       // do not generate Icu in case it was created
@@ -541,6 +549,14 @@ class NonBindableVisitor implements html.Visitor {
 
   visitExpansionCase(expansionCase: html.ExpansionCase): any {
     return null;
+  }
+
+  visitControlFlow(controlFlow: html.ControlFlow, context: any) {
+    html.visitAll(this, controlFlow.children, context);
+  }
+
+  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
+    html.visitAll(this, controlFlowCase.children, context);
   }
 }
 

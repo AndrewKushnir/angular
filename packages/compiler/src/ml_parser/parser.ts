@@ -12,7 +12,7 @@ import * as html from './ast';
 import {NAMED_ENTITIES} from './entities';
 import {tokenize, TokenizeOptions} from './lexer';
 import {getNsPrefix, mergeNsAndName, splitNsName, TagDefinition} from './tags';
-import {AttributeNameToken, AttributeQuoteToken, CdataStartToken, CommentStartToken, ExpansionCaseExpressionEndToken, ExpansionCaseExpressionStartToken, ExpansionCaseValueToken, ExpansionFormStartToken, IncompleteTagOpenToken, InterpolatedAttributeToken, InterpolatedTextToken, TagCloseToken, TagOpenStartToken, TextToken, Token, TokenType} from './tokens';
+import {AttributeNameToken, AttributeQuoteToken, CdataStartToken, CommentStartToken, ControlFlowCaseEndToken, ControlFlowCaseStartToken, ControlFlowCloseToken, ControlFlowOpenStartToken, ExpansionCaseExpressionEndToken, ExpansionCaseExpressionStartToken, ExpansionCaseValueToken, ExpansionFormStartToken, IncompleteTagOpenToken, InterpolatedAttributeToken, InterpolatedTextToken, TagCloseToken, TagOpenStartToken, TextToken, Token, TokenType} from './tokens';
 
 export class TreeError extends ParseError {
   static create(elementName: string|null, span: ParseSourceSpan, msg: string): TreeError {
@@ -46,7 +46,7 @@ class _TreeBuilder {
   private _index: number = -1;
   // `_peek` will be initialized by the call to `_advance()` in the constructor.
   private _peek!: Token;
-  private _elementStack: html.Element[] = [];
+  private _elementStack: Array<html.Element|html.ControlFlowCase> = [];
 
   rootNodes: html.Node[] = [];
   errors: TreeError[] = [];
@@ -76,11 +76,61 @@ class _TreeBuilder {
         this._consumeText(this._advance<TextToken>());
       } else if (this._peek.type === TokenType.EXPANSION_FORM_START) {
         this._consumeExpansion(this._advance<ExpansionFormStartToken>());
+      } else if (this._peek.type === TokenType.CONTROL_FLOW_OPEN_START) {
+        this._consumeControlFlowStart(this._advance<ControlFlowOpenStartToken>());
+      } else if (this._peek.type === TokenType.CONTROL_FLOW_CLOSE) {
+        this._consumeControlFlowEnd(this._advance<ControlFlowCloseToken>());
+      } else if (this._peek.type === TokenType.CONTROL_FLOW_CASE_START) {
+        this._consumeControlFlowCaseStart(this._advance<ControlFlowCaseStartToken>());
       } else {
         // Skip all other tokens...
         this._advance();
       }
     }
+  }
+
+  private _consumeControlFlowStart(startControlFlowToken: ControlFlowOpenStartToken) {
+    const name = startControlFlowToken.parts[0];
+    const attrs: html.Attribute[] = [];
+    while (this._peek.type === TokenType.ATTR_NAME) {
+      attrs.push(this._consumeAttr(this._advance<AttributeNameToken>()));
+    }
+    const end = this._peek.sourceSpan.fullStart;
+    const span = new ParseSourceSpan(
+        startControlFlowToken.sourceSpan.start, end, startControlFlowToken.sourceSpan.fullStart);
+    // Create a separate `startSpan` because `span` will be modified when there is an `end` span.
+    const startSpan = new ParseSourceSpan(
+        startControlFlowToken.sourceSpan.start, end, startControlFlowToken.sourceSpan.fullStart);
+
+    const controlFlow = new html.ControlFlow(name, attrs, [], span, startSpan, undefined);
+    this._pushElement(controlFlow, false);
+
+    // Default case
+    const defaultControlFlowCase =
+        new html.ControlFlowCase('default', [], [], span, startSpan, undefined);
+    this._pushElement(defaultControlFlowCase, false);
+  }
+
+  private _consumeControlFlowEnd(endControlFlowToken: ControlFlowCloseToken) {
+    this._popElement(endControlFlowToken.parts[0], endControlFlowToken.sourceSpan, false);
+  }
+
+  private _consumeControlFlowCaseStart(startControlFlowCaseToken: ControlFlowCaseStartToken) {
+    const parent = this._getParentElement();
+    if (parent) {
+      // TODO: it should just be an error if there is no parent at this moment.
+      this._popElement(parent.name, parent.sourceSpan);
+    }
+
+    const name = startControlFlowCaseToken.parts[0];
+    const end = this._peek.sourceSpan.fullStart;
+    const sourceSpan = startControlFlowCaseToken.sourceSpan;
+    const span = new ParseSourceSpan(sourceSpan.start, end, sourceSpan.fullStart);
+    // Create a separate `startSpan` because `span` will be modified when there is an `end` span.
+    const startSpan = new ParseSourceSpan(sourceSpan.start, end, sourceSpan.fullStart);
+
+    const controlFlowCase = new html.ControlFlowCase(name, [], [], span, startSpan, undefined);
+    this._pushElement(controlFlowCase, false);
   }
 
   private _advance<T extends Token>(): T {
@@ -307,10 +357,10 @@ class _TreeBuilder {
     }
   }
 
-  private _pushElement(el: html.Element) {
+  private _pushElement(el: html.Element, isElement = true) {
     const parentEl = this._getParentElement();
 
-    if (parentEl && this.getTagDefinition(parentEl.name).isClosedByChild(el.name)) {
+    if (parentEl && isElement && this.getTagDefinition(parentEl.name).isClosedByChild(el.name)) {
       this._elementStack.pop();
     }
 
@@ -339,7 +389,8 @@ class _TreeBuilder {
    * not have a closing tag (for example, this happens when an incomplete
    * opening tag is recovered).
    */
-  private _popElement(fullName: string, endSourceSpan: ParseSourceSpan|null): boolean {
+  private _popElement(fullName: string, endSourceSpan: ParseSourceSpan|null, isElement = true):
+      boolean {
     let unexpectedCloseTagDetected = false;
     for (let stackIndex = this._elementStack.length - 1; stackIndex >= 0; stackIndex--) {
       const el = this._elementStack[stackIndex];
@@ -354,7 +405,7 @@ class _TreeBuilder {
         return !unexpectedCloseTagDetected;
       }
 
-      if (!this.getTagDefinition(el.name).closedByParent) {
+      if (isElement && !this.getTagDefinition(el.name).closedByParent) {
         // Note that we encountered an unexpected close tag but continue processing the element
         // stack so we can assign an `endSourceSpan` if there is a corresponding start tag for this
         // end tag in the stack.

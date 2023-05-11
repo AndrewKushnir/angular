@@ -86,6 +86,14 @@ export class WhitespaceVisitor implements html.Visitor {
     return null;
   }
 
+  visitControlFlow(controlFlow: html.ControlFlow, context: any) {
+    html.visitAll(this, controlFlow.children);
+  }
+
+  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
+    html.visitAll(this, controlFlowCase.children);
+  }
+
   visitComment(comment: html.Comment, context: any): any {
     return comment;
   }

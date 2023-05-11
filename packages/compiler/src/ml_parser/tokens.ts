@@ -46,7 +46,8 @@ export type Token = TagOpenStartToken|TagOpenEndToken|TagOpenEndVoidToken|TagClo
     CommentEndToken|CdataStartToken|CdataEndToken|AttributeNameToken|AttributeQuoteToken|
     AttributeValueTextToken|AttributeValueInterpolationToken|DocTypeToken|ExpansionFormStartToken|
     ExpansionCaseValueToken|ExpansionCaseExpressionStartToken|ExpansionCaseExpressionEndToken|
-    ExpansionFormEndToken|EndOfFileToken;
+    ExpansionFormEndToken|EndOfFileToken|ControlFlowOpenStartToken|ControlFlowOpenEndToken|
+    ControlFlowCloseToken|ControlFlowCaseStartToken|ControlFlowCaseEndToken;
 
 export type InterpolatedTextToken = TextToken|InterpolationToken|EncodedEntityToken;
 
@@ -62,6 +63,31 @@ export interface TokenBase {
 export interface TagOpenStartToken extends TokenBase {
   type: TokenType.TAG_OPEN_START;
   parts: [prefix: string, name: string];
+}
+
+export interface ControlFlowOpenStartToken extends TokenBase {
+  type: TokenType.CONTROL_FLOW_OPEN_START;
+  parts: [prefix: string, name: string];
+}
+
+export interface ControlFlowOpenEndToken extends TokenBase {
+  type: TokenType.CONTROL_FLOW_OPEN_END;
+  parts: [];
+}
+
+export interface ControlFlowCloseToken extends TokenBase {
+  type: TokenType.CONTROL_FLOW_CLOSE;
+  parts: [prefix: string, name: string];
+}
+
+export interface ControlFlowCaseStartToken extends TokenBase {
+  type: TokenType.CONTROL_FLOW_CASE_START;
+  parts: [name: string];
+}
+
+export interface ControlFlowCaseEndToken extends TokenBase {
+  type: TokenType.CONTROL_FLOW_CASE_END;
+  parts: [name: string];
 }
 
 export interface TagOpenEndToken extends TokenBase {

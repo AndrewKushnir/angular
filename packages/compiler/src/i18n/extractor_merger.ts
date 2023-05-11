@@ -218,6 +218,14 @@ class _Visitor implements html.Visitor {
     return text;
   }
 
+  visitControlFlow(controlFlow: html.ControlFlow, context: any) {
+    html.visitAll(this, controlFlow.children);
+  }
+
+  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
+    html.visitAll(this, controlFlowCase.children);
+  }
+
   visitElement(el: html.Element, context: any): html.Element|null {
     this._mayBeAddBlockChildren(el);
     this._depth++;

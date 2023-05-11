@@ -16,7 +16,8 @@ interface BaseNode {
   visit(visitor: Visitor, context: any): any;
 }
 
-export type Node = Attribute|Comment|Element|Expansion|ExpansionCase|Text;
+export type Node =
+    Attribute|Comment|Element|Expansion|ExpansionCase|Text|ControlFlow|ControlFlowCase;
 
 export abstract class NodeWithI18n implements BaseNode {
   constructor(public sourceSpan: ParseSourceSpan, public i18n?: I18nMeta) {}
@@ -79,6 +80,26 @@ export class Element extends NodeWithI18n {
   }
 }
 
+export class ControlFlow implements BaseNode {
+  constructor(
+      public name: string, public attrs: Attribute[], public children: ControlFlowCase[],
+      public sourceSpan: ParseSourceSpan, public startSourceSpan: ParseSourceSpan,
+      public endSourceSpan: ParseSourceSpan|null = null) {}
+  visit(visitor: Visitor, context: any): any {
+    return visitor.visitControlFlow(this, context);
+  }
+}
+
+export class ControlFlowCase implements BaseNode {
+  constructor(
+      public name: string, public attrs: Attribute[], public children: Node[],
+      public sourceSpan: ParseSourceSpan, public startSourceSpan: ParseSourceSpan,
+      public endSourceSpan: ParseSourceSpan|null = null) {}
+  visit(visitor: Visitor, context: any): any {
+    return visitor.visitControlFlowCase(this, context);
+  }
+}
+
 export class Comment implements BaseNode {
   constructor(public value: string|null, public sourceSpan: ParseSourceSpan) {}
   visit(visitor: Visitor, context: any): any {
@@ -97,6 +118,8 @@ export interface Visitor {
   visitComment(comment: Comment, context: any): any;
   visitExpansion(expansion: Expansion, context: any): any;
   visitExpansionCase(expansionCase: ExpansionCase, context: any): any;
+  visitControlFlow(controlFlow: ControlFlow, context: any): any;
+  visitControlFlowCase(controlFlowCase: ControlFlowCase, context: any): any;
 }
 
 export function visitAll(visitor: Visitor, nodes: Node[], context: any = null): any[] {
@@ -120,6 +143,19 @@ export class RecursiveVisitor implements Visitor {
   visitElement(ast: Element, context: any): any {
     this.visitChildren(context, visit => {
       visit(ast.attrs);
+      visit(ast.children);
+    });
+  }
+
+  visitControlFlow(ast: ControlFlow, context: any): any {
+    this.visitChildren(context, visit => {
+      visit(ast.attrs);
+      visit(ast.children);
+    });
+  }
+
+  visitControlFlowCase(ast: ControlFlowCase, context: any): any {
+    this.visitChildren(context, visit => {
       visit(ast.children);
     });
   }

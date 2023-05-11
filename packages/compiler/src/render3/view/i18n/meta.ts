@@ -165,6 +165,14 @@ export class I18nMetaVisitor implements html.Visitor {
     return expansionCase;
   }
 
+  visitControlFlow(controlFlow: html.ControlFlow, context: any) {
+    html.visitAll(this, controlFlow.children, context);
+  }
+
+  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
+    html.visitAll(this, controlFlowCase.children, context);
+  }
+
   /**
    * Parse the general form `meta` passed into extract the explicit metadata needed to create a
    * `Message`.
