@@ -260,9 +260,7 @@ class HtmlAstToIvyAst implements html.Visitor {
   }
 
   visitControlFlow(controlFlow: html.ControlFlow, context: any): t.ControlFlow {
-    // TODO: implement!
     const children: t.Node[] = html.visitAll(this, controlFlow.children);
-    debugger;
     const attrs: t.TextAttribute[] = [];
     const parsedProperties: ParsedProperty[] = [];
     const boundEvents: t.BoundEvent[] = [];
@@ -280,18 +278,16 @@ class HtmlAstToIvyAst implements html.Visitor {
     }
 
     const _attrs = this.extractAttributes(controlFlow.name, parsedProperties, {});
-
-    debugger;
-
     return new t.ControlFlow(
         controlFlow.name, _attrs.literal, _attrs.bound, boundEvents, children,
         controlFlow.sourceSpan, controlFlow.startSourceSpan, controlFlow.endSourceSpan);
   }
 
   visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any): t.ControlFlowCase {
-    // TODO: implement!
-    debugger;
-    return {} as any;
+    const children: t.Node[] = html.visitAll(this, controlFlowCase.children);
+    return new t.ControlFlowCase(
+        controlFlowCase.name, children, controlFlowCase.sourceSpan, controlFlowCase.startSourceSpan,
+        controlFlowCase.endSourceSpan);
   }
 
   visitExpansion(expansion: html.Expansion): t.Icu|null {

@@ -165,6 +165,7 @@ export {
   ɵɵpureFunction8,
   ɵɵpureFunctionV,
 } from './pure_function';
+export {NgLazy as ɵɵNgLazy} from '../ng_lazy';
 export {
   ɵɵcontentQuery,
   ɵɵloadQuery,

@@ -84,9 +84,10 @@ export function ɵɵtemplate(
 }
 
 export function ɵɵlazy(
-    index: number, templateFn: ComponentTemplate<any>|null, lazyDepsFn: LazyDepsFn, decls: number,
-    vars: number, tagName?: string|null, attrsIndex?: number|null, localRefsIndex?: number|null,
-    localRefExtractor?: LocalRefExtractor) {
+    index: number, templateFn: ComponentTemplate<any>|null, decls: number, vars: number,
+    lazyDepsFn: LazyDepsFn, tagName?: string|null, attrsIndex?: number|null,
+    localRefsIndex?: number|null, localRefExtractor?: LocalRefExtractor) {
+  lazyDepsFn = lazyDepsFn ?? (() => []);
   return templateInternal(
       index, templateFn, lazyDepsFn, decls, vars, tagName, attrsIndex, localRefsIndex,
       localRefExtractor);

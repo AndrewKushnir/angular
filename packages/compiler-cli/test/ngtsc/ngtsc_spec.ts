@@ -40,7 +40,7 @@ function getDiagnosticSourceCode(diag: ts.Diagnostic): string {
   return diag.file!.text.slice(diag.start!, diag.start! + diag.length!);
 }
 
-runInEachFileSystem(allTests);
+runInEachFileSystem.native(allTests);
 
 // Wrap all tests into a function to work around clang-format going crazy and (poorly)
 // reformatting the entire file.
@@ -51,6 +51,31 @@ function allTests(os: string) {
     beforeEach(() => {
       env = NgtscTestEnvironment.setup(testFiles);
       env.tsconfig();
+    });
+
+    describe('control flow', () => {
+      fit('basic scenarios', () => {
+        const template =
+            '{#lazy [when]="isVisible"}<my-cmp />{:loading}Loading...{:placeholder}Placeholder{/#lazy}';
+
+        env.write('test.ts', `
+            import {Component} from '@angular/core';
+    
+            @Component({
+              selector: '[test]',
+              template: '${template}',
+            })
+            export class TestCmp {}
+        `);
+
+        env.driveMain();
+
+        const jsContents = env.getContents('test.js');
+
+        debugger;
+
+        expect(jsContents).toContain('Hello World');
+      });
     });
 
     it('should accept relative file paths as command line argument', () => {

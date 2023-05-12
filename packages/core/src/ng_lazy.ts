@@ -23,9 +23,9 @@ export class NgLazy {
     selectors: [['', 'ngLazy', '']],
     standalone: true,
     inputs: {
-      loadingTmpl: 'loadingTmpl',
-      placeholderTmpl: 'placeholderTmpl',
-      errorTmpl: 'errorTmpl',
+      loading: 'loading',
+      placeholder: 'placeholder',
+      error: 'error',
       when: 'when',
     },
   });
@@ -34,9 +34,9 @@ export class NgLazy {
   private lazyTemplate = inject(LazyTemplateRef);
 
   // @Input() Loading template ref input
-  loadingTmpl?: any;      // TemplateRef<unknown>;
-  placeholderTmpl?: any;  // TemplateRef<unknown>;
-  errorTmpl?: any;        // TemplateRef<unknown>;
+  loading?: any;          // TemplateRef<unknown>;
+  placeholder?: any;      // TemplateRef<unknown>;
+  error?: any;            // TemplateRef<unknown>;
   when: boolean = false;  // when condition
 
   private previousWhen: boolean|null = null;
@@ -51,8 +51,8 @@ export class NgLazy {
     debugger;
     if (this.previousWhen === null && this.when === false) {
       // Show placeholder...
-      const placeholderTNode = this.placeholderTmpl[T_HOST];
-      const placeholderLView = this.placeholderTmpl[PARENT];
+      const placeholderTNode = this.placeholder[T_HOST];
+      const placeholderLView = this.placeholder[PARENT];
       const placeholderTmplRef = createTemplateRef(placeholderTNode, placeholderLView);
       this.vcr.clear();
       this.vcr.createEmbeddedView(placeholderTmplRef!);
@@ -60,8 +60,8 @@ export class NgLazy {
       this.previousWhen = this.when;
     } else if (this.previousWhen === false && this.when === true) {
       // show loading
-      const loadingTNode = this.loadingTmpl[T_HOST];
-      const loadingLView = this.loadingTmpl[PARENT];
+      const loadingTNode = this.loading[T_HOST];
+      const loadingLView = this.loading[PARENT];
       const loadingTmplRef = createTemplateRef(loadingTNode, loadingLView);
       this.vcr.clear();
       this.vcr.createEmbeddedView(loadingTmplRef!);
@@ -75,8 +75,8 @@ export class NgLazy {
             this.vcr.createEmbeddedView(templateRef);
           })
           .catch(() => {
-            const errorTNode = this.errorTmpl[T_HOST];
-            const errorLView = this.errorTmpl[PARENT];
+            const errorTNode = this.error[T_HOST];
+            const errorLView = this.error[PARENT];
             const errorTmplRef = createTemplateRef(errorTNode, errorLView);
             this.vcr.clear();
             this.vcr.createEmbeddedView(errorTmplRef!);

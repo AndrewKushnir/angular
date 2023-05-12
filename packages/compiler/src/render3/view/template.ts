@@ -620,11 +620,118 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   visitControlFlow(controlFlow: t.ControlFlow): void {
-    // TODO: implement this!
+    const templateIndex = this.allocateDataSlot();
+
+    const contextName = `${this.contextName}${
+        controlFlow.name ? '_' + sanitizeIdentifier(controlFlow.name) : ''}_${templateIndex}`;
+    const templateName = `${contextName}_Template`;
+    const parameters: o.Expression[] = [
+      o.literal(templateIndex),  //
+      o.variable(templateName),
+      o.TYPED_NULL_EXPR,  // TODO: this is where depsFn needs to go
+      o.TYPED_NULL_EXPR,  // o.literal(controlFlow.name),
+    ];
+
+    // This is a hack for now to enable NgLazy directive.
+    const ngLazyAttr = new t.TextAttribute('ngLazy', 'true', null!, null!);
+
+    // prepare attributes parameter (including attributes used for directive matching)
+    const attrsExprs: o.Expression[] = this.getAttributeExpressions(
+        controlFlow.name, [ngLazyAttr, ...controlFlow.attributes], controlFlow.inputs,
+        controlFlow.outputs, undefined /* styles */, [ngLazyAttr]);
+    parameters.push(this.addAttrsToConsts(attrsExprs));
+
+    // Create the template function
+    const templateVisitor = new TemplateDefinitionBuilder(
+        this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
+        templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
+        this.i18nUseExternalIds, this._constants);
+
+    // Nested templates must not be visited until after their parent templates have completed
+    // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
+    // be able to support bindings in nested templates to local refs that occur after the
+    // template definition. e.g. <div *ngIf="showing">{{ foo }}</div>  <div #foo></div>
+    const [defaultCase, otherCases] =
+        partitionArray(controlFlow.children, (child: any) => child.name === 'default');
+
+    this._nestedTemplateFns.push(() => {
+      // Use default case as a content for the `lazy` instruction function.
+      const templateFunctionExpr = templateVisitor.buildTemplateFunction(
+          (defaultCase[0] as any).children, [],
+          this._ngContentReservedSlots.length + this._ngContentSelectorsOffset);
+      this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName!));
+    });
+
+    // e.g. template(1, MyComp_Template_1)
+    this.creationInstruction(controlFlow.sourceSpan, R3.lazy, () => {
+      parameters.splice(
+          2, 0, o.literal(templateVisitor.getConstCount()),
+          o.literal(templateVisitor.getVarCount()));
+      return trimTrailingNulls(parameters);
+    });
+
+    // Add the input bindings
+    if (controlFlow.inputs.length > 0) {
+      this.templatePropertyBindings(templateIndex, controlFlow.inputs);
+    }
+
+    // Generate listeners for directive output
+    for (const outputAst of controlFlow.outputs) {
+      this.creationInstruction(
+          outputAst.sourceSpan, R3.listener,
+          this.prepareListenerParameter('ng_template', outputAst, templateIndex));
+    }
+
+    // Step 2: create instructions for cases:
+    otherCases.forEach((controlFlowCase: any) => {
+      // Create references to case templates
+      const params = [
+        o.literal(controlFlowCase.name),
+        // reference(4)
+        o.importExpr(R3.reference).callFn([o.literal(this.getConstCount())])
+      ];
+      this.allocateBindingSlots(null);
+      this.updateInstructionWithAdvance(templateIndex, controlFlowCase.span, R3.property, params);
+      this.visitControlFlowCase(controlFlowCase);
+    });
   }
 
   visitControlFlowCase(controlFlowCase: t.ControlFlowCase): void {
-    // TODO: implement this!
+    const templateIndex = this.allocateDataSlot();
+
+    const contextName = `${this.contextName}${
+        controlFlowCase.name ? '_' + sanitizeIdentifier(controlFlowCase.name) :
+                               ''}_${templateIndex}`;
+    const templateName = `${contextName}_Template`;
+    const parameters: o.Expression[] = [
+      o.literal(templateIndex),
+      o.variable(templateName),
+      o.literal(controlFlowCase.name),
+    ];
+
+    // Cases have no attributes
+    parameters.push(this.addAttrsToConsts([]));
+
+    // Create the template function
+    const templateVisitor = new TemplateDefinitionBuilder(
+        this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
+        templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
+        this.i18nUseExternalIds, this._constants);
+
+    this._nestedTemplateFns.push(() => {
+      const templateFunctionExpr = templateVisitor.buildTemplateFunction(
+          controlFlowCase.children, [],
+          this._ngContentReservedSlots.length + this._ngContentSelectorsOffset);
+      this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName!));
+    });
+
+    // e.g. template(1, MyComp_Template_1)
+    this.creationInstruction(controlFlowCase.sourceSpan, R3.templateCreate, () => {
+      parameters.splice(
+          2, 0, o.literal(templateVisitor.getConstCount()),
+          o.literal(templateVisitor.getVarCount()));
+      return trimTrailingNulls(parameters);
+    });
   }
 
   visitElement(element: t.Element) {
@@ -735,7 +842,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       }
 
       // Note: it's important to keep i18n/i18nStart instructions after i18nAttributes and
-      // listeners, to make sure i18nAttributes instruction targets current element at runtime.
+      // listeners, to make sure i18nAttributes instruction targets current element at
+      // runtime.
       if (isI18nRootElement) {
         this.i18nStart(element.startSourceSpan, element.i18n!, createSelfClosingI18nInstruction);
       }
@@ -783,8 +891,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
               prepareSyntheticPropertyName(input.name))
         });
       } else {
-        // we must skip attributes with associated i18n context, since these attributes are handled
-        // separately and corresponding `i18nExp` and `i18nApply` instructions will be generated
+        // we must skip attributes with associated i18n context, since these attributes are
+        // handled separately and corresponding `i18nExp` and `i18nApply` instructions will be
+        // generated
         if (input.i18n) return;
 
         const value = input.value.visit(this._valueConverter);
@@ -826,7 +935,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
                   params);
             } else {
               // [prop]="value"
-              // Collect all the properties so that we can chain into a single function at the end.
+              // Collect all the properties so that we can chain into a single function at the
+              // end.
               propertyBindings.push({
                 span: input.sourceSpan,
                 paramsOrFn: getBindingFunctionParams(
@@ -934,9 +1044,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         this.i18nUseExternalIds, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
-    // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
-    // be able to support bindings in nested templates to local refs that occur after the
-    // template definition. e.g. <div *ngIf="showing">{{ foo }}</div>  <div #foo></div>
+    // processing, so they are queued here until after the initial pass. Otherwise, we
+    // wouldn't be able to support bindings in nested templates to local refs that occur after
+    // the template definition. e.g. <div *ngIf="showing">{{ foo }}</div>  <div #foo></div>
     this._nestedTemplateFns.push(() => {
       const templateFunctionExpr = templateVisitor.buildTemplateFunction(
           template.children, template.variables,
@@ -963,10 +1073,10 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       const [i18nInputs, inputs] =
           partitionArray<t.BoundAttribute, t.BoundAttribute>(template.inputs, hasI18nMeta);
 
-      // Add i18n attributes that may act as inputs to directives. If such attributes are present,
-      // generate `i18nAttributes` instruction. Note: we generate it only for explicit <ng-template>
-      // elements, in case of inline templates, corresponding instructions will be generated in the
-      // nested template function.
+      // Add i18n attributes that may act as inputs to directives. If such attributes are
+      // present, generate `i18nAttributes` instruction. Note: we generate it only for
+      // explicit <ng-template> elements, in case of inline templates, corresponding
+      // instructions will be generated in the nested template function.
       if (i18nInputs.length > 0) {
         this.i18nAttributesInstruction(
             templateIndex, i18nInputs, template.startSourceSpan ?? template.sourceSpan);
@@ -1050,8 +1160,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
     // we always need post-processing function for ICUs, to make sure that:
     // - all placeholders in a form of {PLACEHOLDER} are replaced with actual values (note:
-    // `goog.getMsg` does not process ICUs and uses the `{PLACEHOLDER}` format for placeholders
-    // inside ICUs)
+    // `goog.getMsg` does not process ICUs and uses the `{PLACEHOLDER}` format for
+    // placeholders inside ICUs)
     // - all ICU vars (such as `VAR_SELECT` or `VAR_PLURAL`) are replaced with correct values
     const transformFn = (raw: o.ReadVarExpr) => {
       const params = {...vars, ...placeholders};
@@ -1121,9 +1231,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
       this.allocateBindingSlots(value);
       if (value instanceof Interpolation) {
-        // Params typically contain attribute namespace and value sanitizer, which is applicable
-        // for regular HTML elements, but not applicable for <ng-template> (since props act as
-        // inputs to directives), so keep params array empty.
+        // Params typically contain attribute namespace and value sanitizer, which is
+        // applicable for regular HTML elements, but not applicable for <ng-template> (since
+        // props act as inputs to directives), so keep params array empty.
         const params: any[] = [];
 
         // prop="{{value}}" case
@@ -1236,9 +1346,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   /**
-   * Gets a list of argument expressions to pass to an update instruction expression. Also updates
-   * the temp variables state with temp variables that were identified as needing to be created
-   * while visiting the arguments.
+   * Gets a list of argument expressions to pass to an update instruction expression. Also
+   * updates the temp variables state with temp variables that were identified as needing to
+   * be created while visiting the arguments.
    * @param value The original expression we will be resolving an arguments list from.
    */
   private getUpdateInstructionArguments(value: Interpolation): o.Expression[] {
@@ -1327,9 +1437,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       }
     }
 
-    // it's important that this occurs before BINDINGS and TEMPLATE because once `elementStart`
-    // comes across the BINDINGS or TEMPLATE markers then it will continue reading each value as
-    // as single property value cell by cell.
+    // it's important that this occurs before BINDINGS and TEMPLATE because once
+    // `elementStart` comes across the BINDINGS or TEMPLATE markers then it will continue
+    // reading each value as as single property value cell by cell.
     if (styles) {
       styles.populateInitialStylingAttrs(attrExprs);
     }
@@ -1430,7 +1540,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     return () => {
       const eventName: string = outputAst.name;
       const bindingFnName = outputAst.type === ParsedEventType.Animation ?
-          // synthetic @listener.foo values are treated the exact same as are standard listeners
+          // synthetic @listener.foo values are treated the exact same as are standard
+          // listeners
           prepareSyntheticListenerFunctionName(eventName, outputAst.phase!) :
           sanitizeIdentifier(eventName);
       const handlerName = `${this.templateName}_${tagName}_${bindingFnName}_${index}_listener`;
@@ -1792,7 +1903,8 @@ export class BindingScope implements LocalResolver {
     // it was established during creation.
     if (this.isListenerScope()) {
       if (!this.parent!.restoreViewVariable) {
-        // parent saves variable to generate a shared `const $s$ = getCurrentView();` instruction
+        // parent saves variable to generate a shared `const $s$ = getCurrentView();`
+        // instruction
         this.parent!.restoreViewVariable = o.variable(this.parent!.freshReferenceName());
       }
       this.restoreViewVariable = this.parent!.restoreViewVariable;
@@ -2039,9 +2151,9 @@ export interface ParseTemplateOptions {
   enableI18nLegacyMessageIdFormat?: boolean;
 
   /**
-   * If this text is stored in an external template (e.g. via `templateUrl`) then we need to decide
-   * whether or not to normalize the line-endings (from `\r\n` to `\n`) when processing ICU
-   * expressions.
+   * If this text is stored in an external template (e.g. via `templateUrl`) then we need to
+   * decide whether or not to normalize the line-endings (from `\r\n` to `\n`) when processing
+   * ICU expressions.
    *
    * If `true` then we will normalize ICU expression line endings.
    * The default is `false`, but this will be switched in a future major release.
@@ -2054,10 +2166,11 @@ export interface ParseTemplateOptions {
    *
    *
    * This option is useful in the context of the language service, where we want to get as much
-   * information as possible, despite any errors in the HTML. As an example, a user may be adding
-   * a new tag and expecting autocomplete on that tag. In this scenario, the HTML is in an errored
-   * state, as there is an incomplete open tag. However, we're still able to convert the HTML AST
-   * nodes to R3 AST nodes in order to provide information for the language service.
+   * information as possible, despite any errors in the HTML. As an example, a user may be
+   * adding a new tag and expecting autocomplete on that tag. In this scenario, the HTML is in
+   * an errored state, as there is an incomplete open tag. However, we're still able to convert
+   * the HTML AST nodes to R3 AST nodes in order to provide information for the language
+   * service.
    *
    * Note that even when `true` the HTML parse and i18n errors are still appended to the errors
    * output, but this is done after converting the HTML AST to R3 AST.
@@ -2067,10 +2180,11 @@ export interface ParseTemplateOptions {
   /**
    * Include HTML Comment nodes in a top-level comments array on the returned R3 AST.
    *
-   * This option is required by tooling that needs to know the location of comment nodes within the
-   * AST. A concrete example is @angular-eslint which requires this in order to enable
-   * "eslint-disable" comments within HTML templates, which then allows users to turn off specific
-   * rules on a case by case basis, instead of for their whole project within a configuration file.
+   * This option is required by tooling that needs to know the location of comment nodes within
+   * the AST. A concrete example is @angular-eslint which requires this in order to enable
+   * "eslint-disable" comments within HTML templates, which then allows users to turn off
+   * specific rules on a case by case basis, instead of for their whole project within a
+   * configuration file.
    */
   collectCommentNodes?: boolean;
 }
@@ -2142,9 +2256,9 @@ export function parseTemplate(
     rootNodes = html.visitAll(new WhitespaceVisitor(), rootNodes);
 
     // run i18n meta visitor again in case whitespaces are removed (because that might affect
-    // generated i18n message content) and first pass indicated that i18n content is present in a
-    // template. During this pass i18n IDs generated at the first pass will be preserved, so we can
-    // mimic existing extraction process (ng extract-i18n)
+    // generated i18n message content) and first pass indicated that i18n content is present in
+    // a template. During this pass i18n IDs generated at the first pass will be preserved, so
+    // we can mimic existing extraction process (ng extract-i18n)
     if (i18nMetaVisitor.hasI18nMeta) {
       rootNodes = html.visitAll(
           new I18nMetaVisitor(interpolationConfig, /* keepI18nAttrs */ false), rootNodes);
@@ -2210,7 +2324,8 @@ function trustedConstAttribute(tagName: string, attr: t.TextAttribute): o.Expres
             o.importExpr(R3.trustConstantHtml),
             new o.TemplateLiteral([new o.TemplateLiteralElement(attr.value)], []), undefined,
             attr.valueSpan);
-      // NB: no SecurityContext.SCRIPT here, as the corresponding tags are stripped by the compiler.
+      // NB: no SecurityContext.SCRIPT here, as the corresponding tags are stripped by the
+      // compiler.
       case core.SecurityContext.RESOURCE_URL:
         return o.taggedTemplate(
             o.importExpr(R3.trustConstantResourceUrl),
@@ -2339,7 +2454,8 @@ export interface ParsedTemplate {
   /**
    * Any errors from parsing the template the first time.
    *
-   * `null` if there are no errors. Otherwise, the array of errors is guaranteed to be non-empty.
+   * `null` if there are no errors. Otherwise, the array of errors is guaranteed to be
+   * non-empty.
    */
   errors: ParseError[]|null;
 
@@ -2364,8 +2480,8 @@ export interface ParsedTemplate {
   ngContentSelectors: string[];
 
   /**
-   * Any R3 Comment Nodes extracted from the template when the `collectCommentNodes` parse template
-   * option is enabled.
+   * Any R3 Comment Nodes extracted from the template when the `collectCommentNodes` parse
+   * template option is enabled.
    */
   commentNodes?: t.Comment[];
 }

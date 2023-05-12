@@ -68,6 +68,52 @@ describe('ngLazy directive', () => {
     //  Promise.all(new Promise()).then(/* ... */).catch()
   }
 
+  fit('(compiled) should work with basic cases', async () => {
+    @Component({
+      standalone: true,
+      selector: 'simple-app',
+      imports: [MyLazyCmp],
+      template: `
+        {#lazy [when]="isVisible"}
+          <my-lazy-cmp />
+        {:loading}
+          Loading...
+        {:placeholder}
+          Placeholder!
+        {:error}
+          Ooops :(
+        {/#lazy}
+      `
+    })
+    class MyCmp {
+      isVisible = false;
+    }
+
+    debugger;
+
+    const fixture = TestBed.createComponent(MyCmp);
+    fixture.detectChanges();
+
+    debugger;
+
+    expect(fixture.nativeElement.outerHTML).toContain('Placeholder');
+
+    fixture.componentInstance.isVisible = true;
+    fixture.detectChanges();
+
+    debugger;
+
+    expect(fixture.nativeElement.outerHTML).toContain('Loading');
+
+    await fixture.whenStable();
+    debugger;
+
+    setTimeout(() => {
+      debugger;
+      expect(fixture.nativeElement.outerHTML).toContain('<my-lazy-cmp>');
+    }, 0);
+  });
+
   it('should work with basic cases', async () => {
     /**
      * {#lazy}
@@ -88,7 +134,7 @@ describe('ngLazy directive', () => {
         template:
             function Template(rf: number, ctx: MyCmp) {
               if (rf & 1) {
-                lazy(0, LazyTemplate, LazyTemplateDeps, 1, 0, null, 0);
+                lazy(0, LazyTemplate, 1, 0, LazyTemplateDeps, null, 0);
                 template(1, LoadingTemplate, 1, 0);
                 template(2, PlaceholderTemplate, 1, 0);
                 template(3, ErrorTemplate, 1, 0);
@@ -130,7 +176,7 @@ describe('ngLazy directive', () => {
     }, 0);
   });
 
-  fit('should work with error case', async () => {
+  it('should work with error case', async () => {
     /**
      * {#lazy}
      *   <my-lazy-cmp />
@@ -150,7 +196,7 @@ describe('ngLazy directive', () => {
         template:
             function Template(rf: number, ctx: MyCmp) {
               if (rf & 1) {
-                lazy(0, LazyTemplate, LazyErrorTemplateDeps, 1, 0, null, 0);
+                lazy(0, LazyTemplate, 1, 0, LazyErrorTemplateDeps, null, 0);
                 template(1, LoadingTemplate, 1, 0);
                 template(2, PlaceholderTemplate, 1, 0);
                 template(3, ErrorTemplate, 1, 0);
