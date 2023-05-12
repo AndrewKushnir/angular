@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AnimationTriggerNames, compileClassMetadata, compileComponentFromMetadata, compileDeclareClassMetadata, compileDeclareComponentFromMetadata, ConstantPool, CssSelector, DeclarationListEmitMode, DeclareComponentTemplateInfo, DEFAULT_INTERPOLATION_CONFIG, DomElementSchemaRegistry, Expression, FactoryTarget, makeBindingParser, R3ComponentMetadata, R3DirectiveDependencyMetadata, R3NgModuleDependencyMetadata, R3PipeDependencyMetadata, R3TargetBinder, R3TemplateDependency, R3TemplateDependencyKind, R3TemplateDependencyMetadata, SchemaMetadata, SelectorMatcher, ViewEncapsulation, WrappedNodeExpr} from '@angular/compiler';
+import {AnimationTriggerNames, BoundTarget, compileClassMetadata, compileComponentFromMetadata, compileDeclareClassMetadata, compileDeclareComponentFromMetadata, ConstantPool, CssSelector, DeclarationListEmitMode, DeclareComponentTemplateInfo, DEFAULT_INTERPOLATION_CONFIG, DomElementSchemaRegistry, Expression, FactoryTarget, makeBindingParser, R3ComponentMetadata, R3DirectiveDependencyMetadata, R3NgModuleDependencyMetadata, R3PipeDependencyMetadata, R3TargetBinder, R3TemplateDependency, R3TemplateDependencyKind, R3TemplateDependencyMetadata, SchemaMetadata, SelectorMatcher, TmplAstLazyTemplate, ViewEncapsulation, WrappedNodeExpr} from '@angular/compiler';
 import ts from 'typescript';
 
 import {Cycle, CycleAnalyzer, CycleHandlingStrategy} from '../../../cycles';
@@ -601,6 +601,7 @@ export class ComponentDecoratorHandler implements
     const data: ComponentResolutionData = {
       declarations: EMPTY_ARRAY,
       declarationListEmitMode: DeclarationListEmitMode.Direct,
+      lazyDeclarations: new Map(),
     };
     const diagnostics: ts.Diagnostic[] = [];
 
@@ -650,19 +651,45 @@ export class ComponentDecoratorHandler implements
       const binder = new R3TargetBinder(matcher);
       const bound = binder.bind({template: metadata.template.nodes});
 
+      const lazyTemplates: Array<TmplAstLazyTemplate> = bound.getLazyTemplates();
+
+
+      const depMap = new Map<TmplAstLazyTemplate, BoundTarget<DirectiveMeta>>();
+      for (const lazyTemplate of lazyTemplates) {
+        // things to handle:
+        // - local references
+        // - semantic dependency graph updates
+        // - we don't care about cycles or remote scoping
+        // - we don't care about forward declaration status
+        depMap.set(lazyTemplate, binder.bind({template: lazyTemplate.children}));
+      }
+
       // The BoundTarget knows which directives and pipes matched the template.
       type UsedDirective = R3DirectiveDependencyMetadata&
           {ref: Reference<ClassDeclaration>, importedFile: ImportedFile};
 
-      const used = new Set<ClassDeclaration>();
+      const topLevelUsed = new Set<ClassDeclaration>();
       for (const dir of bound.getUsedDirectives()) {
-        used.add(dir.ref.node);
+        topLevelUsed.add(dir.ref.node);
       }
       for (const name of bound.getUsedPipes()) {
         if (!pipes.has(name)) {
           continue;
         }
-        used.add(pipes.get(name)!.ref.node);
+        topLevelUsed.add(pipes.get(name)!.ref.node);
+      }
+
+      const wholeTemplateUsed = new Set<ClassDeclaration>(topLevelUsed);
+      for (const bound of depMap.values()) {
+        for (const dir of bound.getUsedDirectives()) {
+          wholeTemplateUsed.add(dir.ref.node);
+        }
+        for (const name of bound.getUsedPipes()) {
+          if (!pipes.has(name)) {
+            continue;
+          }
+          wholeTemplateUsed.add(pipes.get(name)!.ref.node);
+        }
       }
 
       type UsedPipe = R3PipeDependencyMetadata&{
@@ -674,27 +701,26 @@ export class ComponentDecoratorHandler implements
         importedFile: ImportedFile,
       };
 
-      const declarations: (UsedPipe|UsedDirective|UsedNgModule)[] = [];
-      const seen = new Set<ClassDeclaration>();
+      // const declarations: (UsedPipe|UsedDirective|UsedNgModule)[] = [];
+      const declarations = new Map<ClassDeclaration, UsedPipe|UsedDirective|UsedNgModule>();
 
       // Transform the dependencies list, filtering out unused dependencies.
       for (const dep of dependencies) {
         // Only emit references to each dependency once.
-        if (seen.has(dep.ref.node)) {
+        if (declarations.has(dep.ref.node)) {
           continue;
         }
-        seen.add(dep.ref.node);
 
         switch (dep.kind) {
           case MetaKind.Directive:
-            if (!used.has(dep.ref.node) || dep.matchSource !== MatchSource.Selector) {
+            if (!wholeTemplateUsed.has(dep.ref.node) || dep.matchSource !== MatchSource.Selector) {
               continue;
             }
             const dirType = this.refEmitter.emit(dep.ref, context);
             assertSuccessfulReferenceEmit(
                 dirType, node.name, dep.isComponent ? 'component' : 'directive');
 
-            declarations.push({
+            declarations.set(dep.ref.node, {
               kind: R3TemplateDependencyKind.Directive,
               ref: dep.ref,
               type: dirType.expression,
@@ -707,14 +733,14 @@ export class ComponentDecoratorHandler implements
             });
             break;
           case MetaKind.Pipe:
-            if (!used.has(dep.ref.node)) {
+            if (!wholeTemplateUsed.has(dep.ref.node)) {
               continue;
             }
 
             const pipeType = this.refEmitter.emit(dep.ref, context);
             assertSuccessfulReferenceEmit(pipeType, node.name, 'pipe');
 
-            declarations.push({
+            declarations.set(dep.ref.node, {
               kind: R3TemplateDependencyKind.Pipe,
               type: pipeType.expression,
               name: dep.name,
@@ -726,7 +752,7 @@ export class ComponentDecoratorHandler implements
             const ngModuleType = this.refEmitter.emit(dep.ref, context);
             assertSuccessfulReferenceEmit(ngModuleType, node.name, 'NgModule');
 
-            declarations.push({
+            declarations.set(dep.ref.node, {
               kind: R3TemplateDependencyKind.NgModule,
               type: ngModuleType.expression,
               importedFile: ngModuleType.importedFile,
@@ -744,8 +770,36 @@ export class ComponentDecoratorHandler implements
           this.semanticDepGraphUpdater!.getSemanticReference(decl.ref.node, decl.type);
 
       if (this.semanticDepGraphUpdater !== null) {
-        symbol.usedDirectives = declarations.filter(isUsedDirective).map(getSemanticReference);
-        symbol.usedPipes = declarations.filter(isUsedPipe).map(getSemanticReference);
+        symbol.usedDirectives =
+            Array.from(declarations.values()).filter(isUsedDirective).map(getSemanticReference);
+        symbol.usedPipes =
+            Array.from(declarations.values()).filter(isUsedPipe).map(getSemanticReference);
+      }
+
+      const topLevelDeclarations =
+          Array.from(declarations.values())
+              .filter(
+                  decl => decl.kind === R3TemplateDependencyKind.NgModule ||
+                      topLevelUsed.has(decl.ref.node));
+
+      for (const [lazyTemplate, bound] of depMap) {
+        const usedDirectives = new Set(bound.getUsedDirectives().map(d => d.ref.node));
+        const usedPipes = new Set(bound.getUsedPipes());
+        const lazyDeclarations: R3TemplateDependencyMetadata[] = [];
+        for (const decl of Array.from(declarations.values())) {
+          if (decl.kind === R3TemplateDependencyKind.NgModule) {
+            continue;
+          }
+          if (decl.kind === R3TemplateDependencyKind.Directive &&
+              !usedDirectives.has(decl.ref.node)) {
+            continue;
+          }
+          if (decl.kind === R3TemplateDependencyKind.Pipe && !usedPipes.has(decl.name)) {
+            continue;
+          }
+          lazyDeclarations.push(decl);
+        }
+        data.lazyDeclarations.set(lazyTemplate, lazyDeclarations);
       }
 
       const cyclesFromDirectives = new Map<UsedDirective, Cycle>();
@@ -757,7 +811,7 @@ export class ComponentDecoratorHandler implements
       // imported directly by the user, so Angular won't introduce any imports that aren't already
       // in the user's program.
       if (!metadata.isStandalone) {
-        for (const usedDep of declarations) {
+        for (const usedDep of topLevelDeclarations) {
           const cycle = this._checkForCyclicImport(usedDep.importedFile, usedDep.type, context);
           if (cycle !== null) {
             switch (usedDep.kind) {
@@ -783,20 +837,20 @@ export class ComponentDecoratorHandler implements
       if (!cycleDetected) {
         // No cycle was detected. Record the imports that need to be created in the cycle detector
         // so that future cyclic import checks consider their production.
-        for (const {type, importedFile} of declarations) {
+        for (const {type, importedFile} of topLevelDeclarations) {
           this.maybeRecordSyntheticImport(importedFile, type, context);
         }
 
         // Check whether the dependencies arrays in ɵcmp need to be wrapped in a closure.
         // This is required if any dependency reference is to a declaration in the same file
         // but declared after this component.
-        const declarationIsForwardDeclared =
-            declarations.some(decl => isExpressionForwardReference(decl.type, node.name, context));
+        const declarationIsForwardDeclared = topLevelDeclarations.some(
+            decl => isExpressionForwardReference(decl.type, node.name, context));
 
         const wrapDirectivesAndPipesInClosure =
             declarationIsForwardDeclared || standaloneImportMayBeForwardDeclared;
 
-        data.declarations = declarations;
+        data.declarations = topLevelDeclarations;
         data.declarationListEmitMode = wrapDirectivesAndPipesInClosure ?
             DeclarationListEmitMode.Closure :
             DeclarationListEmitMode.Direct;
@@ -806,8 +860,8 @@ export class ComponentDecoratorHandler implements
           // create a cycle. Instead, mark this component as requiring remote scoping, so that the
           // NgModule file will take care of setting the directives for the component.
           this.scopeRegistry.setComponentRemoteScope(
-              node, declarations.filter(isUsedDirective).map(dir => dir.ref),
-              declarations.filter(isUsedPipe).map(pipe => pipe.ref));
+              node, topLevelDeclarations.filter(isUsedDirective).map(dir => dir.ref),
+              topLevelDeclarations.filter(isUsedPipe).map(pipe => pipe.ref));
           symbol.isRemotelyScoped = true;
 
           // If a semantic graph is being tracked, record the fact that this component is remotely

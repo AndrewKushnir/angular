@@ -106,6 +106,11 @@ export class BoundEvent implements Node {
   }
 }
 
+// {#for x of y}
+
+// {#lazy [when]="isVisible"}
+
+
 export class ControlFlow implements Node {
   constructor(
       public name: string, public attributes: TextAttribute[], public inputs: BoundAttribute[],
@@ -160,6 +165,8 @@ export class Template implements Node {
     return visitor.visitTemplate(this);
   }
 }
+
+export class LazyTemplate extends Template {}
 
 export class Content implements Node {
   readonly name = 'ng-content';

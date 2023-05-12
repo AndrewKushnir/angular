@@ -55,15 +55,22 @@ function allTests(os: string) {
 
     describe('control flow', () => {
       fit('basic scenarios', () => {
-        const template =
-            '{#lazy [when]="isVisible"}<my-cmp />{:loading}Loading...{:placeholder}Placeholder{/#lazy}';
+        const template = `
+          {#lazy [when]="isVisible"}
+            <my-cmp />
+          {:loading}
+            Loading...
+          {:placeholder}
+            Placeholder
+          {/#lazy}
+        `;
 
         env.write('test.ts', `
             import {Component} from '@angular/core';
     
             @Component({
               selector: '[test]',
-              template: '${template}',
+              template: \`${template}\`,
             })
             export class TestCmp {}
         `);

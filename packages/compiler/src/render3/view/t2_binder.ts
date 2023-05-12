@@ -8,7 +8,7 @@
 
 import {AST, BindingPipe, ImplicitReceiver, PropertyRead, PropertyWrite, RecursiveAstVisitor, SafePropertyRead} from '../../expression_parser/ast';
 import {SelectorMatcher} from '../../selector';
-import {BoundAttribute, BoundEvent, BoundText, Content, ControlFlow, ControlFlowCase, Element, Icu, Node, Reference, Template, Text, TextAttribute, Variable, Visitor} from '../r3_ast';
+import {BoundAttribute, BoundEvent, BoundText, Content, ControlFlow, ControlFlowCase, Element, Icu, LazyTemplate, Node, Reference, Template, Text, TextAttribute, Variable, Visitor} from '../r3_ast';
 
 import {BoundTarget, DirectiveMeta, Target, TargetBinder} from './t2_api';
 import {createCssSelector} from './template';
@@ -50,11 +50,11 @@ export class R3TargetBinder<DirectiveT extends DirectiveMeta> implements TargetB
         DirectiveBinder.apply(target.template, this.directiveMatcher);
     // Finally, run the TemplateBinder to bind references, variables, and other entities within the
     // template. This extracts all the metadata that doesn't depend on directive matching.
-    const {expressions, symbols, nestingLevel, usedPipes} =
+    const {expressions, symbols, nestingLevel, usedPipes, lazyTemplates} =
         TemplateBinder.applyWithScope(target.template, scope);
     return new R3BoundTarget(
         target, directives, bindings, references, expressions, symbols, nestingLevel,
-        templateEntities, usedPipes);
+        templateEntities, usedPipes, lazyTemplates);
   }
 }
 
@@ -312,6 +312,11 @@ class DirectiveBinder<DirectiveT extends DirectiveMeta> implements Visitor {
     // Node outputs (bound events) can be bound to an output on a directive.
     node.outputs.forEach(output => setAttributeBinding(output, 'outputs'));
 
+    if (node instanceof LazyTemplate) {
+      // this will probably break template type-checking
+      return;
+    }
+
     // Recurse into the node's children.
     node.children.forEach(child => child.visit(this));
   }
@@ -346,8 +351,8 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
   private constructor(
       private bindings: Map<AST, Reference|Variable>,
       private symbols: Map<Reference|Variable, Template>, private usedPipes: Set<string>,
-      private nestingLevel: Map<Template, number>, private scope: Scope,
-      private template: Template|null, private level: number) {
+      private lazyTemplates: Set<LazyTemplate>, private nestingLevel: Map<Template, number>,
+      private scope: Scope, private template: Template|null, private level: number) {
     super();
 
     // Save a bit of processing time by constructing this closure in advance.
@@ -382,17 +387,19 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     symbols: Map<Variable|Reference, Template>,
     nestingLevel: Map<Template, number>,
     usedPipes: Set<string>,
+    lazyTemplates: Set<LazyTemplate>,
   } {
     const expressions = new Map<AST, Reference|Variable>();
     const symbols = new Map<Variable|Reference, Template>();
     const nestingLevel = new Map<Template, number>();
     const usedPipes = new Set<string>();
+    const lazyTemplates = new Set<LazyTemplate>();
     // The top-level template has nesting level 0.
     const binder = new TemplateBinder(
-        expressions, symbols, usedPipes, nestingLevel, scope,
+        expressions, symbols, usedPipes, lazyTemplates, nestingLevel, scope,
         template instanceof Template ? template : null, 0);
     binder.ingest(template);
-    return {expressions, symbols, nestingLevel, usedPipes};
+    return {expressions, symbols, nestingLevel, usedPipes, lazyTemplates};
   }
 
   private ingest(template: Template|Node[]): void {
@@ -436,11 +443,15 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     // References are also evaluated in the outer context.
     template.references.forEach(this.visitNode);
 
+    if (template instanceof LazyTemplate) {
+      this.lazyTemplates.add(template);
+    }
+
     // Next, recurse into the template using its scope, and bumping the nesting level up by one.
     const childScope = this.scope.getChildScope(template);
     const binder = new TemplateBinder(
-        this.bindings, this.symbols, this.usedPipes, this.nestingLevel, childScope, template,
-        this.level + 1);
+        this.bindings, this.symbols, this.usedPipes, this.lazyTemplates, this.nestingLevel,
+        childScope, template, this.level + 1);
     binder.ingest(template);
   }
 
@@ -537,7 +548,7 @@ export class R3BoundTarget<DirectiveT extends DirectiveMeta> implements BoundTar
       private symbols: Map<Reference|Variable, Template>,
       private nestingLevel: Map<Template, number>,
       private templateEntities: Map<Template|null, ReadonlySet<Reference|Variable>>,
-      private usedPipes: Set<string>) {}
+      private usedPipes: Set<string>, private lazyTemplates: Set<LazyTemplate>) {}
 
   getEntitiesInTemplateScope(template: Template|null): ReadonlySet<Reference|Variable> {
     return this.templateEntities.get(template) ?? new Set();
@@ -577,6 +588,10 @@ export class R3BoundTarget<DirectiveT extends DirectiveMeta> implements BoundTar
 
   getUsedPipes(): string[] {
     return Array.from(this.usedPipes);
+  }
+
+  getLazyTemplates(): LazyTemplate[] {
+    return Array.from(this.lazyTemplates);
   }
 }
 

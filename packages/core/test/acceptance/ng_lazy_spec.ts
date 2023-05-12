@@ -70,6 +70,14 @@ describe('ngLazy directive', () => {
 
   fit('(compiled) should work with basic cases', async () => {
     @Component({
+      selector: 'my-lazy-cmp',
+      standalone: true,
+      template: 'Hi!',
+    })
+    class MyLazyCmp {
+    }
+
+    @Component({
       standalone: true,
       selector: 'simple-app',
       imports: [MyLazyCmp],

@@ -192,6 +192,8 @@ export interface R3ComponentMetadata<DeclarationT extends R3TemplateDependency> 
 
   declarations: DeclarationT[];
 
+  lazyDeclarations: Map<t.LazyTemplate, DeclarationT[]>;
+
   /**
    * Specifies how the 'directives' and/or `pipes` array, if generated, need to be emitted.
    */

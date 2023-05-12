@@ -33,6 +33,7 @@ import {Identifiers as R3} from '../r3_identifiers';
 import {htmlAstToRender3Ast} from '../r3_template_transform';
 import {prepareSyntheticListenerFunctionName, prepareSyntheticListenerName, prepareSyntheticPropertyName} from '../util';
 
+import {R3TemplateDependencyKind, R3TemplateDependencyMetadata} from './api';
 import {I18nContext} from './i18n/context';
 import {createGoogleGetMsgStatements} from './i18n/get_msg_utils';
 import {createLocalizeStatements} from './i18n/localize_utils';
@@ -653,6 +654,21 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     // template definition. e.g. <div *ngIf="showing">{{ foo }}</div>  <div #foo></div>
     const [defaultCase, otherCases] =
         partitionArray(controlFlow.children, (child: any) => child.name === 'default');
+
+    let deps!: R3TemplateDependencyMetadata[];
+    deps.map(dep => {
+      if (dep.type instanceof o.ExternalExpr) {
+        // import {MyCmp} from './cmp-a';
+        // import('./cmp-a').then({MyCmp} => MyCmp);
+
+        // import MyCmp from './cmp-a';
+        // import('./cmp-a').then({MyCmp} => MyCmp);
+
+        // return () => import(...)
+      } else {
+        return dep.type;
+      }
+    });
 
     this._nestedTemplateFns.push(() => {
       // Use default case as a content for the `lazy` instruction function.
