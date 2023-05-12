@@ -6,9 +6,6 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-// import {Directive, Input, LazyTemplateRef, TemplateRef, ViewContainerRef, ɵstringify as
-// stringify} from '@angular/core';
-
 import {inject} from './di/injector_compatibility';
 import {LazyTemplateRef, TemplateRef} from './linker';
 import {createTemplateRef} from './linker/template_ref';
@@ -33,10 +30,13 @@ export class NgLazy {
   private vcr = inject(ViewContainerRef);
   private lazyTemplate = inject(LazyTemplateRef);
 
-  // @Input() Loading template ref input
-  loading?: any;          // TemplateRef<unknown>;
-  placeholder?: any;      // TemplateRef<unknown>;
-  error?: any;            // TemplateRef<unknown>;
+  // @Input()
+  loading?: any;  // should be: TemplateRef<unknown>;
+  // @Input()
+  placeholder?: any;  // should be: TemplateRef<unknown>;
+  // @Input()
+  error?: any;  // should be:  TemplateRef<unknown>;
+  // @Input()
   when: boolean = false;  // when condition
 
   private previousWhen: boolean|null = null;
@@ -46,47 +46,46 @@ export class NgLazy {
     console.log('NgLazy created');
   }
 
-  // TODO: find a better place for this logic...
+  private renderEmbeddedView(input: any) {
+    // FIXME: accessing tNode and lView here should *not* be needed,
+    // we should receive the `TemplateRef` as an input. TODO: update
+    // the generated code to make it happen.
+    const tNode = input[T_HOST];
+    const lView = input[PARENT];
+    const templateRef = createTemplateRef(tNode, lView)!;
+    this.vcr.clear();
+    this.vcr.createEmbeddedView(templateRef);
+  }
+
   ngOnChanges() {
     debugger;
     if (this.previousWhen === null && this.when === false) {
-      // Show placeholder...
-      const placeholderTNode = this.placeholder[T_HOST];
-      const placeholderLView = this.placeholder[PARENT];
-      const placeholderTmplRef = createTemplateRef(placeholderTNode, placeholderLView);
-      this.vcr.clear();
-      this.vcr.createEmbeddedView(placeholderTmplRef!);
+      if (this.placeholder) {
+        this.renderEmbeddedView(this.placeholder);
+      }
 
       this.previousWhen = this.when;
     } else if (this.previousWhen === false && this.when === true) {
-      // show loading
-      const loadingTNode = this.loading[T_HOST];
-      const loadingLView = this.loading[PARENT];
-      const loadingTmplRef = createTemplateRef(loadingTNode, loadingLView);
-      this.vcr.clear();
-      this.vcr.createEmbeddedView(loadingTmplRef!);
-      debugger;
+      if (this.loading) {
+        this.renderEmbeddedView(this.loading);
+      }
 
+      // TODO: consider doing this for some cases in
+      // https://developer.mozilla.org/en-US/docs/Web/API/Window/requestIdleCallback.
       this.lazyTemplate.load()
           .then(templateRef => {
-            debugger;
             // Show actual content once everything is loaded...
             this.vcr.clear();
             this.vcr.createEmbeddedView(templateRef);
           })
           .catch(() => {
-            const errorTNode = this.error[T_HOST];
-            const errorLView = this.error[PARENT];
-            const errorTmplRef = createTemplateRef(errorTNode, errorLView);
-            this.vcr.clear();
-            this.vcr.createEmbeddedView(errorTmplRef!);
+            if (this.error) {
+              this.renderEmbeddedView(this.error);
+            } else {
+              // console.warn in dev mode?
+            }
           });
       this.previousWhen = this.when;
     }
-
-    // TODO: consider doing this for some cases in
-    // https://developer.mozilla.org/en-US/docs/Web/API/Window/requestIdleCallback.
-    // const templateRef = await this.lazyTemplate.load();
-    // this.vcr.createEmbeddedView(templateRef);
   }
 }
