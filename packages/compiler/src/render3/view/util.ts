@@ -284,18 +284,18 @@ export function getAttrsForDirectiveMatching(elOrTpl: t.Element|
   if (elOrTpl instanceof t.Template && elOrTpl.tagName !== 'ng-template') {
     elOrTpl.templateAttrs.forEach(a => attributesMap[a.name] = '');
   } else {
-    elOrTpl.attributes.forEach(a => {
+    elOrTpl.attributes?.forEach(a => {
       if (!isI18nAttribute(a.name)) {
         attributesMap[a.name] = a.value;
       }
     });
 
-    elOrTpl.inputs.forEach(i => {
+    elOrTpl.inputs?.forEach(i => {
       if (i.type === BindingType.Property) {
         attributesMap[i.name] = '';
       }
     });
-    elOrTpl.outputs.forEach(o => {
+    elOrTpl.outputs?.forEach(o => {
       attributesMap[o.name] = '';
     });
   }

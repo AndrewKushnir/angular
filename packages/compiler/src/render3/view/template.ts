@@ -221,7 +221,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       private contextName: string|null, private i18nContext: I18nContext|null,
       private templateIndex: number|null, private templateName: string|null,
       private _namespace: o.ExternalReference, relativeContextFilePath: string,
-      private i18nUseExternalIds: boolean,
+      private i18nUseExternalIds: boolean, private lazyDeclarations: Map<any, any>,
       private _constants: ComponentDefConsts = createComponentDefConsts()) {
     this._bindingScope = parentBindingScope.nestedScope(level);
 
@@ -646,7 +646,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this._constants);
+        this.i18nUseExternalIds, this.lazyDeclarations, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
@@ -654,22 +654,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     // template definition. e.g. <div *ngIf="showing">{{ foo }}</div>  <div #foo></div>
     const [defaultCase, otherCases] =
         partitionArray(controlFlow.children, (child: any) => child.name === 'default');
-
-    let deps!: R3TemplateDependencyMetadata[];
-    deps.map(dep => {
-      if (dep.type instanceof o.ExternalExpr) {
-        // import {MyCmp} from './cmp-a';
-        // import('./cmp-a').then({MyCmp} => MyCmp);
-
-        // import MyCmp from './cmp-a';
-        // import('./cmp-a').then({MyCmp} => MyCmp);
-
-        // return () => import(...)
-      } else {
-        return dep.type;
-      }
-    });
-
     this._nestedTemplateFns.push(() => {
       // Use default case as a content for the `lazy` instruction function.
       const templateFunctionExpr = templateVisitor.buildTemplateFunction(
@@ -677,6 +661,43 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
           this._ngContentReservedSlots.length + this._ngContentSelectorsOffset);
       this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName!));
     });
+
+    debugger;
+    const lazyDecls = this.lazyDeclarations.get(controlFlow);
+    if (lazyDecls) {
+      const depsFnName = `${contextName}_DepsFn`;
+      parameters[2] = o.variable(depsFnName);
+      // This lazy block has deps for which we need to generate dynamic imports.
+
+      const dynamicImports: o.Expression[] = [o.TYPED_NULL_EXPR];
+      const depsFnBody: o.Statement[] = [];
+      depsFnBody.push(new o.ReturnStatement(o.literalArr(dynamicImports)));
+
+      const depsFnExpr = o.fn(
+          [],  // no args
+          depsFnBody, o.INFERRED_TYPE, null, depsFnName);
+
+      this.constantPool.statements.push(depsFnExpr.toDeclStmt(depsFnName));
+      debugger;
+    }
+    /*
+let deps!: R3TemplateDependencyMetadata[];
+const _deps = deps.map(dep => {
+  debugger;
+  if (dep.type instanceof o.ExternalExpr) {
+    // import {MyCmp} from './cmp-a';
+    // import('./cmp-a').then({MyCmp} => MyCmp);
+
+    // import MyCmp from './cmp-a';
+    // import('./cmp-a').then({MyCmp} => MyCmp);
+
+    // return () => import(...)
+    return dep.type;
+  } else {
+    return dep.type;
+  }
+});
+*/
 
     // e.g. template(1, MyComp_Template_1)
     this.creationInstruction(controlFlow.sourceSpan, R3.lazy, () => {
@@ -732,7 +753,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this._constants);
+        this.i18nUseExternalIds, this.lazyDeclarations, this._constants);
 
     this._nestedTemplateFns.push(() => {
       const templateFunctionExpr = templateVisitor.buildTemplateFunction(
@@ -1057,7 +1078,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this._constants);
+        this.i18nUseExternalIds, this.lazyDeclarations, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we

@@ -67,9 +67,18 @@ function allTests(os: string) {
 
         env.write('test.ts', `
             import {Component} from '@angular/core';
+
+            @Component({
+              standalone: true,
+              selector: 'my-cmp',
+              template: 'Hi!'
+            })
+            class MyCmp {}
     
             @Component({
+              standalone: true,
               selector: '[test]',
+              imports: [MyCmp],
               template: \`${template}\`,
             })
             export class TestCmp {}
