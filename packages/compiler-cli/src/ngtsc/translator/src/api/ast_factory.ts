@@ -111,6 +111,12 @@ export interface AstFactory<TStatement, TExpression> {
       TExpression;
 
   /**
+   * TODO: add docs.
+   * @param url
+   */
+  createDynamicImport(url: string): TExpression;
+
+  /**
    * Create an identifier.
    *
    * @param name the name of the identifier.

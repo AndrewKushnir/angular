@@ -12,7 +12,7 @@ import ts from 'typescript';
 import {Cycle, CycleAnalyzer, CycleHandlingStrategy} from '../../../cycles';
 import {ErrorCode, FatalDiagnosticError, makeDiagnostic, makeRelatedInformation} from '../../../diagnostics';
 import {absoluteFrom, relative} from '../../../file_system';
-import {assertSuccessfulReferenceEmit, ImportedFile, ModuleResolver, Reference, ReferenceEmitter} from '../../../imports';
+import {assertSuccessfulReferenceEmit, ImportedFile, ImportFlags, ModuleResolver, Reference, ReferenceEmitter} from '../../../imports';
 import {DependencyTracker} from '../../../incremental/api';
 import {extractSemanticTypeParameters, SemanticDepGraphUpdater} from '../../../incremental/semantic_graph';
 import {IndexingContext} from '../../../indexer';
@@ -797,6 +797,10 @@ export class ComponentDecoratorHandler implements
           if (decl.kind === R3TemplateDependencyKind.Pipe && !usedPipes.has(decl.name)) {
             continue;
           }
+          // FIXME: this is a temporary hack, make sure that the info
+          // is included into the `decl` itself.
+          (decl as any).__info =
+              this.refEmitter.emit(decl.ref, context, ImportFlags.ForceNewImport);
           lazyDeclarations.push(decl);
         }
         data.lazyDeclarations.set(lazyTemplate, lazyDeclarations);

@@ -180,7 +180,8 @@ export class LazyTemplateRef<T> {
   async load(): Promise<TemplateRef<T>> {
     // debugger;
     if (this.embeddedViewTView.dependencies instanceof Function) {
-      this.embeddedViewTView.dependencies = await this.embeddedViewTView.dependencies();
+      this.embeddedViewTView.dependencies =
+          await Promise.all(this.embeddedViewTView.dependencies() as any);
     }
     return new R3TemplateRef(
         this.declarationLView, this.declarationTContainer,

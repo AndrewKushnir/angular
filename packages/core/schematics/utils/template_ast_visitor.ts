@@ -7,6 +7,7 @@
  */
 
 import type {TmplAstBoundAttribute, TmplAstBoundEvent, TmplAstBoundText, TmplAstContent, TmplAstElement, TmplAstIcu, TmplAstNode, TmplAstRecursiveVisitor, TmplAstReference, TmplAstTemplate, TmplAstText, TmplAstTextAttribute, TmplAstVariable} from '@angular/compiler';
+import {ControlFlow, ControlFlowCase} from '../../../compiler/src/render3/r3_ast';
 
 /**
  * A base class that can be used to implement a Render3 Template AST visitor.
@@ -41,6 +42,8 @@ export class TemplateAstVisitor implements TmplAstRecursiveVisitor {
   visitText(text: TmplAstText): void {}
   visitBoundText(text: TmplAstBoundText): void {}
   visitIcu(icu: TmplAstIcu): void {}
+  visitControlFlow(controlFlow: ControlFlow): void {}
+  visitControlFlowCase(controlFlowCase: ControlFlowCase): void {}
 
   /**
    * Visits all the provided nodes in order using this Visitor's visit methods.

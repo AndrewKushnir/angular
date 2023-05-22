@@ -65,7 +65,7 @@ function allTests(os: string) {
           {/#lazy}
         `;
 
-        env.write('test.ts', `
+        env.write('my-cmp.ts', `
             import {Component} from '@angular/core';
 
             @Component({
@@ -73,8 +73,13 @@ function allTests(os: string) {
               selector: 'my-cmp',
               template: 'Hi!'
             })
-            class MyCmp {}
-    
+            export class MyCmp {}
+        `);
+
+        env.write('test.ts', `
+            import {Component} from '@angular/core';
+            import {MyCmp} from './my-cmp';
+
             @Component({
               standalone: true,
               selector: '[test]',

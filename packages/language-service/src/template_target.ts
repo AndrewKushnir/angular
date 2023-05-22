@@ -399,6 +399,14 @@ class TemplateTargetVisitor implements t.Visitor {
     this.visitElementOrTemplate(template);
   }
 
+  visitControlFlow(controlFlow: t.ControlFlow) {
+    this.visitAll(controlFlow.children);
+  }
+
+  visitControlFlowCase(controlFlowCase: t.ControlFlowCase) {
+    this.visitAll(controlFlowCase.children);
+  }
+
   visitElementOrTemplate(element: t.Template|t.Element) {
     this.visitAll(element.attributes);
     this.visitAll(element.inputs);

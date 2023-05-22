@@ -166,6 +166,8 @@ export class PartialComponentLinkerVersion1<TStatement, TExpression> implements
         nodes: template.nodes,
         ngContentSelectors: template.ngContentSelectors,
       },
+      // FIXME: implement this correctly.
+      lazyDeclarations: new Map(),
       declarationListEmitMode,
       styles: metaObj.has('styles') ? metaObj.getArray('styles').map(entry => entry.getString()) :
                                       [],

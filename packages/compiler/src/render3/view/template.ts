@@ -667,9 +667,30 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     if (lazyDecls) {
       const depsFnName = `${contextName}_DepsFn`;
       parameters[2] = o.variable(depsFnName);
-      // This lazy block has deps for which we need to generate dynamic imports.
 
-      const dynamicImports: o.Expression[] = [o.TYPED_NULL_EXPR];
+      // This lazy block has deps for which we need to generate dynamic imports.
+      const dynamicImports: o.Expression[] = [];
+      lazyDecls.forEach((lazyDecl: any) => {
+        const symbolName = lazyDecl.type.node.escapedText;
+        // FIXME: this is a temporary hack, make sure that the info
+        // is included into the `decl` itself.
+        const info = lazyDecl.__info;
+        debugger;
+        if (info.importedFile) {
+          // e.g. `function(m) { return m.MyCmp; }`
+          const innerFn = o.fn(
+              [new o.FnParam('m', o.DYNAMIC_TYPE)],
+              [new o.ReturnStatement(o.variable('m').prop(symbolName))]);
+
+          // FIXME: there must be some helper functions to normalize this.
+          const fileName = info.importedFile.fileName.replace(/\.ts$/, '');
+          const importExpr = (new o.DynamicImportExpr(fileName)).prop('then').callFn([innerFn]);
+          dynamicImports.push(importExpr);
+        } else {
+          // local symbol
+          dynamicImports.push(o.variable(symbolName));
+        }
+      });
       const depsFnBody: o.Statement[] = [];
       depsFnBody.push(new o.ReturnStatement(o.literalArr(dynamicImports)));
 
@@ -680,24 +701,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       this.constantPool.statements.push(depsFnExpr.toDeclStmt(depsFnName));
       debugger;
     }
-    /*
-let deps!: R3TemplateDependencyMetadata[];
-const _deps = deps.map(dep => {
-  debugger;
-  if (dep.type instanceof o.ExternalExpr) {
-    // import {MyCmp} from './cmp-a';
-    // import('./cmp-a').then({MyCmp} => MyCmp);
-
-    // import MyCmp from './cmp-a';
-    // import('./cmp-a').then({MyCmp} => MyCmp);
-
-    // return () => import(...)
-    return dep.type;
-  } else {
-    return dep.type;
-  }
-});
-*/
 
     // e.g. template(1, MyComp_Template_1)
     this.creationInstruction(controlFlow.sourceSpan, R3.lazy, () => {
