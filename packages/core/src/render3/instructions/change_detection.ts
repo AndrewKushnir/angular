@@ -21,7 +21,8 @@ import {executeTemplate, executeViewQueryFn, handleError, processHostBindingOpCo
 
 export function detectChangesInternal<T>(
     tView: TView, lView: LView, context: T, notifyErrorHandler = true) {
-  const rendererFactory = lView[ENVIRONMENT].rendererFactory;
+  const environment = lView[ENVIRONMENT];
+  const rendererFactory = environment.rendererFactory;
 
   // Check no changes mode is a dev only mode used to verify that bindings have not changed
   // since they were assigned. We do not want to invoke renderer factory functions in that mode
@@ -41,7 +42,10 @@ export function detectChangesInternal<T>(
 
     // One final flush of the effects queue to catch any effects created in `ngAfterViewInit` or
     // other post-order hooks.
-    !checkNoChangesMode && lView[ENVIRONMENT].effectManager?.flush();
+    !checkNoChangesMode && environment.effectManager?.flush();
+
+    // Invoke all callbacks registered via `afterRender` hook.
+    !checkNoChangesMode && environment.afterRenderHooksManager?.invokeAll();
   }
 }
 

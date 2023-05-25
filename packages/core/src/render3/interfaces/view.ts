@@ -11,6 +11,7 @@ import {ProviderToken} from '../../di/provider_token';
 import {DehydratedView} from '../../hydration/interfaces';
 import {SchemaMetadata} from '../../metadata/schema';
 import {Sanitizer} from '../../sanitization/sanitizer';
+import {AfterRenderHooksManager} from '../hooks';
 import type {ReactiveLViewConsumer} from '../reactive_lview_consumer';
 import type {EffectManager} from '../reactivity/effect';
 
@@ -371,6 +372,8 @@ export interface LViewEnvironment {
 
   /** Container for reactivity system `effect`s. */
   effectManager: EffectManager|null;
+
+  afterRenderHooksManager: AfterRenderHooksManager|null;
 }
 
 /** Flags associated with an LView (saved in LView[FLAGS]) */

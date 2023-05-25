@@ -6,6 +6,9 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {ApplicationRef} from '../application_ref';
+import {assertInInjectionContext, ɵɵdefineInjectable} from '../di';
+import {inject} from '../di/injector_compatibility';
 import {AfterContentChecked, AfterContentInit, AfterViewChecked, AfterViewInit, DoCheck, OnChanges, OnDestroy, OnInit} from '../interface/lifecycle_hooks';
 import {setActiveConsumer} from '../signals';
 import {assertDefined, assertEqual, assertNotEqual} from '../util/assert';
@@ -18,6 +21,71 @@ import {FLAGS, HookData, InitPhaseState, LView, LViewFlags, PREORDER_HOOK_FLAGS,
 import {profiler, ProfilerEvent} from './profiler';
 import {isInCheckNoChangesMode} from './state';
 
+/**
+ * Register a callback to be invoked after each change detection cycle.
+ *
+ * @param callback
+ * @returns
+ */
+export function afterRender(callback: VoidFunction): VoidFunction {
+  ngDevMode && assertInInjectionContext(afterRender);
+
+  const manager = inject(AfterRenderHooksManager);
+  manager.register(callback);
+  return () => manager.unregister(callback);
+}
+
+/**
+ * Register a callback to be invoked after next change detection cycle.
+ * The callback is invoked only once.
+ *
+ * @param callback
+ * @returns
+ */
+export function afterNextRender(callback: VoidFunction): VoidFunction {
+  ngDevMode && assertInInjectionContext(afterRender);
+
+  const manager = inject(AfterRenderHooksManager);
+  const callbackInvokedOnce = () => {
+    manager.unregister(callbackInvokedOnce);
+    callback();
+  };
+  manager.register(callbackInvokedOnce);
+  return () => manager.unregister(callbackInvokedOnce);
+}
+
+/**
+ * Implements `afterRender` callback manager logic.
+ */
+export class AfterRenderHooksManager {
+  private callbacks: VoidFunction[] = [];
+
+  register(callback: VoidFunction) {
+    this.callbacks.push(callback);
+  }
+
+  unregister(callback: VoidFunction) {
+    const index = this.callbacks.indexOf(callback);
+    if (index > -1) {
+      this.callbacks.splice(index, 1);
+    }
+  }
+
+  invokeAll() {
+    this.callbacks.forEach(cb => cb());
+  }
+
+  ngOnDestroy() {
+    this.callbacks = [];
+  }
+
+  /** @nocollapse */
+  static ɵprov = /** @pureOrBreakMyCode */ ɵɵdefineInjectable({
+    token: AfterRenderHooksManager,
+    providedIn: 'root',
+    factory: () => new AfterRenderHooksManager(),
+  });
+}
 
 
 /**

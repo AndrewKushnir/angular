@@ -31,7 +31,7 @@ import {attachPatchData} from './context_discovery';
 import {getComponentDef} from './definition';
 import {getNodeInjectable, NodeInjector} from './di';
 import {throwProviderNotFoundError} from './errors_di';
-import {registerPostOrderHooks} from './hooks';
+import {AfterRenderHooksManager, registerPostOrderHooks} from './hooks';
 import {reportUnknownPropertyError} from './instructions/element_validation';
 import {markViewDirty} from './instructions/mark_view_dirty';
 import {renderView} from './instructions/render';
@@ -170,10 +170,13 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
 
     const effectManager = rootViewInjector.get(EffectManager, null);
 
+    const afterRenderHooksManager = rootViewInjector.get(AfterRenderHooksManager, null);
+
     const environment: LViewEnvironment = {
       rendererFactory,
       sanitizer,
       effectManager,
+      afterRenderHooksManager,
     };
 
     const hostRenderer = rendererFactory.createRenderer(null, this.componentDef);
