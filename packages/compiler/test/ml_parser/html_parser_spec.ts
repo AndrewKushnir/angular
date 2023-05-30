@@ -261,7 +261,7 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
 
       describe('control flow', () => {
         it('should support simple structures', () => {
-          const rawResult = parser.parse('{#lazy}<my-cmp />{/#lazy}', 'TestComp');
+          const rawResult = parser.parse('{#lazy}<my-cmp />{/lazy}', 'TestComp');
           expect(humanizeDom(rawResult)).toEqual([
             [html.ControlFlow, 'lazy'],
             [html.ControlFlowCase, 'default'],
@@ -271,7 +271,7 @@ import {humanizeDom, humanizeDomSourceSpans, humanizeLineColumn, humanizeNodes} 
 
         it('should support cases structures', () => {
           const rawResult = parser.parse(
-              '{#lazy [when]="isVisible"}<my-cmp />{:loading}Loading...{:placeholder}Placeholder{/#lazy}',
+              '{#lazy [when]="isVisible"}<my-cmp />{:loading}Loading...{:placeholder}Placeholder{/lazy}',
               'TestComp');
           expect(humanizeDom(rawResult)).toEqual([
             [html.ControlFlow, 'lazy'],

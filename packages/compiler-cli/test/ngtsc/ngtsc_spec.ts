@@ -62,7 +62,7 @@ function allTests(os: string) {
             Loading...
           {:placeholder}
             Placeholder
-          {/#lazy}
+          {/lazy}
         `;
 
         env.write('my-cmp.ts', `

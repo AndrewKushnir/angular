@@ -65,13 +65,11 @@ export class NgLazy {
       }
 
       this.previousWhen = this.when;
-    } else if (this.previousWhen === false && this.when === true) {
+    } else if ((this.previousWhen === false || this.previousWhen === null) && this.when === true) {
       if (this.loading) {
         this.renderEmbeddedView(this.loading);
       }
 
-      // TODO: consider doing this for some cases in
-      // https://developer.mozilla.org/en-US/docs/Web/API/Window/requestIdleCallback.
       this.lazyTemplate.load()
           .then(templateRef => {
             // Show actual content once everything is loaded...

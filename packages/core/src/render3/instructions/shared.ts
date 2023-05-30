@@ -24,7 +24,7 @@ import {normalizeDebugBindingName, normalizeDebugBindingValue} from '../../util/
 import {stringify} from '../../util/stringify';
 import {assertFirstCreatePass, assertFirstUpdatePass, assertLView, assertTNodeForLView, assertTNodeForTView} from '../assert';
 import {attachPatchData} from '../context_discovery';
-import {getDirectiveDef} from '../definition';
+import {getComponentDef, getDirectiveDef} from '../definition';
 import {getFactoryDef} from '../definition_factory';
 import {diPublicInInjector, getNodeInjectable, getOrCreateNodeInjectorForNode} from '../di';
 import {throwMultipleComponentError} from '../errors';
@@ -1073,13 +1073,13 @@ function findDirectiveDefMatches(
   // TODO: separate pipes and directives.
   if (Array.isArray(tView.dependencies)) {
     for (const dep of tView.dependencies) {
-      const dir = getDirectiveDef(dep);
+      const dir = getComponentDef(dep) || getDirectiveDef(dep);
       if (dir) {
         registry.push(dir);
       }
     }
   } else if (tView.dependencies instanceof Function) {
-    throw new Error(`Unresolved lazy dependencies... should not be possible`);
+    throw new Error(`Unresolved lazy dependencies... should not be possible!`);
   }
   let matches: DirectiveDef<unknown>[]|null = null;
   let hostDirectiveDefs: HostDirectiveDefs|null = null;

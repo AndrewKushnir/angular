@@ -1060,7 +1060,7 @@ import {ParseLocation, ParseSourceFile, ParseSourceSpan} from '../../src/parse_u
 
     describe('control flow', () => {
       it('should parse simple #lazy', () => {
-        const result = tokenizeAndHumanizeParts('{#lazy [when]="visible"}<cmp />{/#lazy}');
+        const result = tokenizeAndHumanizeParts('{#lazy [when]="visible"}<cmp />{/lazy}');
         expect(result).toEqual([
           [TokenType.CONTROL_FLOW_OPEN_START, 'lazy'],
           [TokenType.ATTR_NAME, '', '[when]'],
@@ -1082,7 +1082,7 @@ import {ParseLocation, ParseSourceFile, ParseSourceSpan} from '../../src/parse_u
             '{:loading}Loading...' +
             '{:error}Error' +
             '{:placeholder}<img />' +
-            '{/#lazy}');
+            '{/lazy}');
         expect(result).toEqual([
           [TokenType.CONTROL_FLOW_OPEN_START, 'lazy'],
           [TokenType.ATTR_NAME, '', '[when]'],

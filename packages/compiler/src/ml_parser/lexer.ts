@@ -199,7 +199,7 @@ class _Tokenizer {
           }
         } else if (this._attemptStr('{#')) {
           this._consumeControlFlowStart();
-        } else if (this._attemptStr('{/#')) {
+        } else if (this._attemptStr('{/')) {
           this._consumeControlFlowEnd();
         } else if (this._attemptStr('{:')) {
           this._consumeControlFlowCase();
@@ -906,7 +906,7 @@ class _Tokenizer {
     if (this._cursor.peek() === chars.$LBRACE) {
       const tmp = this._cursor.clone();
       tmp.advance();
-      // Checking for `{#`, `{/#` and `{:`
+      // Checking for `{#`, `{/` and `{:`
       const code = tmp.peek();
       if (code === chars.$COLON || code === chars.$SLASH || code == chars.$HASH) {
         return true;

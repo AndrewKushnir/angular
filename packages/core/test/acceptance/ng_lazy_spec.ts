@@ -90,7 +90,7 @@ describe('ngLazy directive', () => {
           Placeholder!
         {:error}
           Ooops :(
-        {/#lazy}
+        {/lazy}
       `
     })
     class MyCmp {
@@ -128,7 +128,7 @@ describe('ngLazy directive', () => {
      *   <my-lazy-cmp />
      * {:loading}
      *   Loading...
-     * {/#lazy}
+     * {/lazy}
      */
     class MyCmp {
       static ɵfac = () => new MyCmp();
@@ -190,7 +190,7 @@ describe('ngLazy directive', () => {
      *   <my-lazy-cmp />
      * {:loading}
      *   Loading...
-     * {/#lazy}
+     * {/lazy}
      */
     class MyCmp {
       static ɵfac = () => new MyCmp();

@@ -273,7 +273,7 @@ describe('R3 template transform', () => {
   describe('control flow', () => {
     fit('should support simple cases', () => {
       const html =
-          '{#lazy [when]="isVisible"}<my-cmp />{:loading}Loading...{:placeholder}Placeholder{/#lazy}';
+          '{#lazy [when]="isVisible"}<my-cmp />{:loading}Loading...{:placeholder}Placeholder{/lazy}';
       debugger;
       const res = parse(html, {ignoreError: false});
       debugger;
