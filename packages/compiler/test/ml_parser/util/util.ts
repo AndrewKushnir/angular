@@ -49,6 +49,8 @@ class _SerializerVisitor implements html.Visitor {
     return this._visitAll(controlFlowCase.children);
   }
 
+  visitControlFlowCondition(controlFlowCondition: html.ControlFlowCondition, context: any) {}
+
   private _visitAll(nodes: html.Node[], join: string = ''): string {
     if (nodes.length == 0) {
       return '';

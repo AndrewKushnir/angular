@@ -91,6 +91,8 @@ class _Expander implements html.Visitor {
   visitControlFlow(controlFlow: html.ControlFlow, context: any) {}
 
   visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {}
+
+  visitControlFlowCondition(controlFlowCondition: html.ControlFlowCondition, context: any) {}
 }
 
 // Plural forms are expanded to `NgPlural` and `NgPluralCase`s

@@ -36,17 +36,19 @@ export const enum TokenType {
   EOF,
   CONTROL_FLOW_OPEN_START,
   CONTROL_FLOW_OPEN_END,
+  CONTROL_FLOW_CONDITION,
   CONTROL_FLOW_CASE_START,
   CONTROL_FLOW_CASE_END,
   CONTROL_FLOW_CLOSE
 }
 
-export type Token = TagOpenStartToken|TagOpenEndToken|TagOpenEndVoidToken|TagCloseToken|
-    IncompleteTagOpenToken|TextToken|InterpolationToken|EncodedEntityToken|CommentStartToken|
-    CommentEndToken|CdataStartToken|CdataEndToken|AttributeNameToken|AttributeQuoteToken|
-    AttributeValueTextToken|AttributeValueInterpolationToken|DocTypeToken|ExpansionFormStartToken|
-    ExpansionCaseValueToken|ExpansionCaseExpressionStartToken|ExpansionCaseExpressionEndToken|
-    ExpansionFormEndToken|EndOfFileToken|ControlFlowOpenStartToken|ControlFlowOpenEndToken|
+export type Token =
+    TagOpenStartToken|TagOpenEndToken|TagOpenEndVoidToken|TagCloseToken|IncompleteTagOpenToken|
+    TextToken|InterpolationToken|EncodedEntityToken|CommentStartToken|CommentEndToken|
+    CdataStartToken|CdataEndToken|AttributeNameToken|AttributeQuoteToken|AttributeValueTextToken|
+    AttributeValueInterpolationToken|DocTypeToken|ExpansionFormStartToken|ExpansionCaseValueToken|
+    ExpansionCaseExpressionStartToken|ExpansionCaseExpressionEndToken|ExpansionFormEndToken|
+    EndOfFileToken|ControlFlowOpenStartToken|ControlFlowOpenEndToken|ControlFlowConditionToken|
     ControlFlowCloseToken|ControlFlowCaseStartToken|ControlFlowCaseEndToken;
 
 export type InterpolatedTextToken = TextToken|InterpolationToken|EncodedEntityToken;
@@ -78,6 +80,12 @@ export interface ControlFlowOpenEndToken extends TokenBase {
 export interface ControlFlowCloseToken extends TokenBase {
   type: TokenType.CONTROL_FLOW_CLOSE;
   parts: [prefix: string, name: string];
+}
+
+
+export interface ControlFlowConditionToken extends TokenBase {
+  type: TokenType.CONTROL_FLOW_CONDITION;
+  parts: [condition: string];
 }
 
 export interface ControlFlowCaseStartToken extends TokenBase {

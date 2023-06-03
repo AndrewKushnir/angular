@@ -259,35 +259,64 @@ class HtmlAstToIvyAst implements html.Visitor {
     return this._visitTextWithInterpolation(text.value, text.sourceSpan, text.tokens, text.i18n);
   }
 
-  visitControlFlow(controlFlow: html.ControlFlow, context: any): t.ControlFlow {
-    const children: t.Node[] = html.visitAll(this, controlFlow.children);
-    const attrs: t.TextAttribute[] = [];
-    const parsedProperties: ParsedProperty[] = [];
-    const boundEvents: t.BoundEvent[] = [];
+  private createDeferredTemplate(controlFlow: html.ControlFlow, context: any): t.DeferredTemplate {
+    function getBlockKeyByName(name: string): t.DeferredTemplateBlock {
+      if (name === 'primary') return t.DeferredTemplateBlock.PRIMARY;
+      if (name === 'loading') return t.DeferredTemplateBlock.LOADING;
+      if (name === 'error') return t.DeferredTemplateBlock.ERROR;
+      if (name === 'placeholder') return t.DeferredTemplateBlock.PLACEHOLDER;
+      throw new Error(`Unexpected block name in {#defer}: ${name}`);
+    }
 
-    for (const attribute of controlFlow.attrs) {
-      // Check for variables, events, property bindings, interpolation
-      const hasBinding =
-          this.parseAttribute(false, attribute, [], parsedProperties, boundEvents, [], []);
+    const blocks: {[key in t.DeferredTemplateBlock]?: t.Template} = {};
+    const conditions: {[key in t.DeferredTemplateBlock]?: t.DeferredTemplateCondition[]} = {};
 
-      // ???
-      if (!hasBinding) {
-        // don't include the bindings as attributes as well in the AST
-        attrs.push(this.visitAttribute(attribute));
+    for (const block of controlFlow.children) {
+      const key = getBlockKeyByName(block.name);
+
+      blocks[key] = this.createDeferredTemplateBlock(block, context);
+
+      for (const condition of controlFlow.conditions) {
+        if (!conditions[key]) {
+          conditions[key] = [];
+        }
+        conditions[key]!.push(this.createDeferredTemplateCondition(condition, context));
       }
     }
 
-    const _attrs = this.extractAttributes(controlFlow.name, parsedProperties, {});
-    return new t.ControlFlow(
-        controlFlow.name, _attrs.literal, _attrs.bound, boundEvents, children,
-        controlFlow.sourceSpan, controlFlow.startSourceSpan, controlFlow.endSourceSpan);
+    return new t.DeferredTemplate(
+        conditions, blocks, controlFlow.sourceSpan, controlFlow.startSourceSpan,
+        controlFlow.endSourceSpan);
   }
 
-  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any): t.ControlFlowCase {
+  private createDeferredTemplateBlock(controlFlowCase: html.ControlFlowCase, context: any) {
     const children: t.Node[] = html.visitAll(this, controlFlowCase.children);
-    return new t.ControlFlowCase(
-        controlFlowCase.name, children, controlFlowCase.sourceSpan, controlFlowCase.startSourceSpan,
-        controlFlowCase.endSourceSpan);
+    return new t.Template(
+        null, [], [], [], [], children, [], [], controlFlowCase.sourceSpan,
+        controlFlowCase.startSourceSpan, controlFlowCase.endSourceSpan);
+  }
+
+  private createDeferredTemplateCondition(
+      controlFlowCondition: html.ControlFlowCondition, context: any): t.DeferredTemplateCondition {
+    // TODO: parse condition from a string -> AST
+    return new t.DeferredTemplateCondition(
+        controlFlowCondition.condition, controlFlowCondition.sourceSpan);
+  }
+
+  visitControlFlow(controlFlow: html.ControlFlow, context: any): t.Node {
+    if (controlFlow.name === 'defer') {
+      return this.createDeferredTemplate(controlFlow, context);
+    }
+
+    throw new Error(`Unsupported control flow type: ${controlFlow.name}`);
+  }
+
+  visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
+    // This is handled in the ControlFlow visitor fn, specific per control flow type.
+  }
+
+  visitControlFlowCondition(controlFlowCondition: html.ControlFlowCondition, context: any) {
+    // This is handled in the ControlFlow visitor fn, specific per control flow type.
   }
 
   visitExpansion(expansion: html.Expansion): t.Icu|null {
@@ -580,6 +609,10 @@ class NonBindableVisitor implements html.Visitor {
 
   visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
     html.visitAll(this, controlFlowCase.children, context);
+  }
+
+  visitControlFlowCondition(controlFlowCondition: html.ControlFlowCondition, context: any) {
+    return null;
   }
 }
 

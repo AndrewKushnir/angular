@@ -12,7 +12,7 @@ import {ParseError, ParseLocation, ParseSourceFile, ParseSourceSpan} from '../pa
 import {NAMED_ENTITIES} from './entities';
 import {DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig} from './interpolation_config';
 import {TagContentType, TagDefinition} from './tags';
-import {IncompleteTagOpenToken, TagOpenStartToken, Token, TokenType} from './tokens';
+import {ControlFlowConditionToken, IncompleteTagOpenToken, TagOpenStartToken, Token, TokenType} from './tokens';
 
 export class TokenError extends ParseError {
   constructor(errorMsg: string, public tokenType: TokenType|null, span: ParseSourceSpan) {
@@ -511,16 +511,7 @@ class _Tokenizer {
     this._endToken([name]) as TagOpenStartToken;
     this._attemptCharCodeUntilFn(isNotWhitespace);
 
-    // Handle attributes inside control flow opening tag...
-    while (this._cursor.peek() !== chars.$RBRACE && this._cursor.peek() !== chars.$EOF) {
-      this._consumeAttributeName();
-      this._attemptCharCodeUntilFn(isNotWhitespace);
-      if (this._attemptCharCode(chars.$EQ)) {
-        this._attemptCharCodeUntilFn(isNotWhitespace);
-        this._consumeAttributeValue();
-      }
-      this._attemptCharCodeUntilFn(isNotWhitespace);
-    }
+    this._consumeConditions();
 
     // Handle end of control flow opening tag...
     this._beginToken(TokenType.CONTROL_FLOW_OPEN_END);
@@ -537,16 +528,7 @@ class _Tokenizer {
     this._endToken([name]) as TagOpenStartToken;
     this._attemptCharCodeUntilFn(isNotWhitespace);
 
-    // Handle attributes inside control flow opening tag...
-    while (this._cursor.peek() !== chars.$RBRACE && this._cursor.peek() !== chars.$EOF) {
-      this._consumeAttributeName();
-      this._attemptCharCodeUntilFn(isNotWhitespace);
-      if (this._attemptCharCode(chars.$EQ)) {
-        this._attemptCharCodeUntilFn(isNotWhitespace);
-        this._consumeAttributeValue();
-      }
-      this._attemptCharCodeUntilFn(isNotWhitespace);
-    }
+    this._consumeConditions();
 
     // Handle end of control flow opening tag...
     this._beginToken(TokenType.CONTROL_FLOW_CASE_END);
@@ -664,6 +646,31 @@ class _Tokenizer {
           TokenType.ATTR_VALUE_TEXT, TokenType.ATTR_VALUE_INTERPOLATION, endPredicate,
           endPredicate);
     }
+  }
+
+
+  private _consumeConditions() {
+    // Handle attributes inside control flow opening tag...
+    // TODO: handle cases like this: {#defer when a === ";"}
+    while (this._cursor.peek() !== chars.$RBRACE && this._cursor.peek() !== chars.$EOF) {
+      this._consumeCondition();
+
+      // Skip over `;` separating conditions if this char is present
+      this._attemptCharCode(chars.$SEMICOLON);
+
+      // Skip over all whitespace in front of the next condition
+      this._attemptCharCodeUntilFn(isNotWhitespace);
+    }
+  }
+
+  private _consumeCondition() {
+    const conditionCursor = this._cursor.clone();
+    this._attemptCharCodeUntilFn(
+        (code: number) => code === chars.$SEMICOLON || code === chars.$RBRACE);
+
+    const condition = this._cursor.getChars(conditionCursor);
+    this._beginToken(TokenType.CONTROL_FLOW_CONDITION);
+    this._endToken([condition]) as ControlFlowConditionToken;
   }
 
   private _consumeQuote(quoteChar: number) {

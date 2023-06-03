@@ -1059,50 +1059,49 @@ import {ParseLocation, ParseSourceFile, ParseSourceSpan} from '../../src/parse_u
     });
 
     describe('control flow', () => {
-      it('should parse simple #lazy', () => {
-        const result = tokenizeAndHumanizeParts('{#lazy [when]="visible"}<cmp />{/lazy}');
+      it('should parse simple #defer', () => {
+        const result =
+            tokenizeAndHumanizeParts('{#defer on idle; when isVisible()}<cmp />{/defer}');
         expect(result).toEqual([
-          [TokenType.CONTROL_FLOW_OPEN_START, 'lazy'],
-          [TokenType.ATTR_NAME, '', '[when]'],
-          [TokenType.ATTR_QUOTE, '"'],
-          [TokenType.ATTR_VALUE_TEXT, 'visible'],
-          [TokenType.ATTR_QUOTE, '"'],
+          [TokenType.CONTROL_FLOW_OPEN_START, 'defer'],
+          [TokenType.CONTROL_FLOW_CONDITION, 'on idle'],
+          [TokenType.CONTROL_FLOW_CONDITION, 'when isVisible()'],
           [TokenType.CONTROL_FLOW_OPEN_END, '}'],
           [TokenType.TAG_OPEN_START, '', 'cmp'],
           [TokenType.TAG_OPEN_END_VOID],
-          [TokenType.CONTROL_FLOW_CLOSE, 'lazy'],
+          [TokenType.CONTROL_FLOW_CLOSE, 'defer'],
           [TokenType.EOF],
         ]);
       });
 
-      it('should parse #lazy with conditions', () => {
+      it('should parse #defer with conditions', () => {
         const result = tokenizeAndHumanizeParts(
-            '{#lazy [when]="visible"}' +
+            '{#defer on idle; when isVisible()}' +
             '<cmp />' +
-            '{:loading}Loading...' +
+            '{:loading after 100ms}Loading...' +
             '{:error}Error' +
-            '{:placeholder}<img />' +
-            '{/lazy}');
+            '{:placeholder minimum 500ms}<img />' +
+            '{/defer}');
         expect(result).toEqual([
-          [TokenType.CONTROL_FLOW_OPEN_START, 'lazy'],
-          [TokenType.ATTR_NAME, '', '[when]'],
-          [TokenType.ATTR_QUOTE, '"'],
-          [TokenType.ATTR_VALUE_TEXT, 'visible'],
-          [TokenType.ATTR_QUOTE, '"'],
+          [TokenType.CONTROL_FLOW_OPEN_START, 'defer'],
+          [TokenType.CONTROL_FLOW_CONDITION, 'on idle'],
+          [TokenType.CONTROL_FLOW_CONDITION, 'when isVisible()'],
           [TokenType.CONTROL_FLOW_OPEN_END, '}'],
           [TokenType.TAG_OPEN_START, '', 'cmp'],
           [TokenType.TAG_OPEN_END_VOID],
           [TokenType.CONTROL_FLOW_CASE_START, 'loading'],
+          [TokenType.CONTROL_FLOW_CONDITION, 'after 100ms'],
           [TokenType.CONTROL_FLOW_CASE_END, '}'],
           [TokenType.TEXT, 'Loading...'],
           [TokenType.CONTROL_FLOW_CASE_START, 'error'],
           [TokenType.CONTROL_FLOW_CASE_END, '}'],
           [TokenType.TEXT, 'Error'],
           [TokenType.CONTROL_FLOW_CASE_START, 'placeholder'],
+          [TokenType.CONTROL_FLOW_CONDITION, 'minimum 500ms'],
           [TokenType.CONTROL_FLOW_CASE_END, '}'],
           [TokenType.TAG_OPEN_START, '', 'img'],
           [TokenType.TAG_OPEN_END_VOID],
-          [TokenType.CONTROL_FLOW_CLOSE, 'lazy'],
+          [TokenType.CONTROL_FLOW_CLOSE, 'defer'],
           [TokenType.EOF],
         ]);
       });

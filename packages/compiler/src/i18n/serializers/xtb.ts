@@ -150,6 +150,8 @@ class XtbParser implements ml.Visitor {
     ml.visitAll(this, controlFlowCase.children, null);
   }
 
+  visitControlFlowCondition(controlFlowCondition: ml.ControlFlowCondition, context: any) {}
+
   visitAttribute(attribute: ml.Attribute, context: any): any {}
 
   visitText(text: ml.Text, context: any): any {}
@@ -195,6 +197,8 @@ class XmlToI18n implements ml.Visitor {
   visitControlFlowCase(controlFlowCase: ml.ControlFlowCase, context: any) {
     ml.visitAll(this, controlFlowCase.children);
   }
+
+  visitControlFlowCondition(controlFlowCondition: ml.ControlFlowCondition, context: any) {}
 
   visitExpansion(icu: ml.Expansion, context: any) {
     const caseMap: {[value: string]: i18n.Node} = {};

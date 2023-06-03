@@ -175,6 +175,10 @@ export class I18nMetaVisitor implements html.Visitor {
     return controlFlowCase;
   }
 
+  visitControlFlowCondition(controlFlowCondition: html.ControlFlowCondition, context: any) {
+    return controlFlowCondition;
+  }
+
   /**
    * Parse the general form `meta` passed into extract the explicit metadata needed to create a
    * `Message`.

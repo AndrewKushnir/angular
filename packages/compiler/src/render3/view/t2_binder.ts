@@ -8,7 +8,7 @@
 
 import {AST, BindingPipe, ImplicitReceiver, PropertyRead, PropertyWrite, RecursiveAstVisitor, SafePropertyRead} from '../../expression_parser/ast';
 import {SelectorMatcher} from '../../selector';
-import {BoundAttribute, BoundEvent, BoundText, Content, ControlFlow, ControlFlowCase, Element, Icu, LazyTemplate, Node, Reference, Template, Text, TextAttribute, Variable, Visitor} from '../r3_ast';
+import {BoundAttribute, BoundEvent, BoundText, Content, DeferredTemplate, DeferredTemplateBlock, DeferredTemplateCondition, Element, Icu, Node, Reference, Template, Text, TextAttribute, Variable, visitAllDeferredTemplateBlocks, Visitor} from '../r3_ast';
 
 import {BoundTarget, DirectiveMeta, Target, TargetBinder} from './t2_api';
 import {createCssSelector} from './template';
@@ -108,14 +108,8 @@ class Scope implements Visitor {
     }
   }
 
-  visitControlFlow(controlFlow: ControlFlow) {
-    // Recurse into the `ControlFlow`'s children.
-    controlFlow.children.forEach(node => node.visit(this));
-  }
-
-  visitControlFlowCase(controlFlowCase: ControlFlowCase) {
-    // Recurse into the `ControlFlowCase`'s children.
-    controlFlowCase.children.forEach(node => node.visit(this));
+  visitDeferredTemplate(template: DeferredTemplate) {
+    visitAllDeferredTemplateBlocks(template, this);
   }
 
   visitElement(element: Element) {
@@ -248,11 +242,20 @@ class DirectiveBinder<DirectiveT extends DirectiveMeta> implements Visitor {
     this.visitElementOrTemplate('ng-template', template);
   }
 
-  visitControlFlow(controlFlow: ControlFlow): void {
-    this.visitElementOrTemplate('ng-lazy', controlFlow as any);
-  }
-  visitControlFlowCase(controlFlowCase: ControlFlowCase): void {
-    this.visitElementOrTemplate('ng-lazy-case', controlFlowCase as any);
+  visitDeferredTemplate(template: DeferredTemplate) {
+    const {blocks} = template;
+
+    // Recurse into all blocks except(!) the primary one,
+    // since the primary block should have its own scope.
+    if (blocks[DeferredTemplateBlock.LOADING]) {
+      this.visitElementOrTemplate('', blocks[DeferredTemplateBlock.LOADING]);
+    }
+    if (blocks[DeferredTemplateBlock.ERROR]) {
+      this.visitElementOrTemplate('', blocks[DeferredTemplateBlock.ERROR]);
+    }
+    if (blocks[DeferredTemplateBlock.PLACEHOLDER]) {
+      this.visitElementOrTemplate('', blocks[DeferredTemplateBlock.PLACEHOLDER]);
+    }
   }
 
   visitElementOrTemplate(elementName: string, node: Element|Template): void {
@@ -320,10 +323,8 @@ class DirectiveBinder<DirectiveT extends DirectiveMeta> implements Visitor {
     // Node outputs (bound events) can be bound to an output on a directive.
     node.outputs?.forEach(output => setAttributeBinding(output, 'outputs'));
 
-    // debugger;
-    if (node instanceof ControlFlow) {
-      // if (node instanceof LazyTemplate) {
-      // this will probably break template type-checking
+    if (node instanceof DeferredTemplate) {
+      // TODO: this will probably break template type-checking
       return;
     }
 
@@ -359,7 +360,7 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
   private constructor(
       private bindings: Map<AST, Reference|Variable>,
       private symbols: Map<Reference|Variable, Template>, private usedPipes: Set<string>,
-      private lazyTemplates: Set<LazyTemplate>, private nestingLevel: Map<Template, number>,
+      private deferredTemplates: Set<DeferredTemplate>, private nestingLevel: Map<Template, number>,
       private scope: Scope, private template: Template|null, private level: number) {
     super();
 
@@ -395,13 +396,13 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     symbols: Map<Variable|Reference, Template>,
     nestingLevel: Map<Template, number>,
     usedPipes: Set<string>,
-    lazyTemplates: Set<LazyTemplate>,
+    lazyTemplates: Set<DeferredTemplate>,
   } {
     const expressions = new Map<AST, Reference|Variable>();
     const symbols = new Map<Variable|Reference, Template>();
     const nestingLevel = new Map<Template, number>();
     const usedPipes = new Set<string>();
-    const lazyTemplates = new Set<LazyTemplate>();
+    const lazyTemplates = new Set<DeferredTemplate>();
     // The top-level template has nesting level 0.
     // debugger;
     const binder = new TemplateBinder(
@@ -433,17 +434,9 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     element.children.forEach(this.visitNode);
   }
 
-  visitControlFlow(controlFlow: ControlFlow) {
-    controlFlow.inputs.forEach(this.visitNode);
-    controlFlow.outputs.forEach(this.visitNode);
-    controlFlow.children.forEach(this.visitNode);
-
-    // FIXME: do it properly without `any`!
-    this.lazyTemplates.add(controlFlow as any);
-  }
-
-  visitControlFlowCase(controlFlowCase: ControlFlowCase) {
-    controlFlowCase.children.forEach(this.visitNode);
+  visitDeferredTemplate(deferredTemplate: DeferredTemplate) {
+    visitAllDeferredTemplateBlocks(deferredTemplate, this);
+    this.deferredTemplates.add(deferredTemplate);
   }
 
   visitTemplate(template: Template) {
@@ -455,15 +448,10 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     // References are also evaluated in the outer context.
     template.references.forEach(this.visitNode);
 
-    // if (template instanceof LazyTemplate) {
-    // if (template instanceof ControlFlow) {
-    //   this.lazyTemplates.add(template);
-    // }
-
     // Next, recurse into the template using its scope, and bumping the nesting level up by one.
     const childScope = this.scope.getChildScope(template);
     const binder = new TemplateBinder(
-        this.bindings, this.symbols, this.usedPipes, this.lazyTemplates, this.nestingLevel,
+        this.bindings, this.symbols, this.usedPipes, this.deferredTemplates, this.nestingLevel,
         childScope, template, this.level + 1);
     binder.ingest(template);
   }
@@ -561,7 +549,7 @@ export class R3BoundTarget<DirectiveT extends DirectiveMeta> implements BoundTar
       private symbols: Map<Reference|Variable, Template>,
       private nestingLevel: Map<Template, number>,
       private templateEntities: Map<Template|null, ReadonlySet<Reference|Variable>>,
-      private usedPipes: Set<string>, private lazyTemplates: Set<LazyTemplate>) {}
+      private usedPipes: Set<string>, private lazyTemplates: Set<DeferredTemplate>) {}
 
   getEntitiesInTemplateScope(template: Template|null): ReadonlySet<Reference|Variable> {
     return this.templateEntities.get(template) ?? new Set();
@@ -603,7 +591,7 @@ export class R3BoundTarget<DirectiveT extends DirectiveMeta> implements BoundTar
     return Array.from(this.usedPipes);
   }
 
-  getLazyTemplates(): LazyTemplate[] {
+  getLazyTemplates(): DeferredTemplate[] {
     return Array.from(this.lazyTemplates);
   }
 }

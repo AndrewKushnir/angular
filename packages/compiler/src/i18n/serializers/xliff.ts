@@ -259,6 +259,8 @@ class XliffParser implements ml.Visitor {
     ml.visitAll(this, controlFlowCase.children, null);
   }
 
+  visitControlFlowCondition(controlFlowCondition: ml.ControlFlowCondition, context: any) {}
+
   visitAttribute(attribute: ml.Attribute, context: any): any {}
 
   visitText(text: ml.Text, context: any): any {}
@@ -344,6 +346,8 @@ class XmlToI18n implements ml.Visitor {
   visitComment(comment: ml.Comment, context: any) {}
 
   visitAttribute(attribute: ml.Attribute, context: any) {}
+
+  visitControlFlowCondition(controlFlowCondition: ml.ControlFlowCondition, context: any) {}
 
   private _addError(node: ml.Node, message: string): void {
     this._errors.push(new I18nError(node.sourceSpan, message));

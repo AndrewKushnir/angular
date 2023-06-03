@@ -29,6 +29,7 @@ import {CssSelector} from '../../selector';
 import {BindingParser} from '../../template_parser/binding_parser';
 import {error, partitionArray} from '../../util';
 import * as t from '../r3_ast';
+import {DeferredTemplateBlock} from '../r3_ast';
 import {Identifiers as R3} from '../r3_identifiers';
 import {htmlAstToRender3Ast} from '../r3_template_transform';
 import {prepareSyntheticListenerFunctionName, prepareSyntheticListenerName, prepareSyntheticPropertyName} from '../util';
@@ -620,27 +621,48 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
   }
 
-  visitControlFlow(controlFlow: t.ControlFlow): void {
+  visitDeferredTemplate(deferredTemplate: t.DeferredTemplate): void {
+    // Generate `template(...)` instructions for all blocks except primary:
+    const {blocks} = deferredTemplate;
+    let loadingTmplIdx: number|null = null;
+    let errorTmplIdx: number|null = null;
+    let placeholderTmplIdx: number|null = null;
+
+    if (blocks[DeferredTemplateBlock.LOADING]) {
+      loadingTmplIdx = this.getConstCount();
+      this.visitTemplate(blocks[DeferredTemplateBlock.LOADING]);
+    }
+    if (blocks[DeferredTemplateBlock.ERROR]) {
+      errorTmplIdx = this.getConstCount();
+      this.visitTemplate(blocks[DeferredTemplateBlock.ERROR]);
+    }
+    if (blocks[DeferredTemplateBlock.PLACEHOLDER]) {
+      placeholderTmplIdx = this.getConstCount();
+      this.visitTemplate(blocks[DeferredTemplateBlock.PLACEHOLDER]);
+    }
+
     const templateIndex = this.allocateDataSlot();
 
-    const contextName = `${this.contextName}${
-        controlFlow.name ? '_' + sanitizeIdentifier(controlFlow.name) : ''}_${templateIndex}`;
+    const contextName = `${this.contextName}_defer_${templateIndex}`;
     const templateName = `${contextName}_Template`;
+    const depsFnName = `${contextName}_DepsFn`;
+
     const parameters: o.Expression[] = [
       o.literal(templateIndex),  //
-      o.variable(templateName),
-      o.TYPED_NULL_EXPR,  // TODO: this is where depsFn needs to go
-      o.TYPED_NULL_EXPR,  // o.literal(controlFlow.name),
+      o.variable(templateName),  //
+      o.variable(depsFnName),
+      o.TYPED_NULL_EXPR,  // TODO: static attrs index
+      loadingTmplIdx !== null ? o.literal(loadingTmplIdx) : o.TYPED_NULL_EXPR,
+      errorTmplIdx !== null ? o.literal(errorTmplIdx) : o.TYPED_NULL_EXPR,
+      placeholderTmplIdx !== null ? o.literal(placeholderTmplIdx) : o.TYPED_NULL_EXPR,
     ];
 
-    // This is a hack for now to enable NgLazy directive.
-    const ngLazyAttr = new t.TextAttribute('ngLazy', 'true', null!, null!);
+    // TODO: go through conditions and pick all static ones.
 
-    // prepare attributes parameter (including attributes used for directive matching)
-    const attrsExprs: o.Expression[] = this.getAttributeExpressions(
-        controlFlow.name, [ngLazyAttr, ...controlFlow.attributes], controlFlow.inputs,
-        controlFlow.outputs, undefined /* styles */, [ngLazyAttr]);
-    parameters.push(this.addAttrsToConsts(attrsExprs));
+    // // prepare attributes parameter (including attributes used for directive matching)
+    // const attrsExprs: o.Expression[] = this.getAttributeExpressions(
+    //     controlFlow.name, [ngLazyAttr], [], [], undefined /* styles */, [ngLazyAttr]);
+    // parameters.push(this.addAttrsToConsts(attrsExprs));
 
     // Create the template function
     const templateVisitor = new TemplateDefinitionBuilder(
@@ -652,22 +674,18 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
     // be able to support bindings in nested templates to local refs that occur after the
     // template definition. e.g. <div *ngIf="showing">{{ foo }}</div>  <div #foo></div>
-    const [defaultCase, otherCases] =
-        partitionArray(controlFlow.children, (child: any) => child.name === 'default');
+    const primaryBlock = deferredTemplate.blocks[t.DeferredTemplateBlock.PRIMARY]!;
     this._nestedTemplateFns.push(() => {
       // Use default case as a content for the `lazy` instruction function.
       const templateFunctionExpr = templateVisitor.buildTemplateFunction(
-          (defaultCase[0] as any).children, [],
+          primaryBlock.children, [],
           this._ngContentReservedSlots.length + this._ngContentSelectorsOffset);
       this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName!));
     });
 
     debugger;
-    const lazyDecls = this.lazyDeclarations.get(controlFlow);
+    const lazyDecls = this.lazyDeclarations.get(deferredTemplate);
     if (lazyDecls) {
-      const depsFnName = `${contextName}_DepsFn`;
-      parameters[2] = o.variable(depsFnName);
-
       // This lazy block has deps for which we need to generate dynamic imports.
       const dynamicImports: o.Expression[] = [];
       lazyDecls.forEach((lazyDecl: any) => {
@@ -703,26 +721,16 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
 
     // e.g. template(1, MyComp_Template_1)
-    this.creationInstruction(controlFlow.sourceSpan, R3.lazy, () => {
+    this.creationInstruction(deferredTemplate.sourceSpan, R3.lazy, () => {
       parameters.splice(
-          2, 0, o.literal(templateVisitor.getConstCount()),
+          3, 0, o.literal(templateVisitor.getConstCount()),
           o.literal(templateVisitor.getVarCount()));
       return trimTrailingNulls(parameters);
     });
 
-    // Add the input bindings
-    if (controlFlow.inputs.length > 0) {
-      this.templatePropertyBindings(templateIndex, controlFlow.inputs);
-    }
-
-    // Generate listeners for directive output
-    for (const outputAst of controlFlow.outputs) {
-      this.creationInstruction(
-          outputAst.sourceSpan, R3.listener,
-          this.prepareListenerParameter('ng_template', outputAst, templateIndex));
-    }
-
-    // Step 2: create instructions for cases:
+    // TODO: add extra instructions for conditions!
+    // TODO: add "update" instructions for `when` and `prefetch when`!
+    /*
     otherCases.forEach((controlFlowCase: any) => {
       // Create references to case templates
       const params = [
@@ -734,44 +742,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       this.updateInstructionWithAdvance(templateIndex, controlFlowCase.span, R3.property, params);
       this.visitControlFlowCase(controlFlowCase);
     });
-  }
-
-  visitControlFlowCase(controlFlowCase: t.ControlFlowCase): void {
-    const templateIndex = this.allocateDataSlot();
-
-    const contextName = `${this.contextName}${
-        controlFlowCase.name ? '_' + sanitizeIdentifier(controlFlowCase.name) :
-                               ''}_${templateIndex}`;
-    const templateName = `${contextName}_Template`;
-    const parameters: o.Expression[] = [
-      o.literal(templateIndex),
-      o.variable(templateName),
-      o.literal(controlFlowCase.name),
-    ];
-
-    // Cases have no attributes
-    parameters.push(this.addAttrsToConsts([]));
-
-    // Create the template function
-    const templateVisitor = new TemplateDefinitionBuilder(
-        this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
-        templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this.lazyDeclarations, this._constants);
-
-    this._nestedTemplateFns.push(() => {
-      const templateFunctionExpr = templateVisitor.buildTemplateFunction(
-          controlFlowCase.children, [],
-          this._ngContentReservedSlots.length + this._ngContentSelectorsOffset);
-      this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName!));
-    });
-
-    // e.g. template(1, MyComp_Template_1)
-    this.creationInstruction(controlFlowCase.sourceSpan, R3.templateCreate, () => {
-      parameters.splice(
-          2, 0, o.literal(templateVisitor.getConstCount()),
-          o.literal(templateVisitor.getVarCount()));
-      return trimTrailingNulls(parameters);
-    });
+    */
   }
 
   visitElement(element: t.Element) {

@@ -7,7 +7,7 @@
  */
 
 import {AST} from '../../expression_parser/ast';
-import {BoundAttribute, BoundEvent, Element, LazyTemplate, Node, Reference, Template, TextAttribute, Variable} from '../r3_ast';
+import {BoundAttribute, BoundEvent, DeferredTemplate, Element, Node, Reference, Template, TextAttribute, Variable} from '../r3_ast';
 
 
 /*
@@ -182,5 +182,5 @@ export interface BoundTarget<DirectiveT extends DirectiveMeta> {
    */
   getUsedPipes(): string[];
 
-  getLazyTemplates(): LazyTemplate[];
+  getLazyTemplates(): DeferredTemplate[];
 }

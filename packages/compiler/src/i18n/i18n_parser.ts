@@ -133,6 +133,8 @@ class _I18nVisitor implements html.Visitor {
     html.visitAll(this, controlFlowCase.children, context);
   }
 
+  visitControlFlowCondition(controlFlowCondition: html.ControlFlowCondition, context: any) {}
+
   visitExpansion(icu: html.Expansion, context: I18nMessageVisitorContext): i18n.Node {
     context.icuDepth++;
     const i18nIcuCases: {[k: string]: i18n.Node} = {};

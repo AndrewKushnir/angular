@@ -106,30 +106,17 @@ export class BoundEvent implements Node {
   }
 }
 
-// {#for x of y}
-
-// {#lazy [when]="isVisible"}
-
-
-export class ControlFlow implements Node {
-  constructor(
-      public name: string, public attributes: TextAttribute[], public inputs: BoundAttribute[],
-      public outputs: BoundEvent[], public children: Node[], public sourceSpan: ParseSourceSpan,
-      public startSourceSpan: ParseSourceSpan, public endSourceSpan: ParseSourceSpan|null) {}
+export class DeferredTemplateCondition implements Node {
+  // TODO: `condition` should not be a string at this point!
+  constructor(public condition: string, public sourceSpan: ParseSourceSpan) {}
   visit<Result>(visitor: Visitor<Result>): Result {
-    return visitor.visitControlFlow(this);
+    if (visitor.visitDeferredTemplateCondition) {
+      return visitor.visitDeferredTemplateCondition?.(this);
+    }
+    // TODO: should we avoid this AST node altogether?
+    return undefined!;
   }
 }
-
-export class ControlFlowCase implements Node {
-  constructor(
-      public name: string, public children: Node[], public sourceSpan: ParseSourceSpan,
-      public startSourceSpan: ParseSourceSpan, public endSourceSpan: ParseSourceSpan|null) {}
-  visit<Result>(visitor: Visitor<Result>): Result {
-    return visitor.visitControlFlowCase(this);
-  }
-}
-
 
 export class Element implements Node {
   constructor(
@@ -166,7 +153,27 @@ export class Template implements Node {
   }
 }
 
-export class LazyTemplate extends Template {}
+export const enum DeferredTemplateBlock {
+  PRIMARY = 'primary',
+  LOADING = 'loading',
+  ERROR = 'error',
+  PLACEHOLDER = 'placeholder'
+}
+
+/**
+ * Represents `{#defer}` block.
+ */
+export class DeferredTemplate implements Node {
+  constructor(
+      public conditions: {[key in DeferredTemplateBlock]?: DeferredTemplateCondition[]},
+      public blocks: {[key in DeferredTemplateBlock]?: Template},
+      public sourceSpan: ParseSourceSpan, public startSourceSpan: ParseSourceSpan,
+      public endSourceSpan: ParseSourceSpan|null) {}
+
+  visit<Result>(visitor: Visitor<Result>): Result {
+    return visitor.visitDeferredTemplate(this);
+  }
+}
 
 export class Content implements Node {
   readonly name = 'ng-content';
@@ -213,8 +220,8 @@ export interface Visitor<Result = any> {
   visit?(node: Node): Result;
 
   visitElement(element: Element): Result;
-  visitControlFlow(controlFlow: ControlFlow): Result;
-  visitControlFlowCase(controlFlowCase: ControlFlowCase): Result;
+  visitDeferredTemplate(template: DeferredTemplate): Result;
+  visitDeferredTemplateCondition?(condition: DeferredTemplateCondition): Result;
   visitTemplate(template: Template): Result;
   visitContent(content: Content): Result;
   visitVariable(variable: Variable): Result;
@@ -225,6 +232,24 @@ export interface Visitor<Result = any> {
   visitText(text: Text): Result;
   visitBoundText(text: BoundText): Result;
   visitIcu(icu: Icu): Result;
+}
+
+export function visitAllDeferredTemplateBlocks(
+    template: DeferredTemplate, visitor: Visitor<unknown>) {
+  const {blocks} = template;
+
+  // Primary block is always present.
+  visitAll(visitor, [blocks[DeferredTemplateBlock.PRIMARY]!]);
+
+  if (blocks[DeferredTemplateBlock.LOADING]) {
+    visitAll(visitor, [blocks[DeferredTemplateBlock.LOADING]]);
+  }
+  if (blocks[DeferredTemplateBlock.ERROR]) {
+    visitAll(visitor, [blocks[DeferredTemplateBlock.ERROR]]);
+  }
+  if (blocks[DeferredTemplateBlock.PLACEHOLDER]) {
+    visitAll(visitor, [blocks[DeferredTemplateBlock.PLACEHOLDER]]);
+  }
 }
 
 export class RecursiveVisitor implements Visitor<void> {
@@ -243,14 +268,8 @@ export class RecursiveVisitor implements Visitor<void> {
     visitAll(this, template.references);
     visitAll(this, template.variables);
   }
-  visitControlFlow(controlFlow: ControlFlow): void {
-    visitAll(this, controlFlow.attributes);
-    visitAll(this, controlFlow.inputs);
-    visitAll(this, controlFlow.outputs);
-    visitAll(this, controlFlow.children);
-  }
-  visitControlFlowCase(controlFlowCase: ControlFlowCase): void {
-    visitAll(this, controlFlowCase.children);
+  visitDeferredTemplate(template: DeferredTemplate): void {
+    visitAllDeferredTemplateBlocks(template, this);
   }
   visitContent(content: Content): void {}
   visitVariable(variable: Variable): void {}

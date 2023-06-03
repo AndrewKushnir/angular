@@ -7,6 +7,7 @@
  */
 
 import {AnimationTriggerNames, BoundTarget, compileClassMetadata, compileComponentFromMetadata, compileDeclareClassMetadata, compileDeclareComponentFromMetadata, ConstantPool, CssSelector, DeclarationListEmitMode, DeclareComponentTemplateInfo, DEFAULT_INTERPOLATION_CONFIG, DomElementSchemaRegistry, Expression, FactoryTarget, makeBindingParser, R3ComponentMetadata, R3DirectiveDependencyMetadata, R3NgModuleDependencyMetadata, R3PipeDependencyMetadata, R3TargetBinder, R3TemplateDependency, R3TemplateDependencyKind, R3TemplateDependencyMetadata, SchemaMetadata, SelectorMatcher, TmplAstLazyTemplate, ViewEncapsulation, WrappedNodeExpr} from '@angular/compiler';
+import {DeferredTemplateBlock} from '@angular/compiler/src/render3/r3_ast';
 import ts from 'typescript';
 
 import {Cycle, CycleAnalyzer, CycleHandlingStrategy} from '../../../cycles';
@@ -653,7 +654,6 @@ export class ComponentDecoratorHandler implements
 
       const lazyTemplates: Array<TmplAstLazyTemplate> = bound.getLazyTemplates();
 
-
       const depMap = new Map<TmplAstLazyTemplate, BoundTarget<DirectiveMeta>>();
       for (const lazyTemplate of lazyTemplates) {
         // things to handle:
@@ -661,7 +661,9 @@ export class ComponentDecoratorHandler implements
         // - semantic dependency graph updates
         // - we don't care about cycles or remote scoping
         // - we don't care about forward declaration status
-        depMap.set(lazyTemplate, binder.bind({template: lazyTemplate.children}));
+        depMap.set(
+            lazyTemplate,
+            binder.bind({template: lazyTemplate.blocks[DeferredTemplateBlock.PRIMARY]?.children}));
       }
 
       // The BoundTarget knows which directives and pipes matched the template.

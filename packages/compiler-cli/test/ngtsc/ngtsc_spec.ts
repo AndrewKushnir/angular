@@ -56,13 +56,13 @@ function allTests(os: string) {
     describe('control flow', () => {
       fit('basic scenarios', () => {
         const template = `
-          {#lazy [when]="isVisible"}
+          {#defer on idle; when isVisible()}
             <my-cmp />
           {:loading}
             Loading...
           {:placeholder}
             Placeholder
-          {/lazy}
+          {/defer}
         `;
 
         env.write('my-cmp.ts', `
@@ -86,7 +86,9 @@ function allTests(os: string) {
               imports: [MyCmp],
               template: \`${template}\`,
             })
-            export class TestCmp {}
+            export class TestCmp {
+              isVisible() { return true; }
+            }
         `);
 
         env.driveMain();

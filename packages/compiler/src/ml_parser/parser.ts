@@ -12,7 +12,7 @@ import * as html from './ast';
 import {NAMED_ENTITIES} from './entities';
 import {tokenize, TokenizeOptions} from './lexer';
 import {getNsPrefix, mergeNsAndName, splitNsName, TagDefinition} from './tags';
-import {AttributeNameToken, AttributeQuoteToken, CdataStartToken, CommentStartToken, ControlFlowCaseEndToken, ControlFlowCaseStartToken, ControlFlowCloseToken, ControlFlowOpenStartToken, ExpansionCaseExpressionEndToken, ExpansionCaseExpressionStartToken, ExpansionCaseValueToken, ExpansionFormStartToken, IncompleteTagOpenToken, InterpolatedAttributeToken, InterpolatedTextToken, TagCloseToken, TagOpenStartToken, TextToken, Token, TokenType} from './tokens';
+import {AttributeNameToken, AttributeQuoteToken, CdataStartToken, CommentStartToken, ControlFlowCaseEndToken, ControlFlowCaseStartToken, ControlFlowCloseToken, ControlFlowConditionToken, ControlFlowOpenStartToken, ExpansionCaseExpressionEndToken, ExpansionCaseExpressionStartToken, ExpansionCaseValueToken, ExpansionFormStartToken, IncompleteTagOpenToken, InterpolatedAttributeToken, InterpolatedTextToken, TagCloseToken, TagOpenStartToken, TextToken, Token, TokenType} from './tokens';
 
 export class TreeError extends ParseError {
   static create(elementName: string|null, span: ParseSourceSpan, msg: string): TreeError {
@@ -91,10 +91,7 @@ class _TreeBuilder {
 
   private _consumeControlFlowStart(startControlFlowToken: ControlFlowOpenStartToken) {
     const name = startControlFlowToken.parts[0];
-    const attrs: html.Attribute[] = [];
-    while (this._peek.type === TokenType.ATTR_NAME) {
-      attrs.push(this._consumeAttr(this._advance<AttributeNameToken>()));
-    }
+    const conditions = this._consumeControlFlowConditions();
     const end = this._peek.sourceSpan.fullStart;
     const span = new ParseSourceSpan(
         startControlFlowToken.sourceSpan.start, end, startControlFlowToken.sourceSpan.fullStart);
@@ -102,17 +99,27 @@ class _TreeBuilder {
     const startSpan = new ParseSourceSpan(
         startControlFlowToken.sourceSpan.start, end, startControlFlowToken.sourceSpan.fullStart);
 
-    const controlFlow = new html.ControlFlow(name, attrs, [], span, startSpan, undefined);
+    const controlFlow = new html.ControlFlow(name, conditions, [], span, startSpan, undefined);
     this._pushElement(controlFlow, false);
 
-    // Default case
+    // Default case (also known as 'primary' block)
     const defaultControlFlowCase =
-        new html.ControlFlowCase('default', [], [], span, startSpan, undefined);
+        new html.ControlFlowCase('primary', [], [], span, startSpan, undefined);
     this._pushElement(defaultControlFlowCase, false);
   }
 
   private _consumeControlFlowEnd(endControlFlowToken: ControlFlowCloseToken) {
     this._popElement(endControlFlowToken.parts[0], endControlFlowToken.sourceSpan, false);
+  }
+
+  private _consumeControlFlowConditions(): html.ControlFlowCondition[] {
+    const conditions: html.ControlFlowCondition[] = [];
+    while (this._peek.type === TokenType.CONTROL_FLOW_CONDITION) {
+      const token = this._advance<ControlFlowConditionToken>();
+      const condition = new html.ControlFlowCondition(token.parts[0], token.sourceSpan);
+      conditions.push(condition);
+    }
+    return conditions;
   }
 
   private _consumeControlFlowCaseStart(startControlFlowCaseToken: ControlFlowCaseStartToken) {
@@ -122,6 +129,7 @@ class _TreeBuilder {
       this._popElement(parent.name, parent.sourceSpan);
     }
 
+    const conditions = this._consumeControlFlowConditions();
     const name = startControlFlowCaseToken.parts[0];
     const end = this._peek.sourceSpan.fullStart;
     const sourceSpan = startControlFlowCaseToken.sourceSpan;
@@ -129,7 +137,8 @@ class _TreeBuilder {
     // Create a separate `startSpan` because `span` will be modified when there is an `end` span.
     const startSpan = new ParseSourceSpan(sourceSpan.start, end, sourceSpan.fullStart);
 
-    const controlFlowCase = new html.ControlFlowCase(name, [], [], span, startSpan, undefined);
+    const controlFlowCase =
+        new html.ControlFlowCase(name, conditions, [], span, startSpan, undefined);
     this._pushElement(controlFlowCase, false);
   }
 
@@ -357,7 +366,7 @@ class _TreeBuilder {
     }
   }
 
-  private _pushElement(el: html.Element, isElement = true) {
+  private _pushElement(el: html.Element|html.ControlFlow|html.ControlFlowCase, isElement = true) {
     const parentEl = this._getParentElement();
 
     if (parentEl && isElement && this.getTagDefinition(parentEl.name).isClosedByChild(el.name)) {
@@ -473,7 +482,9 @@ class _TreeBuilder {
   }
 
   private _getParentElement(): html.Element|null {
-    return this._elementStack.length > 0 ? this._elementStack[this._elementStack.length - 1] : null;
+    // TODO: replace `any` with a proper type
+    return (this._elementStack.length > 0 ? this._elementStack[this._elementStack.length - 1] :
+                                            null) as any;
   }
 
   private _addToParent(node: html.Node) {

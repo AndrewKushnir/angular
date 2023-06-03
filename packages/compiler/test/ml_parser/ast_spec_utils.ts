@@ -53,13 +53,20 @@ class _Humanizer implements html.Visitor {
 
   visitControlFlow(controlFlow: html.ControlFlow, context: any) {
     this.result.push([html.ControlFlow, controlFlow.name]);
-    html.visitAll(this, controlFlow.attrs);
+    html.visitAll(this, controlFlow.conditions);
     html.visitAll(this, controlFlow.children);
   }
 
   visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
-    this.result.push([html.ControlFlow, controlFlowCase.name]);
+    debugger;
+    this.result.push([html.ControlFlowCase, controlFlowCase.name]);
+    html.visitAll(this, controlFlowCase.conditions);
     html.visitAll(this, controlFlowCase.children);
+  }
+
+  visitControlFlowCondition(controlFlowCondition: html.ControlFlowCondition, context: any) {
+    debugger;
+    this.result.push([html.ControlFlowCondition, controlFlowCondition.condition]);
   }
 
   visitAttribute(attribute: html.Attribute, context: any): any {

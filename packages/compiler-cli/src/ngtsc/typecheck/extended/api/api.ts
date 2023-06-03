@@ -6,8 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AST, ASTWithSource, ParseSourceSpan, RecursiveAstVisitor, TmplAstBoundAttribute, TmplAstBoundEvent, TmplAstBoundText, TmplAstContent, TmplAstElement, TmplAstIcu, TmplAstNode, TmplAstRecursiveVisitor, TmplAstReference, TmplAstTemplate, TmplAstText, TmplAstTextAttribute, TmplAstVariable} from '@angular/compiler';
-import {ControlFlow, ControlFlowCase} from '@angular/compiler/src/render3/r3_ast';
+import {AST, ASTWithSource, ParseSourceSpan, RecursiveAstVisitor, TmplAstBoundAttribute, TmplAstBoundEvent, TmplAstBoundText, TmplAstContent, TmplAstElement, TmplAstIcu, TmplAstLazyTemplate, TmplAstNode, TmplAstRecursiveVisitor, TmplAstReference, TmplAstTemplate, TmplAstText, TmplAstTextAttribute, TmplAstVariable} from '@angular/compiler';
 import ts from 'typescript';
 
 import {NgCompilerOptions} from '../../../core/api';
@@ -130,15 +129,8 @@ class TemplateVisitor<Code extends ErrorCode> extends RecursiveAstVisitor implem
     this.visitAllNodes(element.children);
   }
 
-  visitControlFlow(controlFlow: ControlFlow): void {
-    this.visitAllNodes(controlFlow.attributes);
-    this.visitAllNodes(controlFlow.inputs);
-    this.visitAllNodes(controlFlow.outputs);
-    this.visitAllNodes(controlFlow.children);
-  }
-
-  visitControlFlowCase(controlFlowCase: ControlFlowCase): void {
-    this.visitAllNodes(controlFlowCase.children);
+  visitDeferredTemplate(template: TmplAstLazyTemplate): void {
+    // TODO: implement this: recurse into all blocks
   }
 
   visitTemplate(template: TmplAstTemplate) {

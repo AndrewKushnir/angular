@@ -90,14 +90,18 @@ export class WhitespaceVisitor implements html.Visitor {
     const children = html.visitAll(this, controlFlow.children);
     const cf = controlFlow;
     return new html.ControlFlow(
-        cf.name, cf.attrs, children, cf.sourceSpan, cf.startSourceSpan, cf.endSourceSpan);
+        cf.name, cf.conditions, children, cf.sourceSpan, cf.startSourceSpan, cf.endSourceSpan);
   }
 
   visitControlFlowCase(controlFlowCase: html.ControlFlowCase, context: any) {
     const children = html.visitAll(this, controlFlowCase.children);
     const cfc = controlFlowCase;
     return new html.ControlFlowCase(
-        cfc.name, cfc.attrs, children, cfc.sourceSpan, cfc.startSourceSpan, cfc.endSourceSpan);
+        cfc.name, cfc.conditions, children, cfc.sourceSpan, cfc.startSourceSpan, cfc.endSourceSpan);
+  }
+
+  visitControlFlowCondition(controlFlowCondition: html.ControlFlowCondition, context: any) {
+    return controlFlowCondition;
   }
 
   visitComment(comment: html.Comment, context: any): any {
