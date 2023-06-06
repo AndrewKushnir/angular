@@ -6,12 +6,12 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Component, ɵɵtemplateRefExtractor, ɵɵreference, ɵɵproperty as property, ɵɵdefineComponent as defineComponent, ɵɵtemplate as template, ɵɵelement as element, ɵɵlazy as lazy, ɵɵtext as text} from '@angular/core';
+import {Component, ɵɵadvance as advance, ɵɵreference, ɵɵproperty as property, ɵɵdefineComponent as defineComponent, ɵɵtemplate as template, ɵɵelement as element, ɵɵlazy as lazy, ɵɵtext as text, ɵɵdeferWhen as deferWhen, Type} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 
-import {NgLazy} from '../../src/ng_lazy';
+import {LazyDepsFn} from '@angular/core/src/render3/instructions/template';
 
-describe('ngLazy directive', () => {
+describe('#defer', () => {
   @Component({
     selector: 'my-lazy-cmp',
     standalone: true,
@@ -48,27 +48,19 @@ describe('ngLazy directive', () => {
     }
   }
 
-  async function LazyTemplateDeps(): Promise<Array<any>> {
-    return Promise.allSettled([
+  function LazyTemplateDeps(): Array<Promise<Type<unknown>>> {
+    return [
       new Promise((resolve) => {
         resolve(MyLazyCmp);
       }),
-    ]);
+    ];
   }
 
-  async function LazyErrorTemplateDeps(): Promise<Array<any>> {
-    return Promise.reject(['failed']);
-    // return Promise.all([
-    //   // Promise.reject(MyLazyCmp)
-    //   new Promise((resolve, reject) => {
-    //     reject(MyLazyCmp);
-    //   }),
-    // ]);
-
-    //  Promise.all(new Promise()).then(/* ... */).catch()
+  function LazyErrorTemplateDeps(): Array<Promise<Type<unknown>>> {
+    return [Promise.reject(['failed'])];
   }
 
-  fit('(compiled) should work with basic cases', async () => {
+  it('(compiled) should work with basic cases', async () => {
     @Component({
       selector: 'my-lazy-cmp',
       standalone: true,
@@ -82,7 +74,7 @@ describe('ngLazy directive', () => {
       selector: 'simple-app',
       imports: [MyLazyCmp],
       template: `
-        {#lazy [when]="isVisible"}
+        {#defer when isVisible()}
           <my-lazy-cmp />
         {:loading}
           Loading...
@@ -90,7 +82,7 @@ describe('ngLazy directive', () => {
           Placeholder!
         {:error}
           Ooops :(
-        {/lazy}
+        {/defer}
       `
     })
     class MyCmp {
@@ -122,40 +114,40 @@ describe('ngLazy directive', () => {
     }, 0);
   });
 
-  it('should work with basic cases', async () => {
+  fit('(runtime only) should work with basic cases', async () => {
     /**
      * {#lazy}
      *   <my-lazy-cmp />
      * {:loading}
      *   Loading...
+     * {:placeholder}
+     *   Placeholder.
+     * {:error}
+     *   Error :(
      * {/lazy}
      */
     class MyCmp {
       static ɵfac = () => new MyCmp();
       static ɵcmp = defineComponent({
         selectors: [['my-cmp']],
-        consts: [[4 as any, 'ngLazy']],
+        consts: [],
         type: MyCmp,
         decls: 4,
-        vars: 4,
+        vars: 1,
         standalone: true,
         template:
             function Template(rf: number, ctx: MyCmp) {
               if (rf & 1) {
-                lazy(0, LazyTemplate, 1, 0, LazyTemplateDeps, null, 0);
-                template(1, LoadingTemplate, 1, 0);
-                template(2, PlaceholderTemplate, 1, 0);
-                template(3, ErrorTemplate, 1, 0);
+                template(0, LoadingTemplate, 1, 0);
+                template(1, PlaceholderTemplate, 1, 0);
+                template(2, ErrorTemplate, 1, 0);
+                lazy(3, LazyTemplate, LazyTemplateDeps, 1, 1, 0, 1, 2);
               }
               if (rf & 2) {
-                property('loadingTmpl', ɵɵreference(1));
-                property('placeholderTmpl', ɵɵreference(2));
-                property('errorTmpl', ɵɵreference(3));
-                property('when', ctx.isVisible);
+                advance(3);
+                deferWhen(ctx.isVisible);
               }
-            },
-        // TODO: this should be added elsewhere?
-        dependencies: [NgLazy],
+            }
       });
 
       isVisible = false;
@@ -196,7 +188,7 @@ describe('ngLazy directive', () => {
       static ɵfac = () => new MyCmp();
       static ɵcmp = defineComponent({
         selectors: [['my-cmp']],
-        consts: [[4 as any, 'ngLazy']],
+        consts: [],
         type: MyCmp,
         decls: 4,
         vars: 4,
@@ -204,7 +196,7 @@ describe('ngLazy directive', () => {
         template:
             function Template(rf: number, ctx: MyCmp) {
               if (rf & 1) {
-                lazy(0, LazyTemplate, 1, 0, LazyErrorTemplateDeps, null, 0);
+                lazy(0, LazyTemplate, LazyErrorTemplateDeps, 1, 0, null, 0);
                 template(1, LoadingTemplate, 1, 0);
                 template(2, PlaceholderTemplate, 1, 0);
                 template(3, ErrorTemplate, 1, 0);
@@ -216,8 +208,6 @@ describe('ngLazy directive', () => {
                 property('when', ctx.isVisible);
               }
             },
-        // TODO: this should be added elsewhere?
-        dependencies: [NgLazy],
       });
 
       isVisible = false;

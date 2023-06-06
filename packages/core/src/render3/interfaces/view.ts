@@ -9,6 +9,7 @@
 import {Injector} from '../../di/injector';
 import {ProviderToken} from '../../di/provider_token';
 import {DehydratedView} from '../../hydration/interfaces';
+import {Type} from '../../interface/type';
 import {SchemaMetadata} from '../../metadata/schema';
 import {Sanitizer} from '../../sanitization/sanitizer';
 import type {ReactiveLViewConsumer} from '../reactive_lview_consumer';
@@ -597,7 +598,7 @@ export interface TView {
    */
   viewQuery: ViewQueriesFunction<{}>|null;
 
-  dependencies: DependencyTypeList|(() => Promise<DependencyTypeList>)|null;
+  dependencies: DependencyTypeList|(() => Array<Promise<Type<unknown>>|Type<unknown>>)|null;
 
   /**
    * A `TNode` representing the declaration location of this `TView` (not part of this TView).

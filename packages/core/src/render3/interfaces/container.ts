@@ -7,6 +7,7 @@
  */
 
 import {DehydratedContainerView} from '../../hydration/interfaces';
+import {ViewContainerRef} from '../../linker';
 
 import {TNode} from './node';
 import {RComment, RElement} from './renderer_dom';
@@ -47,6 +48,7 @@ export const NATIVE = 7;
 export const VIEW_REFS = 8;
 export const MOVED_VIEWS = 9;
 export const DEHYDRATED_VIEWS = 10;
+export const DEFER_DETAILS = 11;
 
 
 /**
@@ -55,7 +57,22 @@ export const DEHYDRATED_VIEWS = 10;
  * which views are already in the DOM (and don't need to be re-added) and so we can
  * remove views from the DOM when they are no longer required.
  */
-export const CONTAINER_HEADER_OFFSET = 11;
+export const CONTAINER_HEADER_OFFSET = 12;
+
+/** Describes a current state of this {#defer} block */
+export const enum DeferState {
+  INITIAL,
+  PLACEHOLDER,
+  LOADING,
+  COMPLETE,
+  ERROR
+}
+
+/** Describes per-instance {#defer} block data */
+export interface LDeferDetails {
+  state: DeferState;
+  viewContainerRef: ViewContainerRef;
+}
 
 /**
  * The state associated with a container.
@@ -144,6 +161,8 @@ export interface LContainer extends Array<any> {
    * logic finishes.
    */
   [DEHYDRATED_VIEWS]: DehydratedContainerView[]|null;
+
+  [DEFER_DETAILS]: LDeferDetails|null;
 }
 
 // Note: This hack is necessary so we don't erroneously get a circular dependency

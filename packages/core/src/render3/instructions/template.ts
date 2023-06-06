@@ -9,26 +9,35 @@ import {validateMatchingNode, validateNodeExists} from '../../hydration/error_ha
 import {TEMPLATES} from '../../hydration/interfaces';
 import {locateNextRNode, siblingAfter} from '../../hydration/node_lookup_utils';
 import {calcSerializedContainerSize, isDisconnectedNode, markRNodeAsClaimedByHydration, setSegmentHead} from '../../hydration/utils';
+import {Type} from '../../interface/type';
+import {TemplateRef} from '../../linker';
+import {createLazyTemplateRef, createTemplateRef, injectLazyTemplateRef} from '../../linker/template_ref';
+import {injectViewContainerRef} from '../../linker/view_container_ref';
 import {assertEqual} from '../../util/assert';
 import {assertFirstCreatePass} from '../assert';
+import {bindingUpdated} from '../bindings';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
+import {DEFER_DETAILS, DeferState, LDeferDetails} from '../interfaces/container';
 import {ComponentTemplate, DependencyTypeList} from '../interfaces/definition';
-import {LocalRefExtractor, TAttributes, TContainerNode, TNode, TNodeType} from '../interfaces/node';
+import {LocalRefExtractor, TAttributes, TContainerNode, TDeferDetails, TNode, TNodeType} from '../interfaces/node';
 import {RComment} from '../interfaces/renderer_dom';
-import {isDirectiveHost} from '../interfaces/type_checks';
-import {HEADER_OFFSET, HYDRATION, LView, RENDERER, TView, TViewType} from '../interfaces/view';
+import {isDestroyed, isDirectiveHost} from '../interfaces/type_checks';
+import {HEADER_OFFSET, HYDRATION, LView, RENDERER, TVIEW, TView, TViewType} from '../interfaces/view';
 import {appendChild} from '../node_manipulation';
-import {getLView, getTView, isInSkipHydrationBlock, lastNodeWasCreated, setCurrentTNode, wasLastNodeCreated} from '../state';
-import {getConstant} from '../util/view_utils';
+import {getLView, getSelectedTNode, getTView, isInSkipHydrationBlock, lastNodeWasCreated, nextBindingIndex, setCurrentTNode, wasLastNodeCreated} from '../state';
+import {NO_CHANGE} from '../tokens';
+import {getConstant, getTNode} from '../util/view_utils';
 
 import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
-export type LazyDepsFn = () => Promise<DependencyTypeList>;
+export type LazyDepsFn = () => Array<Promise<Type<unknown>>|Type<unknown>>;
 
-function templateFirstCreatePass(
+// TODO: move all `defer` logic to a new file (defer.ts)
+
+export function templateFirstCreatePass(
     index: number, tView: TView, lView: LView, templateFn: ComponentTemplate<any>|null,
-    lazyDepsFn: LazyDepsFn|null, decls: number, vars: number, tagName?: string|null,
+    lazyDepsFn: LazyDepsFn|null, decls: number, vars: number, value?: string|TDeferDetails|null,
     attrsIndex?: number|null, localRefsIndex?: number|null): TContainerNode {
   ngDevMode && assertFirstCreatePass(tView);
   ngDevMode && ngDevMode.firstCreatePass++;
@@ -36,7 +45,7 @@ function templateFirstCreatePass(
 
   // TODO(pk): refactor getOrCreateTNode to have the "create" only version
   const tNode = getOrCreateTNode(
-      tView, index, TNodeType.Container, tagName || null,
+      tView, index, TNodeType.Container, value || null,
       getConstant<TAttributes>(tViewConsts, attrsIndex));
 
   resolveDirectives(tView, lView, tNode, getConstant<string[]>(tViewConsts, localRefsIndex));
@@ -83,19 +92,165 @@ export function ɵɵtemplate(
       index, templateFn, null, decls, vars, tagName, attrsIndex, localRefsIndex, localRefExtractor);
 }
 
+
+// ***** IMPLEMENTATION DETAILS *****
+//
+// TNode to store extra info:
+// - loading tmpl index
+// - error tmpl index
+// - placeholder tmpl index
+// - config for each block (e.g. {:loading after 100ms})
+// - conditions for {#defer}
+// - the "loading" Promise reference?
+//   - it's ok for it to be on TNode, since it's the same for all instances
+//
+// LView[idx] to store:
+// - corresponding LContainer (created by the `template` instruction)
+// - update LContainer's header to include currently activated case info
+//
+// Questions:
+// - how dow we want to store things like IntersectionObserver?
+//   should it be a instance per application (e.g. `providedIn: root`) or per-LView?
+// - do we need a new TNode type or we can get away with TNodeType.Container?
+//   - the benefit of using TNodeType.Container is that it should "just work"
+//     with content projections, hydration, etc
+// - how would hydration pick up currently activated case?
+// - how do we make conditions tree-shakable?
+//   - for ex. for {:loading after 100ms} - it'd be great to have extra "loading"
+//     code be tree-shaken away if unused. Generate extra fn in compiler?
+// - do we need smth like `deferApply` that would activate the necessary logic?
+//   - for ex. if we need to use IntersectionObserver, we want to activate it during
+//     the "update" phase?
+// - how do we deal with prefetch? do we need a special flag for prefetch status?
+//
+// Important notes:
+// - we should make sure to store cleanup fns to cleanup on destroy
+// - we should check if LView is destroyed when we get a resolved "loading" promise
+
+// TODO: add docs here
+// TODO: rename -> ɵɵdefer or ɵɵdeferredTemplate
 export function ɵɵlazy(
-    index: number, templateFn: ComponentTemplate<any>|null, decls: number, vars: number,
-    lazyDepsFn: LazyDepsFn, tagName?: string|null, attrsIndex?: number|null,
-    localRefsIndex?: number|null, localRefExtractor?: LocalRefExtractor) {
+    index: number, templateFn: ComponentTemplate<any>|null, lazyDepsFn: LazyDepsFn, decls: number,
+    vars: number, loadingTmplIndex: number|null = null, placeholderTmplIndex: number|null = null,
+    errorTmplIndex: number|null = null, loadingConfigIndex: number|null = null,
+    placeholderConfigIndex: number|null = null) {
+  // TODO: move `lazyDepsFn` to `TDeferDetails`?
   lazyDepsFn = lazyDepsFn ?? (() => []);
-  return templateInternal(
-      index, templateFn, lazyDepsFn, decls, vars, tagName, attrsIndex, localRefsIndex,
-      localRefExtractor);
+
+  const deferConfig: TDeferDetails = {
+    loadingTmplIndex,
+    loadingConfigIndex,
+    placeholderTmplIndex,
+    placeholderConfigIndex,
+    errorTmplIndex,
+    loadingPromise: null,
+    loaded: false,
+  };
+
+  return templateInternal(index, templateFn, lazyDepsFn, decls, vars, deferConfig);
+}
+
+// TODO: add docs
+export function ɵɵdeferWhen<T>(rawValue: T) {
+  debugger;
+  const lView = getLView();
+  const bindingIndex = nextBindingIndex();
+  const value = !!rawValue;  // handle truthy or falsy values
+  const oldValue = lView[bindingIndex];
+  // If an old value was `true` - don't enter the path that triggers
+  // lazy loading.
+  if (oldValue !== true && bindingUpdated(lView, bindingIndex, value)) {
+    const tNode = getSelectedTNode();
+    renderDeferBlock(lView, tNode, oldValue, value);
+    // ngDevMode && storePropertyBindingMetadata(tView.data, tNode, propName, bindingIndex);
+  }
+}
+
+function renderDeferState(
+    lView: LView, lDetails: LDeferDetails, newState: DeferState,
+    stateTmpl: number|TemplateRef<unknown>): boolean {
+  const vcRef = lDetails.viewContainerRef;
+  // Note: we transition to the next state if the previous state was
+  // less than the next state. For example, if the current state is "loading",
+  // we should not show a placeholder.
+  if (lDetails.state < newState) {
+    lDetails.state = newState;
+    const templateRef = typeof stateTmpl == 'number' ?  //
+        getTemplateRef(lView, stateTmpl) :
+        stateTmpl;
+    if (templateRef) {
+      vcRef.clear();
+      vcRef.createEmbeddedView(templateRef);
+      return true;
+    }
+  }
+  return false;
+}
+
+function getTemplateRef(lView: LView, index: number): TemplateRef<unknown>|null {
+  if (index === null) {
+    return null;
+  }
+  const tView = lView[TVIEW];
+  const adjustedIndex = index + HEADER_OFFSET;
+  const tNode = getTNode(tView, adjustedIndex);
+  return createTemplateRef(tNode, lView)!;
+}
+
+// TODO: intersect the state based on `when` with the state based on `on`!
+//       we might be in the "loading" or "complete" state already
+// TODO: handle this case: {#for}{#defer}...{/defer}{/for}, when
+//       lazy loading got kicked off, but ɵɵdeferWhen was invoked multiple
+//       times. Make sure that we only act once per view in this case.
+function renderDeferBlock(
+    lView: LView, tNode: TNode, oldValue: boolean|NO_CHANGE, newValue: boolean) {
+  const lContainer = lView[tNode.index];
+  // TODO: add an assert that we have an LContainer instance here
+
+  if (!lContainer[DEFER_DETAILS]) {
+    lContainer[DEFER_DETAILS] = {
+      state: DeferState.INITIAL,
+      viewContainerRef: injectViewContainerRef()
+    };
+  }
+
+  const lDetails = lContainer[DEFER_DETAILS];
+  const tDetails = tNode.value;
+
+  if (oldValue === NO_CHANGE && newValue === false) {
+    // We set the value for the first time, render a placeholder.
+    renderDeferState(lView, lDetails, DeferState.PLACEHOLDER, tDetails.placeholderTmplIndex);
+
+  } else if (newValue === true) {
+    // Condition is triggered, render loading and start downloading.
+    renderDeferState(lView, lDetails, DeferState.LOADING, tDetails.loadingTmplIndex);
+
+    const lazyTemplateRef = createLazyTemplateRef(tNode, lView)!;
+    lazyTemplateRef.load()
+        .then(templateRef => {
+          debugger;
+          if (!isDestroyed(lView)) {
+            // Everything is loaded, show the primary block content
+            renderDeferState(lView, lDetails, DeferState.COMPLETE, templateRef);
+          }
+        })
+        .catch((error: unknown) => {
+          debugger;
+
+          // There was an error, render an error template
+          const wasContentRendered =
+              renderDeferState(lView, lDetails, DeferState.ERROR, tDetails.errorTmplIndex);
+
+          if (!wasContentRendered) {
+            // TODO: if there was no "error" template, we should log an error into the console.
+          }
+        });
+  }
 }
 
 export function templateInternal(
     index: number, templateFn: ComponentTemplate<any>|null, lazyDepsFn: LazyDepsFn|null,
-    decls: number, vars: number, tagName?: string|null, attrsIndex?: number|null,
+    decls: number, vars: number, value?: string|TDeferDetails|null, attrsIndex?: number|null,
     localRefsIndex?: number|null, localRefExtractor?: LocalRefExtractor) {
   const lView = getLView();
   const tView = getTView();
@@ -103,7 +258,7 @@ export function templateInternal(
 
   const tNode = tView.firstCreatePass ? templateFirstCreatePass(
                                             adjustedIndex, tView, lView, templateFn, lazyDepsFn,
-                                            decls, vars, tagName, attrsIndex, localRefsIndex) :
+                                            decls, vars, value, attrsIndex, localRefsIndex) :
                                         tView.data[adjustedIndex] as TContainerNode;
   setCurrentTNode(tNode, false);
 

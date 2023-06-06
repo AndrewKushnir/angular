@@ -250,9 +250,6 @@ export function compileComponentFromMetadata(
     definitionMap.set('template', templateFn);
   }
 
-  // This is a temporary hack to bring NgLazy directive.
-  meta.declarations.push({kind: R3TemplateDependencyKind.Directive, type: o.importExpr(R3.NgLazy)});
-
   if (meta.declarations.length > 0) {
     definitionMap.set(
         'dependencies',

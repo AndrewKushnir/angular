@@ -15,7 +15,6 @@ import {Query} from '../../metadata/di';
 import {Component, Directive, Input} from '../../metadata/directives';
 import {componentNeedsResolution, maybeQueueResolutionOfComponentResources} from '../../metadata/resource_loading';
 import {ViewEncapsulation} from '../../metadata/view';
-import {NgLazy} from '../../ng_lazy';
 import {flatten} from '../../util/array_utils';
 import {EMPTY_ARRAY, EMPTY_OBJ} from '../../util/empty';
 import {initNgDevMode} from '../../util/ng_dev_mode';
@@ -141,9 +140,6 @@ export function compileComponent(type: Type<any>, metadata: Component): void {
             // `pipeDefs` functions which lazily compute the directives/pipes available in the
             // standalone component. Also set `dependencies` to the lazily resolved list of imports.
             const imports: Type<any>[] = flatten(metadata.imports || EMPTY_ARRAY);
-
-            // NgLazy hack:
-            imports.push(NgLazy);
 
             const {directiveDefs, pipeDefs} = getStandaloneDefFunctions(type, imports);
             ngComponentDef.directiveDefs = directiveDefs;

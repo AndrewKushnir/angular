@@ -18,9 +18,6 @@ export class Identifiers {
 
   static core: o.ExternalReference = {name: null, moduleName: CORE};
 
-  /* Control flow */
-  static NgLazy: o.ExternalReference = {name: 'ɵɵNgLazy', moduleName: CORE};
-
   /* Instructions */
   static namespaceHTML: o.ExternalReference = {name: 'ɵɵnamespaceHTML', moduleName: CORE};
 
@@ -142,6 +139,7 @@ export class Identifiers {
 
   static templateCreate: o.ExternalReference = {name: 'ɵɵtemplate', moduleName: CORE};
   static lazy: o.ExternalReference = {name: 'ɵɵlazy', moduleName: CORE};
+  static deferWhen: o.ExternalReference = {name: 'ɵɵdeferWhen', moduleName: CORE};
 
   static text: o.ExternalReference = {name: 'ɵɵtext', moduleName: CORE};
 

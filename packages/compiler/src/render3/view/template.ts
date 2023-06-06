@@ -653,8 +653,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       o.variable(depsFnName),
       o.TYPED_NULL_EXPR,  // TODO: static attrs index
       loadingTmplIdx !== null ? o.literal(loadingTmplIdx) : o.TYPED_NULL_EXPR,
-      errorTmplIdx !== null ? o.literal(errorTmplIdx) : o.TYPED_NULL_EXPR,
       placeholderTmplIdx !== null ? o.literal(placeholderTmplIdx) : o.TYPED_NULL_EXPR,
+      errorTmplIdx !== null ? o.literal(errorTmplIdx) : o.TYPED_NULL_EXPR,
     ];
 
     // TODO: go through conditions and pick all static ones.

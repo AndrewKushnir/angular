@@ -173,15 +173,19 @@ export function createTemplateRef<T>(hostTNode: TNode, hostLView: LView): Templa
 
 export class LazyTemplateRef<T> {
   private embeddedViewTView: TView;
+
   constructor(private declarationLView: LView, private declarationTContainer: TContainerNode) {
     this.embeddedViewTView = declarationTContainer.tView as TView;
   }
 
   async load(): Promise<TemplateRef<T>> {
-    // debugger;
+    // TODO: access `loadingPromise` from TNode and make sure
+    // we don't re-create it here each time.
     if (this.embeddedViewTView.dependencies instanceof Function) {
+      const results = await Promise.allSettled(this.embeddedViewTView.dependencies());
+      // TODO: handle 'rejected' status too
       this.embeddedViewTView.dependencies =
-          await Promise.all(this.embeddedViewTView.dependencies() as any);
+          results.map(result => (result.status === 'fulfilled') ? result.value : null!);
     }
     return new R3TemplateRef(
         this.declarationLView, this.declarationTContainer,

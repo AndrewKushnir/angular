@@ -32,7 +32,7 @@ import {CONTAINER_HEADER_OFFSET, LContainer} from '../interfaces/container';
 import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefList, DirectiveDefListOrFactory, HostBindingsFunction, HostDirectiveBindingMap, HostDirectiveDefs, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from '../interfaces/definition';
 import {NodeInjectorFactory} from '../interfaces/injector';
 import {getUniqueLViewId} from '../interfaces/lview_tracking';
-import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliases, PropertyAliasValue, TAttributes, TConstantsOrFactory, TContainerNode, TDirectiveHostNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeType, TProjectionNode} from '../interfaces/node';
+import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliases, PropertyAliasValue, TAttributes, TConstantsOrFactory, TContainerNode, TDeferDetails, TDirectiveHostNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeType, TProjectionNode} from '../interfaces/node';
 import {Renderer} from '../interfaces/renderer';
 import {RComment, RElement, RNode, RText} from '../interfaces/renderer_dom';
 import {SanitizerFn} from '../interfaces/sanitization';
@@ -141,7 +141,7 @@ export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType.Element|TNodeType.Text, name: string|null,
     attrs: TAttributes|null): TElementNode;
 export function getOrCreateTNode(
-    tView: TView, index: number, type: TNodeType.Container, name: string|null,
+    tView: TView, index: number, type: TNodeType.Container, name: string|TDeferDetails|null,
     attrs: TAttributes|null): TContainerNode;
 export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType.Projection, name: null,
@@ -153,8 +153,9 @@ export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType.Icu, name: null,
     attrs: TAttributes|null): TElementContainerNode;
 export function getOrCreateTNode(
-    tView: TView, index: number, type: TNodeType, name: string|null, attrs: TAttributes|null):
-    TElementNode&TContainerNode&TElementContainerNode&TProjectionNode&TIcuContainerNode {
+    tView: TView, index: number, type: TNodeType, value: string|TDeferDetails|null,
+    attrs: TAttributes|null): TElementNode&TContainerNode&TElementContainerNode&TProjectionNode&
+    TIcuContainerNode {
   ngDevMode && index !== 0 &&  // 0 are bogus nodes and they are OK. See `createContainerRef` in
                                // `view_engine_compatibility` for additional context.
       assertGreaterThanOrEqual(index, HEADER_OFFSET, 'TNodes can\'t be in the LView header.');
@@ -162,7 +163,7 @@ export function getOrCreateTNode(
   ngDevMode && assertPureTNodeType(type);
   let tNode = tView.data[index] as TNode;
   if (tNode === null) {
-    tNode = createTNodeAtIndex(tView, index, type, name, attrs);
+    tNode = createTNodeAtIndex(tView, index, type, value, attrs);
     if (isInI18nBlock()) {
       // If we are in i18n block then all elements should be pre declared through `Placeholder`
       // See `TNodeType.Placeholder` and `LFrame.inI18n` for more context.
@@ -172,7 +173,7 @@ export function getOrCreateTNode(
     }
   } else if (tNode.type & TNodeType.Placeholder) {
     tNode.type = type;
-    tNode.value = name;
+    tNode.value = value;
     tNode.attrs = attrs;
     const parent = getCurrentParentTNode();
     tNode.injectorIndex = parent === null ? -1 : parent.injectorIndex;
@@ -185,13 +186,14 @@ export function getOrCreateTNode(
 }
 
 export function createTNodeAtIndex(
-    tView: TView, index: number, type: TNodeType, name: string|null, attrs: TAttributes|null) {
+    tView: TView, index: number, type: TNodeType, value: string|TDeferDetails|null,
+    attrs: TAttributes|null) {
   const currentTNode = getCurrentTNodePlaceholderOk();
   const isParent = isCurrentTNodeParent();
   const parent = isParent ? currentTNode : currentTNode && currentTNode.parent;
   // Parents cannot cross component boundaries because components will be used in multiple places.
   const tNode = tView.data[index] =
-      createTNode(tView, parent as TElementNode | TContainerNode, type, index, name, attrs);
+      createTNode(tView, parent as TElementNode | TContainerNode, type, index, value as any, attrs);
   // Assign a pointer to the first child node of a given view. The first node is not always the one
   // at index 0, in case of i18n, index 0 can be the instruction `i18nStart` and the first node has
   // the index 1 or more, so we can't just check node index.
@@ -562,6 +564,9 @@ export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType.Container,
     index: number, tagName: string|null, attrs: TAttributes|null): TContainerNode;
 export function createTNode(
+    tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType.Container,
+    index: number, value: TDeferDetails|null, attrs: TAttributes|null): TContainerNode;
+export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType.Element|TNodeType.Text,
     index: number, tagName: string|null, attrs: TAttributes|null): TElementNode;
 export function createTNode(
@@ -578,7 +583,7 @@ export function createTNode(
     tagName: string|null, attrs: TAttributes|null): TNode;
 export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType, index: number,
-    value: string|null, attrs: TAttributes|null): TNode {
+    value: string|TDeferDetails|null, attrs: TAttributes|null): TNode {
   ngDevMode && index !== 0 &&  // 0 are bogus nodes and they are OK. See `createContainerRef` in
                                // `view_engine_compatibility` for additional context.
       assertGreaterThanOrEqual(index, HEADER_OFFSET, 'TNodes can\'t be in the LView header.');
@@ -1425,6 +1430,7 @@ export function createLContainer(
     null,         // view refs
     null,         // moved views
     null,         // dehydrated views
+    null,         // defer block state
   ];
   ngDevMode &&
       assertEqual(

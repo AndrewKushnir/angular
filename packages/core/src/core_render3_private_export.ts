@@ -197,6 +197,7 @@ export {
   ɵɵsyntheticHostProperty,
   ɵɵtemplate,
   ɵɵlazy,
+  ɵɵdeferWhen,
   ɵɵtemplateRefExtractor,
   ɵɵtext,
   ɵɵtextInterpolate,
@@ -215,7 +216,6 @@ export {
   ɵgetUnknownPropertyStrictMode,
   ɵsetUnknownPropertyStrictMode
 } from './render3/index';
-export {NgLazy as ɵɵNgLazy} from './ng_lazy';
 export {
   LContext as ɵLContext,
 } from './render3/interfaces/context';

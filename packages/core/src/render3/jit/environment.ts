@@ -22,7 +22,6 @@ import * as r3 from '../index';
  */
 export const angularCoreEnv: {[name: string]: Function} =
     (() => ({
-       'ɵɵNgLazy': r3.ɵɵNgLazy,
        'ɵɵattribute': r3.ɵɵattribute,
        'ɵɵattributeInterpolate1': r3.ɵɵattributeInterpolate1,
        'ɵɵattributeInterpolate2': r3.ɵɵattributeInterpolate2,
@@ -140,6 +139,7 @@ export const angularCoreEnv: {[name: string]: Function} =
        'ɵɵadvance': r3.ɵɵadvance,
        'ɵɵtemplate': r3.ɵɵtemplate,
        'ɵɵlazy': r3.ɵɵlazy,
+       'ɵɵdeferWhen': r3.ɵɵdeferWhen,
        'ɵɵtext': r3.ɵɵtext,
        'ɵɵtextInterpolate': r3.ɵɵtextInterpolate,
        'ɵɵtextInterpolate1': r3.ɵɵtextInterpolate1,

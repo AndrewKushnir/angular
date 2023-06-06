@@ -858,6 +858,27 @@ export interface TProjectionNode extends TNode {
   value: null;
 }
 
+/** Describes static data for a {#defer} block */
+export interface TDeferDetails {
+  loadingTmplIndex: number|null;
+  loadingConfigIndex: number|null;
+  placeholderTmplIndex: number|null;
+  placeholderConfigIndex: number|null;
+  errorTmplIndex: number|null;
+  loadingPromise: Promise<unknown>|null;
+
+  /** Indicates whether loading is complete */
+  loaded: boolean;
+
+  // TODO: verify that we need it, if so - improve typing
+  onConditions?: any[]|null;
+}
+
+/** Represents a {#defer} block */
+export interface TDeferNode extends TNode {
+  value: TDeferDetails;
+}
+
 /**
  * A union type representing all TNode types that can host a directive.
  */
