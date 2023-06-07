@@ -714,7 +714,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
 
     // e.g. template(1, MyComp_Template_1)
-    this.creationInstruction(deferredTemplate.sourceSpan, R3.lazy, () => {
+    this.creationInstruction(deferredTemplate.sourceSpan, R3.deferredTemplate, () => {
       parameters.splice(
           3, 0, o.literal(templateVisitor.getConstCount()),
           o.literal(templateVisitor.getVarCount()));

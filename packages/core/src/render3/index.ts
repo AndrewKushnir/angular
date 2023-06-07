@@ -117,7 +117,7 @@ export {
   ɵɵsyntheticHostProperty,
 
   ɵɵtemplate,
-  ɵɵlazy,
+  ɵɵdeferredTemplate,
   ɵɵdeferWhen,
   ɵɵdeferOnIdle,
   ɵɵdeferOnImmediate,

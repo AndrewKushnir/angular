@@ -31,14 +31,15 @@ import {getConstant, getTNode} from '../util/view_utils';
 
 import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
-export type LazyDepsFn = () => Array<Promise<Type<unknown>>|Type<unknown>>;
+export type DeferredDepsFn = () => Array<Promise<Type<unknown>>|Type<unknown>>;
 
 // TODO: move all `defer` logic to a new file (defer.ts)
 
 export function templateFirstCreatePass(
     index: number, tView: TView, lView: LView, templateFn: ComponentTemplate<any>|null,
-    lazyDepsFn: LazyDepsFn|null, decls: number, vars: number, value?: string|TDeferDetails|null,
-    attrsIndex?: number|null, localRefsIndex?: number|null): TContainerNode {
+    deferredDepsFn: DeferredDepsFn|null, decls: number, vars: number,
+    value?: string|TDeferDetails|null, attrsIndex?: number|null,
+    localRefsIndex?: number|null): TContainerNode {
   ngDevMode && assertFirstCreatePass(tView);
   ngDevMode && ngDevMode.firstCreatePass++;
   const tViewConsts = tView.consts;
@@ -55,7 +56,7 @@ export function templateFirstCreatePass(
       TViewType.Embedded, tNode, templateFn, decls, vars, tView.directiveRegistry,
       tView.pipeRegistry, null, tView.schemas, tViewConsts, null /* ssrId */);
 
-  embeddedTView.dependencies = lazyDepsFn;
+  embeddedTView.dependencies = deferredDepsFn;
 
   if (tView.queries !== null) {
     tView.queries.template(tView, tNode);
@@ -128,14 +129,13 @@ export function ɵɵtemplate(
 // - we should check if LView is destroyed when we get a resolved "loading" promise
 
 // TODO: add docs here
-// TODO: rename -> ɵɵdefer or ɵɵdeferredTemplate
-export function ɵɵlazy(
-    index: number, templateFn: ComponentTemplate<any>|null, lazyDepsFn: LazyDepsFn, decls: number,
-    vars: number, loadingTmplIndex: number|null = null, placeholderTmplIndex: number|null = null,
-    errorTmplIndex: number|null = null, loadingConfigIndex: number|null = null,
-    placeholderConfigIndex: number|null = null) {
-  // TODO: move `lazyDepsFn` to `TDeferDetails`?
-  lazyDepsFn = lazyDepsFn ?? (() => []);
+export function ɵɵdeferredTemplate(
+    index: number, templateFn: ComponentTemplate<any>|null, deferredDepsFn: DeferredDepsFn,
+    decls: number, vars: number, loadingTmplIndex: number|null = null,
+    placeholderTmplIndex: number|null = null, errorTmplIndex: number|null = null,
+    loadingConfigIndex: number|null = null, placeholderConfigIndex: number|null = null) {
+  // TODO: move `deferredDepsFn` to `TDeferDetails`?
+  deferredDepsFn = deferredDepsFn ?? (() => []);
 
   const deferConfig: TDeferDetails = {
     loadingTmplIndex,
@@ -147,7 +147,7 @@ export function ɵɵlazy(
     loaded: false,
   };
 
-  return templateInternal(index, templateFn, lazyDepsFn, decls, vars, deferConfig);
+  return templateInternal(index, templateFn, deferredDepsFn, decls, vars, deferConfig);
 }
 
 // TODO: add docs
@@ -283,7 +283,7 @@ function renderDeferBlock(
 }
 
 export function templateInternal(
-    index: number, templateFn: ComponentTemplate<any>|null, lazyDepsFn: LazyDepsFn|null,
+    index: number, templateFn: ComponentTemplate<any>|null, deferredDepsFn: DeferredDepsFn|null,
     decls: number, vars: number, value?: string|TDeferDetails|null, attrsIndex?: number|null,
     localRefsIndex?: number|null, localRefExtractor?: LocalRefExtractor) {
   const lView = getLView();
@@ -291,7 +291,7 @@ export function templateInternal(
   const adjustedIndex = index + HEADER_OFFSET;
 
   const tNode = tView.firstCreatePass ? templateFirstCreatePass(
-                                            adjustedIndex, tView, lView, templateFn, lazyDepsFn,
+                                            adjustedIndex, tView, lView, templateFn, deferredDepsFn,
                                             decls, vars, value, attrsIndex, localRefsIndex) :
                                         tView.data[adjustedIndex] as TContainerNode;
   setCurrentTNode(tNode, false);

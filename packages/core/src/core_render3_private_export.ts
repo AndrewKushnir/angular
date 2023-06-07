@@ -196,7 +196,7 @@ export {
   ɵɵsyntheticHostListener,
   ɵɵsyntheticHostProperty,
   ɵɵtemplate,
-  ɵɵlazy,
+  ɵɵdeferredTemplate,
   ɵɵdeferWhen,
   ɵɵdeferOnIdle,
   ɵɵdeferOnImmediate,
