@@ -168,6 +168,36 @@ export function ɵɵdeferWhen<T>(rawValue: T) {
   }
 }
 
+// TODO: add docs
+export function ɵɵdeferOnIdle() {
+  // TODO: implement this function
+}
+
+// TODO: add docs
+export function ɵɵdeferOnImmediate() {
+  // TODO: implement this function
+}
+
+// TODO: add docs
+export function ɵɵdeferOnHover(target?: string) {
+  // TODO: implement this function
+}
+
+// TODO: add docs
+export function ɵɵdeferOnInteraction(target?: string) {
+  // TODO: implement this function
+}
+
+// TODO: add docs
+export function ɵɵdeferOnViewport(target?: string) {
+  // TODO: implement this function
+}
+
+// TODO: add docs
+export function ɵɵdeferOnTimer(timeout: number) {
+  // TODO: implement this function
+}
+
 function renderDeferState(
     lView: LView, lDetails: LDeferDetails, newState: DeferState,
     stateTmpl: number|TemplateRef<unknown>): boolean {

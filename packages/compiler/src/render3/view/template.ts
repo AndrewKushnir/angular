@@ -657,13 +657,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       errorTmplIdx !== null ? o.literal(errorTmplIdx) : o.TYPED_NULL_EXPR,
     ];
 
-    // TODO: go through conditions and pick all static ones.
-
-    // // prepare attributes parameter (including attributes used for directive matching)
-    // const attrsExprs: o.Expression[] = this.getAttributeExpressions(
-    //     controlFlow.name, [ngLazyAttr], [], [], undefined /* styles */, [ngLazyAttr]);
-    // parameters.push(this.addAttrsToConsts(attrsExprs));
-
     // Create the template function
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,

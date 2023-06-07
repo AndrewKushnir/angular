@@ -140,6 +140,12 @@ export class Identifiers {
   static templateCreate: o.ExternalReference = {name: 'ɵɵtemplate', moduleName: CORE};
   static lazy: o.ExternalReference = {name: 'ɵɵlazy', moduleName: CORE};
   static deferWhen: o.ExternalReference = {name: 'ɵɵdeferWhen', moduleName: CORE};
+  static deferOnIdle: o.ExternalReference = {name: 'ɵɵdeferOnIdle', moduleName: CORE};
+  static deferOnImmediate: o.ExternalReference = {name: 'ɵɵdeferOnImmediate', moduleName: CORE};
+  static deferOnHover: o.ExternalReference = {name: 'ɵɵdeferOnHover', moduleName: CORE};
+  static deferOnInteraction: o.ExternalReference = {name: 'ɵɵdeferOnInteraction', moduleName: CORE};
+  static deferOnViewport: o.ExternalReference = {name: 'ɵɵdeferOnViewport', moduleName: CORE};
+  static deferOnTimer: o.ExternalReference = {name: 'ɵɵdeferOnTimer', moduleName: CORE};
 
   static text: o.ExternalReference = {name: 'ɵɵtext', moduleName: CORE};
 

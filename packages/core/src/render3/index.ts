@@ -119,6 +119,12 @@ export {
   ɵɵtemplate,
   ɵɵlazy,
   ɵɵdeferWhen,
+  ɵɵdeferOnIdle,
+  ɵɵdeferOnImmediate,
+  ɵɵdeferOnHover,
+  ɵɵdeferOnInteraction,
+  ɵɵdeferOnViewport,
+  ɵɵdeferOnTimer,
 
   ɵɵtext,
   ɵɵtextInterpolate,
