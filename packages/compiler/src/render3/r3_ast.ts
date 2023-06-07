@@ -106,9 +106,35 @@ export class BoundEvent implements Node {
   }
 }
 
-export class DeferredTemplateCondition implements Node {
-  // TODO: `condition` should not be a string at this point!
-  constructor(public condition: string, public sourceSpan: ParseSourceSpan) {}
+export const enum DeferConditionKind {
+  When,
+  OnIdle,
+  OnImmediate,
+  OnInteraction,
+  OnViewport,
+  OnTimer,
+  OnHover,
+  PrefetchWhen,
+  PrefetchOnIdle,
+  PrefetchOnImmediate,
+  PrefetchOnInteraction,
+  PrefetchOnViewport,
+  PrefetchOnTimer,
+  PrefetchOnHover,
+  Timeout,
+  After,
+  Minimum,
+}
+
+export class DeferredTemplateCondition<T = unknown> implements Node {
+  // Examples:
+  // - {#defer when foo() !== 5;
+  //           on idle,viewport;
+  //           timeout 100ms;
+  //           on timer(300ms);
+  //           prefetch on immediate,interaction(btn)}
+  constructor(
+      public kind: DeferConditionKind, public value: T, public sourceSpan: ParseSourceSpan) {}
   visit<Result>(visitor: Visitor<Result>): Result {
     if (visitor.visitDeferredTemplateCondition) {
       return visitor.visitDeferredTemplateCondition?.(this);

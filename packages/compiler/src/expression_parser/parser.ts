@@ -107,6 +107,12 @@ export class Parser {
         .parseChain();
   }
 
+  parseBindingFromTokens(tokens: any[], input: string, location: string, absoluteOffset: number):
+      AST {
+    return new _ParseAST(input, location, absoluteOffset, tokens, ParseFlags.None, this.errors, 0)
+        .parseChain();
+  }
+
   /**
    * Parse microsyntax template expression and return a list of bindings or
    * parsing errors in case the given expression is invalid.

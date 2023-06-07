@@ -41,6 +41,11 @@ class R3AstHumanizer implements t.Visitor<void> {
     ]);
   }
 
+  visitDeferredTemplate(template: t.DeferredTemplate): void {
+    this.result.push(['DeferredTemplate']);
+    t.visitAllDeferredTemplateBlocks(template, this);
+  }
+
   visitContent(content: t.Content) {
     this.result.push(['Content', content.selector]);
     t.visitAll(this, content.attributes);
@@ -86,25 +91,6 @@ class R3AstHumanizer implements t.Visitor<void> {
 
   visitIcu(icu: t.Icu) {
     return null;
-  }
-
-  visitControlFlow(controlFlow: t.ControlFlow) {
-    const inputs = controlFlow.inputs.map(
-        (attr) =>
-            ['BoundAttribute',
-             attr.type,
-             attr.name,
-             unparse(attr.value),
-    ]);
-
-    this.result.push([
-      'ControlFlow', controlFlow.name, controlFlow.attributes, inputs, controlFlow.outputs,
-      controlFlow.children
-    ]);
-  }
-
-  visitControlFlowCase(controlFlowCase: t.ControlFlowCase) {
-    // {};
   }
 
   private visitAll(nodes: t.Node[][]) {
@@ -272,14 +258,14 @@ describe('R3 template transform', () => {
 
   describe('control flow', () => {
     fit('should support simple cases', () => {
-      const html =
-          '{#lazy [when]="isVisible"}<my-cmp />{:loading}Loading...{:placeholder}Placeholder{/lazy}';
+      const html = '{#defer when isVisible() === true; on idle,viewport(btn)}' +
+          '<my-cmp />' +
+          '{:loading minimum 100ms}Loading...{:placeholder after 20ms}Placeholder{/defer}';
       debugger;
       const res = parse(html, {ignoreError: false});
       debugger;
-      const boundWhen = ['BoundAttribute', BindingType.Attribute, 'when', 'isVisible']
       expectFromHtml(html).toEqual([
-        ['ControlFlow', 'lazy', [], [boundWhen], [], [Object({}), Object({}), Object({})]],
+        ['ControlFlow', 'lazy', [], [], [], [Object({}), Object({}), Object({})]],
       ]);
     });
   });

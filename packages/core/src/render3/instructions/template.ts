@@ -162,6 +162,8 @@ export function ɵɵdeferWhen<T>(rawValue: T) {
   if (oldValue !== true && bindingUpdated(lView, bindingIndex, value)) {
     const tNode = getSelectedTNode();
     renderDeferBlock(lView, tNode, oldValue, value);
+    // TODO: store relevant bits of info here to support better error messages
+    // (mostly "expression changed ..." one)
     // ngDevMode && storePropertyBindingMetadata(tView.data, tNode, propName, bindingIndex);
   }
 }
@@ -197,6 +199,8 @@ function getTemplateRef(lView: LView, index: number): TemplateRef<unknown>|null 
   return createTemplateRef(tNode, lView)!;
 }
 
+// TODO: consider doing all operations without going through the ViewContainerRef.
+//       We can use internal data structures directly.
 // TODO: intersect the state based on `when` with the state based on `on`!
 //       we might be in the "loading" or "complete" state already
 // TODO: handle this case: {#for}{#defer}...{/defer}{/for}, when

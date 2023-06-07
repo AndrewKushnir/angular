@@ -105,15 +105,9 @@ class R3AstSourceSpans implements t.Visitor<void> {
     }
   }
 
-  visitControlFlow(controlFlow: t.ControlFlow) {
-    this.result.push([
-      'ControlFlow', controlFlow.name, controlFlow.attributes, controlFlow.inputs,
-      controlFlow.outputs, controlFlow.children, controlFlow.sourceSpan,
-      controlFlow.startSourceSpan, controlFlow.endSourceSpan
-    ]);
+  visitDeferredTemplate(template: t.DeferredTemplate): void {
+    t.visitAllDeferredTemplateBlocks(template, this);
   }
-
-  visitControlFlowCase(controlFlowCase: t.ControlFlowCase) {}
 
   private visitAll(nodes: t.Node[][]) {
     nodes.forEach(node => t.visitAll(this, node));

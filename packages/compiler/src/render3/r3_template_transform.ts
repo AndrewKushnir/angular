@@ -6,7 +6,9 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {DeferConditionParser} from '../defer_condition_parser';
 import {ParsedEvent, ParsedProperty, ParsedVariable} from '../expression_parser/ast';
+import {Lexer} from '../expression_parser/lexer';
 import * as i18n from '../i18n/i18n_ast';
 import * as html from '../ml_parser/ast';
 import {replaceNgsp} from '../ml_parser/html_whitespaces';
@@ -271,18 +273,23 @@ class HtmlAstToIvyAst implements html.Visitor {
     const blocks: {[key in t.DeferredTemplateBlock]?: t.Template} = {};
     const conditions: {[key in t.DeferredTemplateBlock]?: t.DeferredTemplateCondition[]} = {};
 
+    const appendConditions =
+        (key: t.DeferredTemplateBlock, _conditions: html.ControlFlowCondition[]) => {
+          if (_conditions.length === 0) return;
+          for (const condition of _conditions) {
+            conditions[key] ??= [];
+            conditions[key]!.push(...this.createDeferredTemplateConditions(condition, context));
+          }
+        }
+
     for (const block of controlFlow.children) {
       const key = getBlockKeyByName(block.name);
-
       blocks[key] = this.createDeferredTemplateBlock(block, context);
-
-      for (const condition of controlFlow.conditions) {
-        if (!conditions[key]) {
-          conditions[key] = [];
-        }
-        conditions[key]!.push(this.createDeferredTemplateCondition(condition, context));
-      }
+      appendConditions(key, block.conditions);
     }
+
+    // Append conditions for the primary block.
+    appendConditions(t.DeferredTemplateBlock.PRIMARY, controlFlow.conditions);
 
     return new t.DeferredTemplate(
         conditions, blocks, controlFlow.sourceSpan, controlFlow.startSourceSpan,
@@ -296,11 +303,14 @@ class HtmlAstToIvyAst implements html.Visitor {
         controlFlowCase.startSourceSpan, controlFlowCase.endSourceSpan);
   }
 
-  private createDeferredTemplateCondition(
-      controlFlowCondition: html.ControlFlowCondition, context: any): t.DeferredTemplateCondition {
-    // TODO: parse condition from a string -> AST
-    return new t.DeferredTemplateCondition(
-        controlFlowCondition.condition, controlFlowCondition.sourceSpan);
+  private createDeferredTemplateConditions(
+      controlFlowCondition: html.ControlFlowCondition,
+      context: any): t.DeferredTemplateCondition[] {
+    const {condition} = controlFlowCondition;
+    const lexer = new Lexer();
+    const tokens = lexer.tokenize(condition);
+    const parser = new DeferConditionParser(tokens);
+    return parser.parse();
   }
 
   visitControlFlow(controlFlow: html.ControlFlow, context: any): t.Node {
