@@ -11,7 +11,7 @@ import {locateNextRNode, siblingAfter} from '../../hydration/node_lookup_utils';
 import {calcSerializedContainerSize, isDisconnectedNode, markRNodeAsClaimedByHydration, setSegmentHead} from '../../hydration/utils';
 import {Type} from '../../interface/type';
 import {TemplateRef} from '../../linker';
-import {createLazyTemplateRef, createTemplateRef, injectLazyTemplateRef} from '../../linker/template_ref';
+import {createLazyTemplateRef, createTemplateRef} from '../../linker/template_ref';
 import {injectViewContainerRef} from '../../linker/view_container_ref';
 import {assertEqual} from '../../util/assert';
 import {assertFirstCreatePass} from '../assert';
@@ -19,15 +19,15 @@ import {bindingUpdated} from '../bindings';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {DEFER_DETAILS, DeferState, LDeferDetails} from '../interfaces/container';
-import {ComponentTemplate, DependencyTypeList} from '../interfaces/definition';
+import {ComponentTemplate} from '../interfaces/definition';
 import {LocalRefExtractor, TAttributes, TContainerNode, TDeferDetails, TNode, TNodeType} from '../interfaces/node';
 import {RComment} from '../interfaces/renderer_dom';
 import {isDestroyed, isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION, LView, RENDERER, TVIEW, TView, TViewType} from '../interfaces/view';
 import {appendChild} from '../node_manipulation';
-import {getLView, getSelectedTNode, getTView, isInSkipHydrationBlock, lastNodeWasCreated, nextBindingIndex, setCurrentTNode, wasLastNodeCreated} from '../state';
+import {getCurrentTNode, getLView, getSelectedTNode, getTView, isInSkipHydrationBlock, lastNodeWasCreated, nextBindingIndex, setCurrentTNode, wasLastNodeCreated} from '../state';
 import {NO_CHANGE} from '../tokens';
-import {getConstant, getTNode} from '../util/view_utils';
+import {getConstant, getTNode, storeLViewOnDestroy} from '../util/view_utils';
 
 import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
@@ -170,12 +170,38 @@ export function ɵɵdeferWhen<T>(rawValue: T) {
 
 // TODO: add docs
 export function ɵɵdeferOnIdle() {
-  // TODO: implement this function
+  const lView = getLView();
+  const tNode = getCurrentTNode()!;
+
+  // TODO: would this produce a flicker?
+  // TODO: should this be an extended diagnostic (i.e. when you
+  // provide `{:placeholder}` and `on idle` condition)?
+  renderPlaceholder(lView, tNode);
+
+  // TODO: implement a better shim
+  const _requestIdleCallback =
+      typeof requestIdleCallback !== 'undefined' ? requestIdleCallback : setTimeout;
+  const _cancelIdleCallback =
+      typeof cancelIdleCallback !== 'undefined' ? cancelIdleCallback : clearTimeout;
+
+  const id = _requestIdleCallback(() => {
+    renderDeferBlock(lView, tNode, NO_CHANGE, true);
+    cancelIdleCallback(id as number);
+  });
+  storeLViewOnDestroy(lView, () => _cancelIdleCallback(id as number));
 }
 
 // TODO: add docs
 export function ɵɵdeferOnImmediate() {
-  // TODO: implement this function
+  const lView = getLView();
+  const tNode = getCurrentTNode()!;
+  // TODO: should we render right away without microtask?
+  //       It doesn't look great that we may kick off lazy loading
+  //       both synchronously and asynchronously (we should always
+  //       do it async?)
+  queueMicrotask(() => {
+    renderDeferBlock(lView, tNode, NO_CHANGE, true);
+  });
 }
 
 // TODO: add docs
@@ -195,7 +221,20 @@ export function ɵɵdeferOnViewport(target?: string) {
 
 // TODO: add docs
 export function ɵɵdeferOnTimer(timeout: number) {
-  // TODO: implement this function
+  const lView = getLView();
+  const tNode = getCurrentTNode()!;
+
+  renderPlaceholder(lView, tNode);
+
+  const id = setTimeout(() => {
+    renderDeferBlock(lView, tNode, NO_CHANGE, true);
+    clearTimeout(id);
+  }, timeout);
+  storeLViewOnDestroy(lView, () => clearTimeout(id));
+}
+
+function renderPlaceholder(lView: LView, tNode: TNode) {
+  renderDeferBlock(lView, tNode, NO_CHANGE, false);
 }
 
 function renderDeferState(

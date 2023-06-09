@@ -115,7 +115,7 @@ export class DeferConditionParser {
       this.advance();
       let value = null;
 
-      if (this.atCharacter(chars.$LPAREN)) {
+      if (this.hasTokens() && this.atCharacter(chars.$LPAREN)) {
         // Consume a call like `viewport(btn)`
         this.advance();            // `(`
         value = this.readValue();  // Read the value itself

@@ -58,7 +58,7 @@ describe('#defer', () => {
     return [Promise.reject(['failed'])];
   }
 
-  it('(compiled) should work with basic cases', async () => {
+  fit('(compiled) should work with basic cases', async () => {
     @Component({
       selector: 'my-lazy-cmp',
       standalone: true,
@@ -72,7 +72,7 @@ describe('#defer', () => {
       selector: 'simple-app',
       imports: [MyLazyCmp],
       template: `
-        {#defer when isVisible()}
+        {#defer when isVisible; on idle}
           <my-lazy-cmp />
         {:loading}
           Loading...
@@ -112,7 +112,7 @@ describe('#defer', () => {
     }, 0);
   });
 
-  fit('(runtime only) should work with basic cases', async () => {
+  it('(runtime only) should work with basic cases', async () => {
     /**
      * {#lazy}
      *   <my-lazy-cmp />

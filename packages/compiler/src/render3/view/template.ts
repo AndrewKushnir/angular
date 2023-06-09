@@ -642,6 +642,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
 
     const templateIndex = this.allocateDataSlot();
+    const lazyDecls = this.lazyDeclarations.get(deferredTemplate);
 
     const contextName = `${this.contextName}_defer_${templateIndex}`;
     const templateName = `${contextName}_Template`;
@@ -650,8 +651,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const parameters: o.Expression[] = [
       o.literal(templateIndex),  //
       o.variable(templateName),  //
-      o.variable(depsFnName),
-      o.TYPED_NULL_EXPR,  // TODO: static attrs index
+      lazyDecls ? o.variable(depsFnName) : o.TYPED_NULL_EXPR,
       loadingTmplIdx !== null ? o.literal(loadingTmplIdx) : o.TYPED_NULL_EXPR,
       placeholderTmplIdx !== null ? o.literal(placeholderTmplIdx) : o.TYPED_NULL_EXPR,
       errorTmplIdx !== null ? o.literal(errorTmplIdx) : o.TYPED_NULL_EXPR,
@@ -676,8 +676,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName!));
     });
 
-    debugger;
-    const lazyDecls = this.lazyDeclarations.get(deferredTemplate);
     if (lazyDecls) {
       // This lazy block has deps for which we need to generate dynamic imports.
       const dynamicImports: o.Expression[] = [];
@@ -686,7 +684,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         // FIXME: this is a temporary hack, make sure that the info
         // is included into the `decl` itself.
         const info = lazyDecl.__info;
-        debugger;
         if (info.importedFile) {
           // e.g. `function(m) { return m.MyCmp; }`
           const innerFn = o.fn(
@@ -710,7 +707,6 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
           depsFnBody, o.INFERRED_TYPE, null, depsFnName);
 
       this.constantPool.statements.push(depsFnExpr.toDeclStmt(depsFnName));
-      debugger;
     }
 
     // e.g. template(1, MyComp_Template_1)
@@ -721,21 +717,50 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       return trimTrailingNulls(parameters);
     });
 
-    // TODO: add extra instructions for conditions!
-    // TODO: add "update" instructions for `when` and `prefetch when`!
-    /*
-    otherCases.forEach((controlFlowCase: any) => {
-      // Create references to case templates
-      const params = [
-        o.literal(controlFlowCase.name),
-        // reference(4)
-        o.importExpr(R3.reference).callFn([o.literal(this.getConstCount())])
-      ];
-      this.allocateBindingSlots(null);
-      this.updateInstructionWithAdvance(templateIndex, controlFlowCase.span, R3.property, params);
-      this.visitControlFlowCase(controlFlowCase);
-    });
-    */
+    // TODO: add conditions for other blocks!
+    const primaryBlockConditions = deferredTemplate.conditions?.[DeferredTemplateBlock.PRIMARY];
+    if (primaryBlockConditions) {
+      // TODO: move this to a separate fn
+      for (const condition of primaryBlockConditions) {
+        switch (condition.kind) {
+          case t.DeferConditionKind.When:
+            const params: InstructionParams = () =>
+                this.convertPropertyBinding(condition.value as AST);
+            this.allocateBindingSlots(null);
+            this.updateInstructionWithAdvance(
+                templateIndex, deferredTemplate.sourceSpan, R3.deferWhen, params);
+            break;
+          case t.DeferConditionKind.OnIdle:
+            this.creationInstruction(deferredTemplate.sourceSpan, R3.deferOnIdle, []);
+            break;
+          case t.DeferConditionKind.OnImmediate:
+            this.creationInstruction(deferredTemplate.sourceSpan, R3.deferOnImmediate, []);
+            break;
+          case t.DeferConditionKind.OnTimer:
+            this.creationInstruction(
+                deferredTemplate.sourceSpan, R3.deferOnTimer, [o.literal(condition.value)]);
+            break;
+          case t.DeferConditionKind.OnHover:
+            // TODO: add handing for "on hover(ref)"
+            this.creationInstruction(deferredTemplate.sourceSpan, R3.deferOnHover, []);
+            break;
+          case t.DeferConditionKind.OnViewport:
+            // TODO: add handing for "on viewport(ref)"
+            this.creationInstruction(deferredTemplate.sourceSpan, R3.deferOnViewport, []);
+            break;
+          case t.DeferConditionKind.OnInteraction:
+            // TODO: add handing for "on interaction(ref)"
+            this.creationInstruction(deferredTemplate.sourceSpan, R3.deferOnInteraction, []);
+            break;
+          default:
+            console.log('Not implemented yet...');
+        }
+      }
+    } else {
+      // If no other conditions are setup, generate the `deferOnIdle` instruction.
+      // TODO: consider including it at runtime instead?
+      this.creationInstruction(deferredTemplate.sourceSpan, R3.deferOnIdle, []);
+    }
   }
 
   visitElement(element: t.Element) {
