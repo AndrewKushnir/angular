@@ -92,6 +92,7 @@ export class DeferConditionParser {
       let value = this.peek().numValue;
       this.advance();
       const unit = this.peek().strValue;
+      this.advance();
       if (unit === 's') {
         value *= 1000;
       } else if (unit === 'ms') {

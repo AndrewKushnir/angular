@@ -72,7 +72,7 @@ describe('#defer', () => {
       selector: 'simple-app',
       imports: [MyLazyCmp],
       template: `
-        {#defer when isVisible; on idle}
+        {#defer when isVisible}
           <my-lazy-cmp />
         {:loading}
           Loading...

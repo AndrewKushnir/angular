@@ -152,7 +152,6 @@ export function ɵɵdeferredTemplate(
 
 // TODO: add docs
 export function ɵɵdeferWhen<T>(rawValue: T) {
-  debugger;
   const lView = getLView();
   const bindingIndex = nextBindingIndex();
   const value = !!rawValue;  // handle truthy or falsy values
@@ -301,15 +300,12 @@ function renderDeferBlock(
     const lazyTemplateRef = createLazyTemplateRef(tNode, lView)!;
     lazyTemplateRef.load()
         .then(templateRef => {
-          debugger;
           if (!isDestroyed(lView)) {
             // Everything is loaded, show the primary block content
             renderDeferState(lView, lDetails, DeferState.COMPLETE, templateRef);
           }
         })
         .catch((error: unknown) => {
-          debugger;
-
           // There was an error, render an error template
           const wasContentRendered =
               renderDeferState(lView, lDetails, DeferState.ERROR, tDetails.errorTmplIndex);

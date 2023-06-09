@@ -5,7 +5,7 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {Attribute, Comment, ControlFlow, ControlFlowCase, Element, Expansion, ExpansionCase, Text, Visitor} from '@angular/compiler';
+import {Attribute, Comment, ControlFlow, ControlFlowCase, ControlFlowCondition, Element, Expansion, ExpansionCase, Text, Visitor} from '@angular/compiler';
 
 /**
  * A simple base class for the  `Visitor` interface, which is a noop for every method.
@@ -21,4 +21,5 @@ export class BaseVisitor implements Visitor {
   visitExpansionCase(_expansionCase: ExpansionCase, _context: any): any {}
   visitControlFlow(controlFlow: ControlFlow, context: any) {}
   visitControlFlowCase(controlFlowCase: ControlFlowCase, context: any) {}
+  visitControlFlowCondition(controlFlowCondition: ControlFlowCondition, context: any) {}
 }
