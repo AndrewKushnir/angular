@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {CommonModule} from '@angular/common';
 import {Component, ɵɵadvance as advance, ɵɵreference, ɵɵproperty as property, ɵɵdefineComponent as defineComponent, ɵɵtemplate as template, ɵɵelement as element, ɵɵdeferredTemplate as deferredTemplate, ɵɵtext as text, ɵɵdeferWhen as deferWhen, Type} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 
@@ -70,10 +71,10 @@ describe('#defer', () => {
     @Component({
       standalone: true,
       selector: 'simple-app',
-      imports: [MyLazyCmp],
+      imports: [MyLazyCmp, CommonModule],
       template: `
         {#defer when isVisible}
-          <my-lazy-cmp />
+          <my-lazy-cmp *ngIf="true" />
         {:loading}
           Loading...
         {:placeholder}

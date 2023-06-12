@@ -680,12 +680,22 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       // This lazy block has deps for which we need to generate dynamic imports.
       const dynamicImports: o.Expression[] = [];
       lazyDecls.forEach((lazyDecl: any) => {
-        const symbolName = lazyDecl.type.node.escapedText;
         // FIXME: this is a temporary hack, make sure that the info
         // is included into the `decl` itself.
+        // FIXME: verify whether we cover all cases below (likely there are
+        // some cases that we do not cover currently).
         const info = lazyDecl.__info;
-        if (info.importedFile) {
+        if (lazyDecl.type?.value?.moduleName) {
           // e.g. `function(m) { return m.MyCmp; }`
+          const innerFn = o.fn(
+              [new o.FnParam('m', o.DYNAMIC_TYPE)],
+              [new o.ReturnStatement(o.variable('m').prop(lazyDecl.type.value.name))]);
+          const fileName = lazyDecl.type.value.moduleName;
+          const importExpr = (new o.DynamicImportExpr(fileName)).prop('then').callFn([innerFn]);
+          dynamicImports.push(importExpr);
+        } else if (info.importedFile) {
+          // e.g. `function(m) { return m.MyCmp; }`
+          const symbolName = lazyDecl.type.node.escapedText;
           const innerFn = o.fn(
               [new o.FnParam('m', o.DYNAMIC_TYPE)],
               [new o.ReturnStatement(o.variable('m').prop(symbolName))]);
@@ -696,6 +706,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
           dynamicImports.push(importExpr);
         } else {
           // local symbol
+          const symbolName = lazyDecl.type.node.escapedText;
           dynamicImports.push(o.variable(symbolName));
         }
       });
