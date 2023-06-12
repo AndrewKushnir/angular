@@ -56,7 +56,8 @@ export function templateFirstCreatePass(
       TViewType.Embedded, tNode, templateFn, decls, vars, tView.directiveRegistry,
       tView.pipeRegistry, null, tView.schemas, tViewConsts, null /* ssrId */);
 
-  embeddedTView.dependencies = deferredDepsFn;
+  // TODO: pass this info via `createTView` instead.
+  embeddedTView.dependencies = deferredDepsFn ?? tView.dependencies;
 
   if (tView.queries !== null) {
     tView.queries.template(tView, tNode);
@@ -310,6 +311,7 @@ function renderDeferBlock(
           const wasContentRendered =
               renderDeferState(lView, lDetails, DeferState.ERROR, tDetails.errorTmplIndex);
 
+          console.error(error);
           if (!wasContentRendered) {
             // TODO: if there was no "error" template, we should log an error into the console.
           }

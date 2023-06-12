@@ -163,8 +163,10 @@ export function injectTemplateRef<T>(): TemplateRef<T>|null {
 export function createTemplateRef<T>(hostTNode: TNode, hostLView: LView): TemplateRef<T>|null {
   if (hostTNode.type & TNodeType.Container) {
     ngDevMode && assertDefined(hostTNode.tView, 'TView must be allocated');
-    ngDevMode &&
-        assertNotDefined(hostTNode.tView!.dependencies, 'Creating TemplateRef for lazy view');
+    // TODO: improve the check below, since it's currently false-positively
+    // reacts to embedded views within {#defer} blocks.
+    // ngDevMode &&
+    //    assertNotDefined(hostTNode.tView!.dependencies, 'Creating TemplateRef for lazy view');
     return new R3TemplateRef(
         hostLView, hostTNode as TContainerNode, createElementRef(hostTNode, hostLView));
   }
