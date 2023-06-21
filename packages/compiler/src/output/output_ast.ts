@@ -801,6 +801,10 @@ export class DynamicImportExpr extends Expression {
   override visitExpression(visitor: ExpressionVisitor, context: any): any {
     return visitor.visitDynamicImportExpr(this, context);
   }
+
+  override clone(): DynamicImportExpr {
+    return new DynamicImportExpr(this.url, this.sourceSpan);
+  }
 }
 
 
