@@ -24,7 +24,8 @@ import {ParsedTemplateWithSource, StyleUrlMeta} from './resources';
  */
 export type ComponentMetadataResolvedFields = SubsetOfKeys<
     R3ComponentMetadata<R3TemplateDependencyMetadata>,
-    'declarations'|'declarationListEmitMode'|'lazyDeclarations'>;
+    'declarations'|'declarationListEmitMode'|'lazyDeclarations'|'declarationToImport'|
+    'deferrables'>;
 
 export interface ComponentAnalysisData {
   /**

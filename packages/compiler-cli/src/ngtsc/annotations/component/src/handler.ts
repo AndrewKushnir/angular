@@ -13,13 +13,14 @@ import {Cycle, CycleAnalyzer, CycleHandlingStrategy} from '../../../cycles';
 import {ErrorCode, FatalDiagnosticError, makeDiagnostic, makeRelatedInformation} from '../../../diagnostics';
 import {absoluteFrom, relative} from '../../../file_system';
 import {assertSuccessfulReferenceEmit, ImportedFile, ImportFlags, ModuleResolver, Reference, ReferenceEmitter} from '../../../imports';
+import {DeferredSymbolsTracker} from '../../../imports/src/deferred_symbols_tracker';
 import {DependencyTracker} from '../../../incremental/api';
 import {extractSemanticTypeParameters, SemanticDepGraphUpdater} from '../../../incremental/semantic_graph';
 import {IndexingContext} from '../../../indexer';
 import {DirectiveMeta, extractDirectiveTypeCheckMeta, HostDirectivesResolver, MatchSource, MetadataReader, MetadataRegistry, MetaKind, PipeMeta, ResourceRegistry} from '../../../metadata';
 import {PartialEvaluator} from '../../../partial_evaluator';
 import {PerfEvent, PerfRecorder} from '../../../perf';
-import {ClassDeclaration, DeclarationNode, Decorator, ReflectionHost, reflectObjectLiteral} from '../../../reflection';
+import {ClassDeclaration, DeclarationNode, Decorator, isNamedClassDeclaration, ReflectionHost, reflectObjectLiteral} from '../../../reflection';
 import {ComponentScopeKind, ComponentScopeReader, DtsModuleScopeResolver, LocalModuleScopeRegistry, makeNotStandaloneDiagnostic, makeUnknownComponentImportDiagnostic, TypeCheckScopeRegistry} from '../../../scope';
 import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence, ResolveResult} from '../../../transform';
 import {TypeCheckableDirectiveMeta, TypeCheckContext} from '../../../typecheck/api';
@@ -60,8 +61,8 @@ export class ComponentDecoratorHandler implements
       private injectableRegistry: InjectableClassRegistry,
       private semanticDepGraphUpdater: SemanticDepGraphUpdater|null,
       private annotateForClosureCompiler: boolean, private perf: PerfRecorder,
-      private hostDirectivesResolver: HostDirectivesResolver,
-      private includeClassMetadata: boolean) {
+      private hostDirectivesResolver: HostDirectivesResolver, private includeClassMetadata: boolean,
+      private deferredSymbolsTracker: DeferredSymbolsTracker) {
     this.extractTemplateOptions = {
       enableI18nLegacyMessageIdFormat: this.enableI18nLegacyMessageIdFormat,
       i18nNormalizeLineEndingsInICUs: this.i18nNormalizeLineEndingsInICUs,
@@ -602,6 +603,8 @@ export class ComponentDecoratorHandler implements
       declarations: EMPTY_ARRAY,
       declarationListEmitMode: DeclarationListEmitMode.Direct,
       lazyDeclarations: new Map(),
+      declarationToImport: new Map(),
+      deferrables: new Set(),
     };
     const diagnostics: ts.Diagnostic[] = [];
 
@@ -783,6 +786,9 @@ export class ComponentDecoratorHandler implements
                   decl => decl.kind === R3TemplateDependencyKind.NgModule ||
                       topLevelUsed.has(decl.ref.node));
 
+      // Collect all deferred decls from all defer blocks from the entire template.
+      const allDeferredDecls = new Set<ClassDeclaration>();
+
       for (const [lazyTemplate, bound] of depMap) {
         const usedDirectives = new Set(bound.getUsedDirectives().map(d => d.ref.node));
         const usedPipes = new Set(bound.getUsedPipes());
@@ -803,8 +809,67 @@ export class ComponentDecoratorHandler implements
           (decl as any).__info =
               this.refEmitter.emit(decl.ref, context, ImportFlags.ForceNewImport);
           lazyDeclarations.push(decl);
+          allDeferredDecls.add(decl.ref.node);
         }
         data.lazyDeclarations.set(lazyTemplate, lazyDeclarations);
+      }
+
+      if (analysis.meta.isStandalone && analysis.rawImports !== null &&
+          ts.isArrayLiteralExpression(analysis.rawImports)) {
+        for (const node of analysis.rawImports.elements) {
+          if (!ts.isIdentifier(node)) {
+            // Can't defer-load non-literal references.
+            continue;
+          }
+
+          const imp = this.reflector.getImportOfIdentifier(node);
+          if (imp === null) {
+            // Can't defer-load things which aren't imported.
+            continue;
+          }
+
+          const decl = this.reflector.getDeclarationOfIdentifier(node);
+          if (decl === null) {
+            // Can't defer-load things which don't exist.
+            continue;
+          }
+
+          if (!isNamedClassDeclaration(decl.node)) {
+            // Can't defer-load things which aren't classes.
+            continue;
+          }
+
+          // Are we even trying to defer-load this thing?
+          if (!allDeferredDecls.has(decl.node)) {
+            // We don't want to defer-load this thing.
+            continue;
+          }
+
+          // Is it a standalone directive/component?
+          const dirMeta = this.metaReader.getDirectiveMetadata(new Reference(decl.node));
+          if (dirMeta !== null && !dirMeta.isStandalone) {
+            // Not a standalone component/directive
+            continue;
+          }
+
+          // Is it a standalone pipe?
+          const pipeMeta = this.metaReader.getPipeMetadata(new Reference(decl.node));
+          if (pipeMeta !== null && !pipeMeta.isStandalone) {
+            // Not a standalone pipe
+            continue;
+          }
+
+          if (dirMeta === null && pipeMeta === null) {
+            // What even is this thing?
+            continue;
+          }
+
+          // We also need to record Decl -> ts.ImportDeclaration in this source file.
+          data.declarationToImport.set(decl.node, imp.node);
+
+          // We're okay deferring this reference to the imported symbol.
+          this.deferredSymbolsTracker.markDeferrable(imp.node, node);
+        }
       }
 
       const cyclesFromDirectives = new Map<UsedDirective, Cycle>();
@@ -998,14 +1063,27 @@ export class ComponentDecoratorHandler implements
     if (analysis.template.errors !== null && analysis.template.errors.length > 0) {
       return [];
     }
-    const meta: R3ComponentMetadata<R3TemplateDependency> = {...analysis.meta, ...resolution};
+    const deferrables = new Set<ClassDeclaration>();
+    for (const [decl, importDecl] of resolution.declarationToImport) {
+      if (this.deferredSymbolsTracker.canDefer(importDecl)) {
+        deferrables.add(decl);
+      }
+    }
+
+    const meta: R3ComponentMetadata<R3TemplateDependency> = {
+      ...analysis.meta,
+      ...resolution,
+      deferrables,
+    };
+
     const fac = compileNgFactoryDefField(toFactoryMetadata(meta, FactoryTarget.Component));
     const def = compileComponentFromMetadata(meta, pool, makeBindingParser());
     const inputTransformFields = compileInputTransformFields(analysis.inputs);
     const classMetadata = analysis.classMetadata !== null ?
         compileClassMetadata(analysis.classMetadata).toStmt() :
         null;
-    return compileResults(fac, def, classMetadata, 'ɵcmp', inputTransformFields);
+    const importsToRemove = this.deferredSymbolsTracker.getImportDeclsToRemove();
+    return compileResults(fac, def, classMetadata, 'ɵcmp', inputTransformFields, importsToRemove);
   }
 
   compilePartial(
@@ -1022,14 +1100,17 @@ export class ComponentDecoratorHandler implements
           new WrappedNodeExpr(analysis.template.sourceMapping.node) :
           null,
     };
+
     const meta:
         R3ComponentMetadata<R3TemplateDependencyMetadata> = {...analysis.meta, ...resolution};
+
     const fac = compileDeclareFactory(toFactoryMetadata(meta, FactoryTarget.Component));
     const inputTransformFields = compileInputTransformFields(analysis.inputs);
     const def = compileDeclareComponentFromMetadata(meta, analysis.template, templateInfo);
     const classMetadata = analysis.classMetadata !== null ?
         compileDeclareClassMetadata(analysis.classMetadata).toStmt() :
         null;
+    // TODO: check if we need to compute `importsToRemove` for partial compilation.
     return compileResults(fac, def, classMetadata, 'ɵcmp', inputTransformFields);
   }
 

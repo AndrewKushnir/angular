@@ -466,6 +466,8 @@ export interface Import {
    * This could either be an absolute module name (@angular/core for example) or a relative path.
    */
   from: string;
+
+  node: ts.ImportDeclaration;
 }
 
 /**

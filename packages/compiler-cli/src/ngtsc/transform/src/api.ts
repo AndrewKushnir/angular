@@ -241,6 +241,7 @@ export interface CompileResult {
   initializer: Expression|null;
   statements: Statement[];
   type: Type;
+  importsToRemove?: Set<ts.ImportDeclaration>;
 }
 
 export interface ResolveResult<R> {

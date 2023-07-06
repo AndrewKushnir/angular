@@ -147,7 +147,6 @@ export class DeferConditionParser {
   }
 
   parse(): DeferredTemplateCondition[] {
-    // debugger;
     if (this.atIdentifier('when')) {
       this.handleWhenCondition();
     } else if (this.atIdentifier('on')) {

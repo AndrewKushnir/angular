@@ -223,6 +223,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       private templateIndex: number|null, private templateName: string|null,
       private _namespace: o.ExternalReference, relativeContextFilePath: string,
       private i18nUseExternalIds: boolean, private lazyDeclarations: Map<any, any>,
+      private deferrables: Set<any>,
       private _constants: ComponentDefConsts = createComponentDefConsts()) {
     this._bindingScope = parentBindingScope.nestedScope(level);
 
@@ -661,7 +662,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this.lazyDeclarations, this._constants);
+        this.i18nUseExternalIds, this.lazyDeclarations, this.deferrables, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
@@ -680,34 +681,40 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       // This lazy block has deps for which we need to generate dynamic imports.
       const dynamicImports: o.Expression[] = [];
       lazyDecls.forEach((lazyDecl: any) => {
-        // FIXME: this is a temporary hack, make sure that the info
-        // is included into the `decl` itself.
-        // FIXME: verify whether we cover all cases below (likely there are
-        // some cases that we do not cover currently).
-        const info = lazyDecl.__info;
-        if (lazyDecl.type?.value?.moduleName) {
-          // e.g. `function(m) { return m.MyCmp; }`
-          const innerFn = o.fn(
-              [new o.FnParam('m', o.DYNAMIC_TYPE)],
-              [new o.ReturnStatement(o.variable('m').prop(lazyDecl.type.value.name))]);
-          const fileName = lazyDecl.type.value.moduleName;
-          const importExpr = (new o.DynamicImportExpr(fileName)).prop('then').callFn([innerFn]);
-          dynamicImports.push(importExpr);
-        } else if (info.importedFile) {
-          // e.g. `function(m) { return m.MyCmp; }`
-          const symbolName = lazyDecl.type.node.escapedText;
-          const innerFn = o.fn(
-              [new o.FnParam('m', o.DYNAMIC_TYPE)],
-              [new o.ReturnStatement(o.variable('m').prop(symbolName))]);
+        const deferrables = this.deferrables;
+        if (deferrables.has(lazyDecl.ref.node)) {
+          // FIXME: this is a temporary hack, make sure that the info
+          // is included into the `decl` itself.
+          // FIXME: verify whether we cover all cases below (likely there are
+          // some cases that we do not cover currently).
+          const info = lazyDecl.__info;
+          if (lazyDecl.type?.value?.moduleName) {
+            // e.g. `function(m) { return m.MyCmp; }`
+            const innerFn = o.fn(
+                [new o.FnParam('m', o.DYNAMIC_TYPE)],
+                [new o.ReturnStatement(o.variable('m').prop(lazyDecl.type.value.name))]);
+            const fileName = lazyDecl.type.value.moduleName;
+            const importExpr = (new o.DynamicImportExpr(fileName)).prop('then').callFn([innerFn]);
+            dynamicImports.push(importExpr);
+          } else if (info.importedFile) {
+            // e.g. `function(m) { return m.MyCmp; }`
+            const symbolName = lazyDecl.type.node.escapedText;
+            const innerFn = o.fn(
+                [new o.FnParam('m', o.DYNAMIC_TYPE)],
+                [new o.ReturnStatement(o.variable('m').prop(symbolName))]);
 
-          // FIXME: there must be some helper functions to normalize this.
-          const fileName = info.importedFile.fileName.replace(/\.ts$/, '');
-          const importExpr = (new o.DynamicImportExpr(fileName)).prop('then').callFn([innerFn]);
-          dynamicImports.push(importExpr);
+            // FIXME: there must be some helper functions to normalize this.
+            const fileName = info.importedFile.fileName.replace(/\.ts$/, '');
+            const importExpr = (new o.DynamicImportExpr(fileName)).prop('then').callFn([innerFn]);
+            dynamicImports.push(importExpr);
+          } else {
+            // local symbol
+            const symbolName = lazyDecl.type.node.escapedText;
+            dynamicImports.push(o.variable(symbolName));
+          }
         } else {
-          // local symbol
-          const symbolName = lazyDecl.type.node.escapedText;
-          dynamicImports.push(o.variable(symbolName));
+          // Non-deferrable symbol, just use a reference to the type.
+          dynamicImports.push(lazyDecl.type);
         }
       });
       const depsFnBody: o.Statement[] = [];
@@ -1081,7 +1088,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this.lazyDeclarations, this._constants);
+        this.i18nUseExternalIds, this.lazyDeclarations, this.deferrables, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we

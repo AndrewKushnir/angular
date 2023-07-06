@@ -259,7 +259,6 @@ class DirectiveBinder<DirectiveT extends DirectiveMeta> implements Visitor {
   }
 
   visitElementOrTemplate(elementName: string, node: Element|Template): void {
-    // debugger;
     // First, determine the HTML shape of the node for the purpose of directive matching.
     // Do this by building up a `CssSelector` for the node.
     const cssSelector = createCssSelector(elementName, getAttrsForDirectiveMatching(node));
@@ -404,7 +403,6 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     const usedPipes = new Set<string>();
     const lazyTemplates = new Set<DeferredTemplate>();
     // The top-level template has nesting level 0.
-    // debugger;
     const binder = new TemplateBinder(
         expressions, symbols, usedPipes, lazyTemplates, nestingLevel, scope,
         template instanceof Template ? template : null, 0);

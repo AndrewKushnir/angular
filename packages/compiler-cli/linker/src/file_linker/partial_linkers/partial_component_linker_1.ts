@@ -168,6 +168,7 @@ export class PartialComponentLinkerVersion1<TStatement, TExpression> implements
       },
       // FIXME: implement this correctly.
       lazyDeclarations: new Map(),
+      declarationToImport: new Map(),
       declarationListEmitMode,
       styles: metaObj.has('styles') ? metaObj.getArray('styles').map(entry => entry.getString()) :
                                       [],

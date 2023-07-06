@@ -55,40 +55,74 @@ function allTests(os: string) {
 
     describe('control flow', () => {
       fit('basic scenarios', () => {
-        const template = `
-          {#defer on idle; when isVisible()}
-            <my-cmp />
-          {:loading}
-            Loading...
-          {:placeholder}
-            Placeholder
-          {/defer}
-        `;
-
-        env.write('my-cmp.ts', `
+        env.write('cmp-a.ts', `
             import {Component} from '@angular/core';
 
             @Component({
               standalone: true,
-              selector: 'my-cmp',
-              template: 'Hi!'
+              selector: 'cmp-a',
+              template: 'CmpA!'
             })
-            export class MyCmp {}
+            export class CmpA {}
+
+            @Component({
+              standalone: true,
+              selector: 'cmp-b',
+              template: 'CmpB!'
+            })
+            export class CmpB {}
         `);
+
+        env.write('module-a.ts', `
+          import {NgModule, Component} from '@angular/core';
+
+          @Component({
+            selector: 'cmp-c',
+            template: 'CmpC!'
+          })
+          export class CmpC {}
+
+          @NgModule({
+            declarations: [CmpC],
+            exports: [CmpC],
+          })
+          export class ModuleA {}
+      `);
 
         env.write('test.ts', `
             import {Component} from '@angular/core';
-            import {MyCmp} from './my-cmp';
+            import {CmpA, CmpB} from './cmp-a';
+            import {ModuleA} from './module-a';
 
             @Component({
               standalone: true,
               selector: '[test]',
-              imports: [MyCmp],
-              template: \`${template}\`,
+              imports: [CmpA, ModuleA],
+              template: \`
+                {#defer on idle; when isVisible()}
+                  <cmp-a />
+                  <cmp-c />
+                {/defer}
+              \`,
             })
-            export class TestCmp {
+            export class TestCmpA {
               isVisible() { return true; }
             }
+
+            @Component({
+              standalone: true,
+              selector: '[test]',
+              imports: [CmpA, CmpB],
+              template: \`
+                {#defer on idle; when isVisible()}
+                  <cmp-a />
+                  <cmp-b />
+                {/defer}
+              \`,
+            })
+            export class TestCmpB {
+              isVisible() { return true; }
+            }            
         `);
 
         env.driveMain();

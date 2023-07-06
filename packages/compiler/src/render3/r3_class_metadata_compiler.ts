@@ -42,14 +42,19 @@ export interface R3ClassMetadata {
 }
 
 export function compileClassMetadata(metadata: R3ClassMetadata): o.Expression {
+  // FIXME: temporary disable those fields to avoid direct references to symbols,
+  //        update with a proper call.
+
   // Generate an ngDevMode guarded call to setClassMetadata with the class identifier and its
   // metadata.
-  const fnCall = o.importExpr(R3.setClassMetadata).callFn([
-    metadata.type,
-    metadata.decorators,
-    metadata.ctorParameters ?? o.literal(null),
-    metadata.propDecorators ?? o.literal(null),
-  ]);
-  const iife = o.fn([], [devOnlyGuardedExpression(fnCall).toStmt()]);
-  return iife.callFn([]);
+  // const fnCall = o.importExpr(R3.setClassMetadata).callFn([
+  // metadata.type,
+  // metadata.decorators,
+  // metadata.ctorParameters ?? o.literal(null),
+  // metadata.propDecorators ?? o.literal(null),
+  // ]);
+  // const iife = o.fn([], [devOnlyGuardedExpression(fnCall).toStmt()]);
+  // return iife.callFn([]);
+
+  return o.NULL_EXPR;
 }
