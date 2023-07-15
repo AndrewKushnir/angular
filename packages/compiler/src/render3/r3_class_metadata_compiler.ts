@@ -41,20 +41,70 @@ export interface R3ClassMetadata {
   propDecorators: o.Expression|null;
 }
 
-export function compileClassMetadata(metadata: R3ClassMetadata): o.Expression {
-  // FIXME: temporary disable those fields to avoid direct references to symbols,
-  //        update with a proper call.
+// Special version of the `compileClassMetadata` function,
+// which handles deferrable symbols.
+//
+// Generates a call like this when there are deferrable symbols:
+// ```
+// setClassMetadataWithAsyncResources(type, () => {
+//   return Promise.all([
+//     import('./cmp-a').then(m => m.CmpA);
+//     import('./cmp-b').then(m => m.CmpB);
+//   ]).then((CmpA, CmpB) => {
+//     setClassMetadata(type, decorators, ctorParameters, propParameters);
+//   });
+// });
+// ```
+export function compileComponentClassMetadata(
+    metadata: R3ClassMetadata, deferrables: Map<any, string>): o.Expression {
+  if (!deferrables || deferrables.size === 0) {
+    return compileClassMetadata(metadata);
+  }
 
+  const dynamicImports: o.Expression[] = [];
+  const importedSymbols: o.FnParam[] = [];
+  for (const [deferrable, importPath] of Array.from(deferrables)) {
+    const innerFn = o.fn(
+        [new o.FnParam('m', o.DYNAMIC_TYPE)],
+        [new o.ReturnStatement(o.variable('m').prop(deferrable.name.escapedText))]);
+    const importExpr = (new o.DynamicImportExpr(importPath)).prop('then').callFn([innerFn]);
+    dynamicImports.push(importExpr);
+    importedSymbols.push(new o.FnParam(deferrable.name.escapedText, o.DYNAMIC_TYPE));
+  }
+
+  const depsFnBody: o.Statement[] = [];
+  // Promise.all(...)
+  const promise = o.variable('Promise').prop('all').callFn([o.literalArr(dynamicImports)]);
+
+  // Actual call to setClassMetadata:
+  const fnCall = o.importExpr(R3.setClassMetadata).callFn([
+    metadata.type,
+    metadata.decorators,
+    metadata.ctorParameters ?? o.literal(null),
+    metadata.propDecorators ?? o.literal(null),
+  ]);
+
+  const setClassMeta = o.fn(importedSymbols, [fnCall.toStmt()], o.INFERRED_TYPE);
+  const promiseWithThen = promise.prop('then').callFn([setClassMeta]);
+
+  depsFnBody.push(new o.ReturnStatement(promiseWithThen));
+
+  // TODO: actually generate `setClassMetadataWithAsyncResources` call here
+  const depsFnExpr = o.fn([] /* args */, depsFnBody, o.INFERRED_TYPE);
+
+  const iife = o.fn([], [devOnlyGuardedExpression(depsFnExpr).toStmt()]);
+  return iife.callFn([]);
+}
+
+export function compileClassMetadata(metadata: R3ClassMetadata): o.Expression {
   // Generate an ngDevMode guarded call to setClassMetadata with the class identifier and its
   // metadata.
-  // const fnCall = o.importExpr(R3.setClassMetadata).callFn([
-  // metadata.type,
-  // metadata.decorators,
-  // metadata.ctorParameters ?? o.literal(null),
-  // metadata.propDecorators ?? o.literal(null),
-  // ]);
-  // const iife = o.fn([], [devOnlyGuardedExpression(fnCall).toStmt()]);
-  // return iife.callFn([]);
-
-  return o.NULL_EXPR;
+  const fnCall = o.importExpr(R3.setClassMetadata).callFn([
+    metadata.type,
+    metadata.decorators,
+    metadata.ctorParameters ?? o.literal(null),
+    metadata.propDecorators ?? o.literal(null),
+  ]);
+  const iife = o.fn([], [devOnlyGuardedExpression(fnCall).toStmt()]);
+  return iife.callFn([]);
 }

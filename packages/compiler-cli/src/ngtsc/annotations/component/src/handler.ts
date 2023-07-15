@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AnimationTriggerNames, BoundTarget, compileClassMetadata, compileComponentFromMetadata, compileDeclareClassMetadata, compileDeclareComponentFromMetadata, ConstantPool, CssSelector, DeclarationListEmitMode, DeclareComponentTemplateInfo, DEFAULT_INTERPOLATION_CONFIG, DomElementSchemaRegistry, Expression, FactoryTarget, makeBindingParser, R3ComponentMetadata, R3DirectiveDependencyMetadata, R3NgModuleDependencyMetadata, R3PipeDependencyMetadata, R3TargetBinder, R3TemplateDependency, R3TemplateDependencyKind, R3TemplateDependencyMetadata, SchemaMetadata, SelectorMatcher, TmplAstLazyTemplate, TmplDeferredTemplateBlock, ViewEncapsulation, WrappedNodeExpr} from '@angular/compiler';
-import ts from 'typescript';
+import {AnimationTriggerNames, BoundTarget, compileComponentClassMetadata, compileComponentFromMetadata, compileDeclareClassMetadata, compileDeclareComponentFromMetadata, ConstantPool, CssSelector, DeclarationListEmitMode, DeclareComponentTemplateInfo, DEFAULT_INTERPOLATION_CONFIG, DomElementSchemaRegistry, Expression, FactoryTarget, makeBindingParser, R3ComponentMetadata, R3DirectiveDependencyMetadata, R3NgModuleDependencyMetadata, R3PipeDependencyMetadata, R3TargetBinder, R3TemplateDependency, R3TemplateDependencyKind, R3TemplateDependencyMetadata, SchemaMetadata, SelectorMatcher, TmplAstLazyTemplate, TmplDeferredTemplateBlock, ViewEncapsulation, WrappedNodeExpr} from '@angular/compiler';
+import * as ts from 'typescript';
 
 import {Cycle, CycleAnalyzer, CycleHandlingStrategy} from '../../../cycles';
 import {ErrorCode, FatalDiagnosticError, makeDiagnostic, makeRelatedInformation} from '../../../diagnostics';
@@ -27,7 +27,7 @@ import {TypeCheckableDirectiveMeta, TypeCheckContext} from '../../../typecheck/a
 import {ExtendedTemplateChecker} from '../../../typecheck/extended/api';
 import {getSourceFile} from '../../../util/src/typescript';
 import {Xi18nContext} from '../../../xi18n';
-import {combineResolvers, compileDeclareFactory, compileInputTransformFields, compileNgFactoryDefField, compileResults, extractClassMetadata, extractSchemas, findAngularDecorator, forwardRefResolver, getDirectiveDiagnostics, getProviderDiagnostics, InjectableClassRegistry, isExpressionForwardReference, readBaseClass, ReferencesRegistry, resolveEnumValue, resolveImportedFile, resolveLiteral, resolveProvidersRequiringFactory, ResourceLoader, toFactoryMetadata, validateHostDirectives, wrapFunctionExpressionsInParens,} from '../../common';
+import {combineResolvers, compileDeclareFactory, compileInputTransformFields, compileNgFactoryDefField, compileResults, extractClassMetadata, extractSchemas, findAngularDecorator, forwardRefResolver, getDirectiveDiagnostics, getProviderDiagnostics, InjectableClassRegistry, isExpressionForwardReference, readBaseClass, ReferencesRegistry, removeIdentifierReferences, removeIdentifierReferencesFromSet, resolveEnumValue, resolveImportedFile, resolveLiteral, resolveProvidersRequiringFactory, ResourceLoader, toFactoryMetadata, validateHostDirectives, wrapFunctionExpressionsInParens,} from '../../common';
 import {extractDirectiveMetadata, parseFieldStringArrayValue} from '../../directive';
 import {createModuleWithProvidersResolver, NgModuleSymbol} from '../../ng_module';
 
@@ -1064,9 +1064,15 @@ export class ComponentDecoratorHandler implements
       return [];
     }
     const deferrables = new Set<ClassDeclaration>();
+    // ClassDeclaration -> module specifier string
+    const deferrablesImportMap = new Map<ClassDeclaration, string>();
+    const deferrableNames = new Set<string>();
     for (const [decl, importDecl] of resolution.declarationToImport) {
       if (this.deferredSymbolsTracker.canDefer(importDecl)) {
+        // FIXME: we do not need this, we can always pass Map around.
         deferrables.add(decl);
+        deferrablesImportMap.set(decl, importDecl.moduleSpecifier.text);
+        deferrableNames.add(decl.name.escapedText);
       }
     }
 
@@ -1077,10 +1083,17 @@ export class ComponentDecoratorHandler implements
     };
 
     const fac = compileNgFactoryDefField(toFactoryMetadata(meta, FactoryTarget.Component));
+    if (analysis.classMetadata) {
+      // This is needed to drop references to existing imports for symbols that should
+      // be present in the `setClassMetadata` call.
+      const newNode = removeIdentifierReferencesFromSet(
+          (analysis.classMetadata.decorators as any).node, deferrableNames);
+      analysis.classMetadata.decorators = new WrappedNodeExpr(newNode);
+    }
     const def = compileComponentFromMetadata(meta, pool, makeBindingParser());
     const inputTransformFields = compileInputTransformFields(analysis.inputs);
     const classMetadata = analysis.classMetadata !== null ?
-        compileClassMetadata(analysis.classMetadata).toStmt() :
+        compileComponentClassMetadata(analysis.classMetadata, deferrablesImportMap).toStmt() :
         null;
     const importsToRemove = this.deferredSymbolsTracker.getImportDeclsToRemove();
     return compileResults(fac, def, classMetadata, 'ɵcmp', inputTransformFields, importsToRemove);
