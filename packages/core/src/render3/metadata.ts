@@ -15,6 +15,23 @@ interface TypeWithMetadata extends Type<any> {
   propDecorators?: {[field: string]: any};
 }
 
+const ASYNC_METADATA_LOADER = '__ngAsyncMetadata__';
+
+export function getAsyncMetadataLoader(type: Type<any>) {
+  return (type as any).hasOwnProperty(ASYNC_METADATA_LOADER) ?
+      (type as any)[ASYNC_METADATA_LOADER] :
+      null;
+}
+
+export function clearAsyncMetadataLoader(type: Type<any>) {
+  (type as any)[ASYNC_METADATA_LOADER] = null;
+}
+
+export function setClassMetadataAsync(
+    type: Type<any>, asyncMetadataSetter: () => Promise<unknown>): void {
+  (type as any)[ASYNC_METADATA_LOADER] = asyncMetadataSetter;
+}
+
 /**
  * Adds decorator, constructor, and property metadata to a given type via static metadata fields
  * on the type.
@@ -38,9 +55,9 @@ export function setClassMetadata(
              }
            }
            if (ctorParameters !== null) {
-             // Rather than merging, clobber the existing parameters. If other projects exist which
-             // use tsickle-style annotations and reflect over them in the same way, this could
-             // cause issues, but that is vanishingly unlikely.
+             // Rather than merging, clobber the existing parameters. If other projects exist
+             // which use tsickle-style annotations and reflect over them in the same way, this
+             // could cause issues, but that is vanishingly unlikely.
              clazz.ctorParameters = ctorParameters;
            }
            if (propDecorators !== null) {

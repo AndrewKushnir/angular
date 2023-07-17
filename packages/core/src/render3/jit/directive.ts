@@ -73,7 +73,7 @@ export function compileComponent(type: Type<any>, metadata: Component): void {
         const compiler =
             getCompilerFacade({usage: JitCompilerUsage.Decorator, kind: 'component', type: type});
 
-        if (componentNeedsResolution(metadata)) {
+        if (componentNeedsResolution(type, metadata)) {
           const error = [`Component '${type.name}' is not resolved:`];
           if (metadata.templateUrl) {
             error.push(` - templateUrl: ${metadata.templateUrl}`);

@@ -72,7 +72,6 @@ export function compileComponentClassMetadata(
     importedSymbols.push(new o.FnParam(deferrable.name.escapedText, o.DYNAMIC_TYPE));
   }
 
-  const depsFnBody: o.Statement[] = [];
   // Promise.all(...)
   const promise = o.variable('Promise').prop('all').callFn([o.literalArr(dynamicImports)]);
 
@@ -87,12 +86,13 @@ export function compileComponentClassMetadata(
   const setClassMeta = o.fn(importedSymbols, [fnCall.toStmt()], o.INFERRED_TYPE);
   const promiseWithThen = promise.prop('then').callFn([setClassMeta]);
 
-  depsFnBody.push(new o.ReturnStatement(promiseWithThen));
+  const setClassMetaAsyncCallback =
+      o.fn([] /* args */, [new o.ReturnStatement(promiseWithThen)], o.INFERRED_TYPE);
 
-  // TODO: actually generate `setClassMetadataWithAsyncResources` call here
-  const depsFnExpr = o.fn([] /* args */, depsFnBody, o.INFERRED_TYPE);
+  const setClassMetaAsync =
+      o.importExpr(R3.setClassMetadataAsync).callFn([metadata.type, setClassMetaAsyncCallback]);
 
-  const iife = o.fn([], [devOnlyGuardedExpression(depsFnExpr).toStmt()]);
+  const iife = o.fn([], [devOnlyGuardedExpression(setClassMetaAsync).toStmt()]);
   return iife.callFn([]);
 }
 
