@@ -196,7 +196,7 @@ export interface R3ComponentMetadata<DeclarationT extends R3TemplateDependency> 
   declarationToImport: Map<any, any>;
 
   // FIXME: use proper type here
-  deferrables: Set<any>;
+  deferrables: Map<any, string>;
 
   lazyDeclarations: Map<t.DeferredTemplate, DeclarationT[]>;
 

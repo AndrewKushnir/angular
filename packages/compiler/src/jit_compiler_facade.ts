@@ -188,7 +188,7 @@ export class CompilerFacadeImpl implements CompilerFacade {
       // FIXME: implement for JIT!
       lazyDeclarations: new Map(),
       declarationToImport: new Map(),
-      deferrables: new Set(),
+      deferrables: new Map(),
 
       selector: facade.selector || this.elementSchemaRegistry.getDefaultComponentElementName(),
       template,
@@ -466,7 +466,7 @@ function convertDeclareComponentFacadeToMetadata(
     // FIXME: implement for JIT!
     lazyDeclarations: new Map(),
     declarationToImport: new Map(),
-    deferrables: new Set(),
+    deferrables: new Map(),
 
     template,
     styles: decl.styles ?? [],
