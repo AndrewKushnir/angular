@@ -7,7 +7,7 @@
  */
 
 import {CommonModule} from '@angular/common';
-import {Component, ɵɵadvance as advance, ɵɵreference, ɵɵproperty as property, ɵɵdefineComponent as defineComponent, ɵɵtemplate as template, ɵɵelement as element, ɵɵdeferredTemplate as deferredTemplate, ɵɵtext as text, ɵɵdeferWhen as deferWhen, Type} from '@angular/core';
+import {Component, ɵɵadvance as advance, ɵɵreference, ɵɵproperty as property, ɵɵdefineComponent as defineComponent, ɵɵtemplate as template, ɵɵelement as element, ɵɵdefer as defer, ɵɵtext as text, ɵɵdeferWhen as deferWhen, Type} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 
 describe('#defer', () => {
@@ -140,7 +140,7 @@ describe('#defer', () => {
                 template(0, LoadingTemplate, 1, 0);
                 template(1, PlaceholderTemplate, 1, 0);
                 template(2, ErrorTemplate, 1, 0);
-                deferredTemplate(3, LazyTemplate, LazyTemplateDeps, 1, 1, 0, 1, 2);
+                defer(3, LazyTemplate, LazyTemplateDeps, 1, 1, 0, 1, 2);
               }
               if (rf & 2) {
                 advance(3);
@@ -195,7 +195,7 @@ describe('#defer', () => {
         template:
             function Template(rf: number, ctx: MyCmp) {
               if (rf & 1) {
-                deferredTemplate(0, LazyTemplate, LazyErrorTemplateDeps, 1, 0, null, 0);
+                defer(0, LazyTemplate, LazyErrorTemplateDeps, 1, 0, null, 0);
                 template(1, LoadingTemplate, 1, 0);
                 template(2, PlaceholderTemplate, 1, 0);
                 template(3, ErrorTemplate, 1, 0);
