@@ -181,4 +181,7 @@ export interface BoundTarget<DirectiveT extends DirectiveMeta> {
    * Get a list of all the pipes used by the target.
    */
   getUsedPipes(): string[];
+
+  // FIXME: (1) update types and (2) add docs
+  getLazyTemplates(): any[];
 }

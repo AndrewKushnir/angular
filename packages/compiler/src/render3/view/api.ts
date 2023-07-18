@@ -192,6 +192,15 @@ export interface R3ComponentMetadata<DeclarationT extends R3TemplateDependency> 
 
   declarations: DeclarationT[];
 
+  // FIXME: this should be Map<ts.ClassDeclaration, ts.ImportDeclaration>;
+  declarationToImport: Map<any, any>;
+
+  // FIXME: use proper type here
+  deferrables: Map<any, string>;
+
+  // FIXME: (1) add docs and (2) rename lazy -> defer
+  lazyDeclarations: Map<t.DeferredBlock, DeclarationT[]>;
+
   /**
    * Specifies how the 'directives' and/or `pipes` array, if generated, need to be emitted.
    */

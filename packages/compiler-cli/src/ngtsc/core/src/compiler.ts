@@ -15,6 +15,7 @@ import {COMPILER_ERRORS_WITH_GUIDES, ERROR_DETAILS_PAGE_BASE_URL, ErrorCode, Fat
 import {checkForPrivateExports, ReferenceGraph} from '../../entry_point';
 import {absoluteFromSourceFile, AbsoluteFsPath, LogicalFileSystem, resolve} from '../../file_system';
 import {AbsoluteModuleStrategy, AliasingHost, AliasStrategy, DefaultImportTracker, ImportRewriter, LocalIdentifierStrategy, LogicalProjectStrategy, ModuleResolver, NoopImportRewriter, PrivateExportAliasingHost, R3SymbolsImportRewriter, Reference, ReferenceEmitStrategy, ReferenceEmitter, RelativePathStrategy, UnifiedModulesAliasingHost, UnifiedModulesStrategy} from '../../imports';
+import {DeferredSymbolsTracker} from '../../imports/src/deferred_symbols_tracker';
 import {IncrementalBuildStrategy, IncrementalCompilation, IncrementalState} from '../../incremental';
 import {SemanticSymbol} from '../../incremental/semantic_graph';
 import {generateAnalysis, IndexedComponent, IndexingContext} from '../../indexer';
@@ -1017,6 +1018,8 @@ export class NgCompiler {
 
     const resourceRegistry = new ResourceRegistry();
 
+    const deferredSymbolsTracker = new DeferredSymbolsTracker(this.inputProgram.getTypeChecker());
+
     // Note: If this compilation builds `@angular/core`, we always build in full compilation
     // mode. Code inside the core package is always compatible with itself, so it does not
     // make sense to go through the indirection of partial compilation
@@ -1070,7 +1073,7 @@ export class NgCompiler {
           this.moduleResolver, this.cycleAnalyzer, cycleHandlingStrategy, refEmitter,
           referencesRegistry, this.incrementalCompilation.depGraph, injectableRegistry,
           semanticDepGraphUpdater, this.closureCompilerEnabled, this.delegatingPerfRecorder,
-          hostDirectivesResolver, supportTestBed, compilationMode),
+          hostDirectivesResolver, supportTestBed, compilationMode, deferredSymbolsTracker),
 
       // TODO(alxhub): understand why the cast here is necessary (something to do with `null`
       // not being assignable to `unknown` when wrapped in `Readonly`).

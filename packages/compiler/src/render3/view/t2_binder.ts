@@ -50,11 +50,11 @@ export class R3TargetBinder<DirectiveT extends DirectiveMeta> implements TargetB
         DirectiveBinder.apply(target.template, this.directiveMatcher);
     // Finally, run the TemplateBinder to bind references, variables, and other entities within the
     // template. This extracts all the metadata that doesn't depend on directive matching.
-    const {expressions, symbols, nestingLevel, usedPipes} =
+    const {expressions, symbols, nestingLevel, usedPipes, lazyTemplates} =
         TemplateBinder.applyWithScope(target.template, scope);
     return new R3BoundTarget(
         target, directives, bindings, references, expressions, symbols, nestingLevel,
-        templateEntities, usedPipes);
+        templateEntities, usedPipes, lazyTemplates);
   }
 }
 
@@ -374,8 +374,8 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
   private constructor(
       private bindings: Map<AST, Reference|Variable>,
       private symbols: Map<Reference|Variable, Template>, private usedPipes: Set<string>,
-      private nestingLevel: Map<Template, number>, private scope: Scope,
-      private template: Template|null, private level: number) {
+      private deferBlocks: Set<DeferredBlock>, private nestingLevel: Map<Template, number>,
+      private scope: Scope, private template: Template|null, private level: number) {
     super();
 
     // Save a bit of processing time by constructing this closure in advance.
@@ -410,17 +410,20 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     symbols: Map<Variable|Reference, Template>,
     nestingLevel: Map<Template, number>,
     usedPipes: Set<string>,
+    lazyTemplates: Set<DeferredBlock>,
   } {
     const expressions = new Map<AST, Reference|Variable>();
     const symbols = new Map<Variable|Reference, Template>();
     const nestingLevel = new Map<Template, number>();
     const usedPipes = new Set<string>();
     const template = nodes instanceof Template ? nodes : null;
+    const deferBlocks = new Set<DeferredBlock>();
     // The top-level template has nesting level 0.
-    const binder =
-        new TemplateBinder(expressions, symbols, usedPipes, nestingLevel, scope, template, 0);
+    const binder = new TemplateBinder(
+        expressions, symbols, usedPipes, deferBlocks, nestingLevel, scope, template, 0);
     binder.ingest(nodes);
-    return {expressions, symbols, nestingLevel, usedPipes};
+    // FIXME: rename lazyTemplates -> deferBlocks
+    return {expressions, symbols, nestingLevel, usedPipes, lazyTemplates: deferBlocks};
   }
 
   private ingest(template: Template|Node[]): void {
@@ -457,8 +460,8 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     // Next, recurse into the template using its scope, and bumping the nesting level up by one.
     const childScope = this.scope.getChildScope(template);
     const binder = new TemplateBinder(
-        this.bindings, this.symbols, this.usedPipes, this.nestingLevel, childScope, template,
-        this.level + 1);
+        this.bindings, this.symbols, this.usedPipes, this.deferBlocks, this.nestingLevel,
+        childScope, template, this.level + 1);
     binder.ingest(template);
   }
 
@@ -497,6 +500,7 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
   }
 
   visitDeferredBlock(deferred: DeferredBlock) {
+    this.deferBlocks.add(deferred);
     deferred.triggers.forEach(this.visitNode);
     deferred.prefetchTriggers.forEach(this.visitNode);
     deferred.children.forEach(this.visitNode);
@@ -582,7 +586,7 @@ export class R3BoundTarget<DirectiveT extends DirectiveMeta> implements BoundTar
       private symbols: Map<Reference|Variable, Template>,
       private nestingLevel: Map<Template, number>,
       private templateEntities: Map<Template|null, ReadonlySet<Reference|Variable>>,
-      private usedPipes: Set<string>) {}
+      private usedPipes: Set<string>, private deferredBlocks: Set<DeferredBlock>) {}
 
   getEntitiesInTemplateScope(template: Template|null): ReadonlySet<Reference|Variable> {
     return this.templateEntities.get(template) ?? new Set();
@@ -622,6 +626,10 @@ export class R3BoundTarget<DirectiveT extends DirectiveMeta> implements BoundTar
 
   getUsedPipes(): string[] {
     return Array.from(this.usedPipes);
+  }
+
+  getLazyTemplates(): DeferredBlock[] {
+    return Array.from(this.deferredBlocks);
   }
 }
 

@@ -7,6 +7,8 @@
  */
 
 import {Type} from '../interface/type';
+import {getAsyncMetadataLoader} from '../render3/metadata';
+
 import {Component} from './directives';
 
 
@@ -91,7 +93,9 @@ let componentResourceResolutionQueue = new Map<Type<any>, Component>();
 const componentDefPendingResolution = new Set<Type<any>>();
 
 export function maybeQueueResolutionOfComponentResources(type: Type<any>, metadata: Component) {
-  if (componentNeedsResolution(metadata)) {
+  if (componentNeedsResolution(type, metadata)) {
+    // TODO: add another queue here for metadata loading
+    // (a component might be located in both queues!)
     componentResourceResolutionQueue.set(type, metadata);
     componentDefPendingResolution.add(type);
   }
@@ -101,10 +105,10 @@ export function isComponentDefPendingResolution(type: Type<any>): boolean {
   return componentDefPendingResolution.has(type);
 }
 
-export function componentNeedsResolution(component: Component): boolean {
+export function componentNeedsResolution(type: Type<unknown>, component: Component): boolean {
   return !!(
       (component.templateUrl && !component.hasOwnProperty('template')) ||
-      component.styleUrls && component.styleUrls.length);
+      (component.styleUrls && component.styleUrls.length) || getAsyncMetadataLoader(type));
 }
 export function clearResolutionOfComponentResourcesQueue(): Map<Type<any>, Component> {
   const old = componentResourceResolutionQueue;

@@ -40,7 +40,7 @@ function getDiagnosticSourceCode(diag: ts.Diagnostic): string {
   return diag.file!.text.slice(diag.start!, diag.start! + diag.length!);
 }
 
-runInEachFileSystem(allTests);
+runInEachFileSystem.native(allTests);
 
 // Wrap all tests into a function to work around clang-format going crazy and (poorly)
 // reformatting the entire file.
@@ -51,6 +51,96 @@ function allTests(os: string) {
     beforeEach(() => {
       env = NgtscTestEnvironment.setup(testFiles);
       env.tsconfig();
+    });
+
+    describe('control flow', () => {
+      fit('basic scenarios', () => {
+        env.write('cmp-a.ts', `
+            import {Component} from '@angular/core';
+            @Component({
+              standalone: true,
+              selector: 'cmp-a',
+              template: 'CmpA!'
+            })
+            export class CmpA {}
+            @Component({
+              standalone: true,
+              selector: 'cmp-b',
+              template: 'CmpB!'
+            })
+            export class CmpB {}
+        `);
+
+        env.write('module-a.ts', `
+          import {NgModule, Component} from '@angular/core';
+          @Component({
+            selector: 'cmp-c',
+            template: 'CmpC!'
+          })
+          export class CmpC {}
+          @NgModule({
+            declarations: [CmpC],
+            exports: [CmpC],
+          })
+          export class ModuleA {}
+      `);
+
+        env.write('test.ts', `
+            import {Component} from '@angular/core';
+            import {CmpA, CmpB} from './cmp-a';
+            import {ModuleA} from './module-a';
+            @Component({
+              standalone: true,
+              selector: '[test]',
+              imports: [CmpA, ModuleA],
+              template: \`
+                {#defer on idle; when isVisible()}
+                  <cmp-a />
+                  <cmp-c />
+                {:loading}
+                  Loading...
+                {:error}
+                  <p>Oops...</p>
+                {:placeholder}
+                  <div>{{ foo }}</div>
+                {/defer}
+              \`,
+            })
+            export class TestCmpA {
+              foo = 'bar';
+              isVisible() { return true; }
+            }
+
+            @Component({
+              standalone: true,
+              selector: '[test]',
+              imports: [CmpA, CmpB],
+              template: \`
+                {#defer on idle; when isVisible()}
+                  <cmp-a />
+                  <cmp-b />
+                {:loading}
+                  (B) Loading...
+                {:error}
+                  <p>(B) Oops...</p>
+                {:placeholder}
+                  <div>(B) {{ foo }}</div>
+                {/defer}
+              \`,
+            })
+            export class TestCmpB {
+              isVisible() { return true; }
+            }
+        `);
+
+        env.driveMain();
+
+        const jsContents = env.getContents('test.js');
+
+        debugger;
+
+        expect(jsContents).toContain('Hello World');
+      });
     });
 
     it('should accept relative file paths as command line argument', () => {

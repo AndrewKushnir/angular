@@ -138,6 +138,14 @@ export class Identifiers {
   static resetView: o.ExternalReference = {name: 'ɵɵresetView', moduleName: CORE};
 
   static templateCreate: o.ExternalReference = {name: 'ɵɵtemplate', moduleName: CORE};
+  static defer: o.ExternalReference = {name: 'ɵɵdefer', moduleName: CORE};
+  static deferWhen: o.ExternalReference = {name: 'ɵɵdeferWhen', moduleName: CORE};
+  static deferOnIdle: o.ExternalReference = {name: 'ɵɵdeferOnIdle', moduleName: CORE};
+  static deferOnImmediate: o.ExternalReference = {name: 'ɵɵdeferOnImmediate', moduleName: CORE};
+  static deferOnHover: o.ExternalReference = {name: 'ɵɵdeferOnHover', moduleName: CORE};
+  static deferOnInteraction: o.ExternalReference = {name: 'ɵɵdeferOnInteraction', moduleName: CORE};
+  static deferOnViewport: o.ExternalReference = {name: 'ɵɵdeferOnViewport', moduleName: CORE};
+  static deferOnTimer: o.ExternalReference = {name: 'ɵɵdeferOnTimer', moduleName: CORE};
 
   static text: o.ExternalReference = {name: 'ɵɵtext', moduleName: CORE};
 
@@ -306,6 +314,8 @@ export class Identifiers {
   static declareClassMetadata:
       o.ExternalReference = {name: 'ɵɵngDeclareClassMetadata', moduleName: CORE};
   static setClassMetadata: o.ExternalReference = {name: 'ɵsetClassMetadata', moduleName: CORE};
+  static setClassMetadataAsync:
+      o.ExternalReference = {name: 'ɵsetClassMetadataAsync', moduleName: CORE};
 
   static queryRefresh: o.ExternalReference = {name: 'ɵɵqueryRefresh', moduleName: CORE};
   static viewQuery: o.ExternalReference = {name: 'ɵɵviewQuery', moduleName: CORE};

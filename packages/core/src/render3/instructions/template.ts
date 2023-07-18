@@ -9,12 +9,13 @@ import {validateMatchingNode, validateNodeExists} from '../../hydration/error_ha
 import {TEMPLATES} from '../../hydration/interfaces';
 import {locateNextRNode, siblingAfter} from '../../hydration/node_lookup_utils';
 import {calcSerializedContainerSize, isDisconnectedNode, markRNodeAsClaimedByHydration, setSegmentHead} from '../../hydration/utils';
+import {Type} from '../../interface/type';
 import {assertEqual} from '../../util/assert';
 import {assertFirstCreatePass} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {ComponentTemplate} from '../interfaces/definition';
-import {LocalRefExtractor, TAttributes, TContainerNode, TNode, TNodeType} from '../interfaces/node';
+import {LocalRefExtractor, TAttributes, TContainerNode, TDeferDetails, TNode, TNodeType} from '../interfaces/node';
 import {RComment} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION, LView, RENDERER, TView, TViewType} from '../interfaces/view';
@@ -24,9 +25,12 @@ import {getConstant} from '../util/view_utils';
 
 import {addToViewTree, createDirectivesInstances, createLContainer, createTView, getOrCreateTNode, resolveDirectives, saveResolvedLocalsInData} from './shared';
 
-function templateFirstCreatePass(
+export type DeferredDepsFn = () => Array<Promise<Type<unknown>>|Type<unknown>>;
+
+export function templateFirstCreatePass(
     index: number, tView: TView, lView: LView, templateFn: ComponentTemplate<any>|null,
-    decls: number, vars: number, tagName?: string|null, attrsIndex?: number|null,
+    deferredDepsFn: DeferredDepsFn|null, decls: number, vars: number,
+    value?: string|TDeferDetails|null, attrsIndex?: number|null,
     localRefsIndex?: number|null): TContainerNode {
   ngDevMode && assertFirstCreatePass(tView);
   ngDevMode && ngDevMode.firstCreatePass++;
@@ -34,7 +38,7 @@ function templateFirstCreatePass(
 
   // TODO(pk): refactor getOrCreateTNode to have the "create" only version
   const tNode = getOrCreateTNode(
-      tView, index, TNodeType.Container, tagName || null,
+      tView, index, TNodeType.Container, value || null,
       getConstant<TAttributes>(tViewConsts, attrsIndex));
 
   resolveDirectives(tView, lView, tNode, getConstant<string[]>(tViewConsts, localRefsIndex));
@@ -43,6 +47,9 @@ function templateFirstCreatePass(
   const embeddedTView = tNode.tView = createTView(
       TViewType.Embedded, tNode, templateFn, decls, vars, tView.directiveRegistry,
       tView.pipeRegistry, null, tView.schemas, tViewConsts, null /* ssrId */);
+
+  // TODO: pass this info via `createTView` instead.
+  embeddedTView.dependencies = deferredDepsFn ?? tView.dependencies;
 
   if (tView.queries !== null) {
     tView.queries.template(tView, tNode);
@@ -75,13 +82,21 @@ export function ɵɵtemplate(
     index: number, templateFn: ComponentTemplate<any>|null, decls: number, vars: number,
     tagName?: string|null, attrsIndex?: number|null, localRefsIndex?: number|null,
     localRefExtractor?: LocalRefExtractor) {
+  return templateInternal(
+      index, templateFn, null, decls, vars, tagName, attrsIndex, localRefsIndex, localRefExtractor);
+}
+
+export function templateInternal(
+    index: number, templateFn: ComponentTemplate<any>|null, deferredDepsFn: DeferredDepsFn|null,
+    decls: number, vars: number, value?: string|TDeferDetails|null, attrsIndex?: number|null,
+    localRefsIndex?: number|null, localRefExtractor?: LocalRefExtractor) {
   const lView = getLView();
   const tView = getTView();
   const adjustedIndex = index + HEADER_OFFSET;
 
   const tNode = tView.firstCreatePass ? templateFirstCreatePass(
-                                            adjustedIndex, tView, lView, templateFn, decls, vars,
-                                            tagName, attrsIndex, localRefsIndex) :
+                                            adjustedIndex, tView, lView, templateFn, deferredDepsFn,
+                                            decls, vars, value, attrsIndex, localRefsIndex) :
                                         tView.data[adjustedIndex] as TContainerNode;
   setCurrentTNode(tNode, false);
 

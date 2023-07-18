@@ -56,6 +56,7 @@ export function ivyTransformFactory(
  */
 class IvyCompilationVisitor extends Visitor {
   public classCompilationMap = new Map<ts.ClassDeclaration, CompileResult[]>();
+  public importsToRemove = new Set<ts.ImportDeclaration>();
 
   constructor(private compilation: TraitCompiler, private constantPool: ConstantPool) {
     super();
@@ -68,6 +69,11 @@ class IvyCompilationVisitor extends Visitor {
     const result = this.compilation.compile(node, this.constantPool);
     if (result !== null) {
       this.classCompilationMap.set(node, result);
+      for (const classResult of result) {
+        if (classResult.importsToRemove?.size) {
+          classResult.importsToRemove.forEach(importDecl => this.importsToRemove.add(importDecl));
+        }
+      }
     }
     return {node};
   }
@@ -83,7 +89,8 @@ class IvyTransformationVisitor extends Visitor {
       private classCompilationMap: Map<ts.ClassDeclaration, CompileResult[]>,
       private reflector: ReflectionHost, private importManager: ImportManager,
       private recordWrappedNodeExpr: RecordWrappedNodeFn<ts.Expression>,
-      private isClosureCompilerEnabled: boolean, private isCore: boolean) {
+      private isClosureCompilerEnabled: boolean, private isCore: boolean,
+      private importsToRemove: Set<ts.ImportDeclaration>) {
     super();
   }
 
@@ -151,6 +158,15 @@ class IvyTransformationVisitor extends Visitor {
         // Map over the class members and remove any Angular decorators from them.
         members.map(member => this._stripAngularDecorators(member)));
     return {node, after: statements};
+  }
+
+  override visitOtherNode<T extends ts.Node>(node: T): T {
+    if (ts.isImportDeclaration(node) && this.importsToRemove.has(node)) {
+      // Return `null` as an indication that this node should not be present
+      // in the final AST.
+      return null!;
+    }
+    return node;
   }
 
   /**
@@ -281,7 +297,7 @@ function transformIvySourceFile(
   // results obtained at Step 1.
   const transformationVisitor = new IvyTransformationVisitor(
       compilation, compilationVisitor.classCompilationMap, reflector, importManager,
-      recordWrappedNode, isClosureCompilerEnabled, isCore);
+      recordWrappedNode, isClosureCompilerEnabled, isCore, compilationVisitor.importsToRemove);
   let sf = visit(file, transformationVisitor, context);
 
   // Generate the constant statements first, as they may involve adding additional imports

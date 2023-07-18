@@ -9,13 +9,15 @@
 import {Injector} from '../../di/injector';
 import {ProviderToken} from '../../di/provider_token';
 import {DehydratedView} from '../../hydration/interfaces';
+import {Type} from '../../interface/type';
 import {SchemaMetadata} from '../../metadata/schema';
 import {Sanitizer} from '../../sanitization/sanitizer';
+
 import type {ReactiveLViewConsumer} from '../reactive_lview_consumer';
 import type {EffectManager} from '../reactivity/effect';
 
 import {LContainer} from './container';
-import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefList, HostBindingsFunction, PipeDef, PipeDefList, ViewQueriesFunction} from './definition';
+import {ComponentDef, ComponentTemplate, DirectiveDef, DependencyTypeList, DirectiveDefList, HostBindingsFunction, PipeDef, PipeDefList, ViewQueriesFunction} from './definition';
 import {I18nUpdateOpCodes, TI18n, TIcu} from './i18n';
 import {TConstants, TNode} from './node';
 import {LQueries, TQueries} from './query';
@@ -596,6 +598,9 @@ export interface TView {
    * A function containing query-related instructions.
    */
   viewQuery: ViewQueriesFunction<{}>|null;
+
+  /** TODO: add docs */
+  dependencies: DependencyTypeList|(() => Array<Promise<Type<unknown>>|Type<unknown>>)|null;
 
   /**
    * A `TNode` representing the declaration location of this `TView` (not part of this TView).

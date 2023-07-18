@@ -52,7 +52,7 @@ export * from './ml_parser/tags';
 export {ParseTreeResult, TreeError} from './ml_parser/parser';
 export {LexerRange} from './ml_parser/lexer';
 export * from './ml_parser/xml_parser';
-export {ArrayType, DYNAMIC_TYPE, BinaryOperator, BinaryOperatorExpr, BuiltinType, BuiltinTypeName, CommaExpr, ConditionalExpr, DeclareFunctionStmt, DeclareVarStmt, Expression, ExpressionStatement, ExpressionType, ExpressionVisitor, ExternalExpr, ExternalReference, literalMap, FunctionExpr, IfStmt, InstantiateExpr, InvokeFunctionExpr, LiteralArrayExpr, LiteralExpr, LiteralMapExpr, MapType, NotExpr, NONE_TYPE, ReadKeyExpr, ReadPropExpr, ReadVarExpr, ReturnStatement, StatementVisitor, TaggedTemplateExpr, TemplateLiteral, TemplateLiteralElement, Type, TypeModifier, TypeVisitor, WrappedNodeExpr, WriteKeyExpr, WritePropExpr, WriteVarExpr, StmtModifier, Statement, STRING_TYPE, TypeofExpr, jsDocComment, leadingComment, LeadingComment, JSDocComment, UnaryOperator, UnaryOperatorExpr, LocalizedString, TransplantedType, DynamicImportExpr} from './output/output_ast';
+export {ArrayType, DynamicImportExpr, DYNAMIC_TYPE, BinaryOperator, BinaryOperatorExpr, BuiltinType, BuiltinTypeName, CommaExpr, ConditionalExpr, DeclareFunctionStmt, DeclareVarStmt, Expression, ExpressionStatement, ExpressionType, ExpressionVisitor, ExternalExpr, ExternalReference, literalMap, FunctionExpr, IfStmt, InstantiateExpr, InvokeFunctionExpr, LiteralArrayExpr, LiteralExpr, LiteralMapExpr, MapType, NotExpr, NONE_TYPE, ReadKeyExpr, ReadPropExpr, ReadVarExpr, ReturnStatement, StatementVisitor, TaggedTemplateExpr, TemplateLiteral, TemplateLiteralElement, Type, TypeModifier, TypeVisitor, WrappedNodeExpr, WriteKeyExpr, WritePropExpr, WriteVarExpr, StmtModifier, Statement, STRING_TYPE, TypeofExpr, jsDocComment, leadingComment, LeadingComment, JSDocComment, UnaryOperator, UnaryOperatorExpr, LocalizedString, TransplantedType} from './output/output_ast';
 export {EmitterVisitorContext} from './output/abstract_emitter';
 export {JitEvaluator} from './output/output_jit';
 export * from './parse_util';
@@ -67,7 +67,7 @@ export {BoundAttribute as TmplAstBoundAttribute, BoundEvent as TmplAstBoundEvent
 export * from './render3/view/t2_api';
 export * from './render3/view/t2_binder';
 export {Identifiers as R3Identifiers} from './render3/r3_identifiers';
-export {R3ClassMetadata, CompileClassMetadataFn, compileClassMetadata} from './render3/r3_class_metadata_compiler';
+export {R3ClassMetadata, CompileClassMetadataFn, compileClassMetadata, compileComponentClassMetadata} from './render3/r3_class_metadata_compiler';
 export {compileFactoryFunction, R3DependencyMetadata, R3FactoryMetadata, FactoryTarget} from './render3/r3_factory';
 export {compileNgModule, R3NgModuleMetadata, R3SelectorScopeMode, R3NgModuleMetadataKind, R3NgModuleMetadataGlobal} from './render3/r3_module_compiler';
 export {compileInjector, R3InjectorMetadata} from './render3/r3_injector_compiler';

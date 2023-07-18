@@ -118,6 +118,15 @@ export {
 
   ɵɵtemplate,
 
+  ɵɵdefer,
+  ɵɵdeferWhen,
+  ɵɵdeferOnIdle,
+  ɵɵdeferOnImmediate,
+  ɵɵdeferOnHover,
+  ɵɵdeferOnInteraction,
+  ɵɵdeferOnViewport,
+  ɵɵdeferOnTimer,
+
   ɵɵtext,
   ɵɵtextInterpolate,
   ɵɵtextInterpolate1,
@@ -142,6 +151,7 @@ export {
 export {CssSelectorList, ProjectionSlots} from './interfaces/projection';
 export {
   setClassMetadata,
+  setClassMetadataAsync,
 } from './metadata';
 export {NgModuleFactory, NgModuleRef, createEnvironmentInjector} from './ng_module_ref';
 export {

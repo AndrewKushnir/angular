@@ -185,6 +185,12 @@ export class CompilerFacadeImpl implements CompilerFacade {
     const meta: R3ComponentMetadata<R3TemplateDependency> = {
       ...facade,
       ...convertDirectiveFacadeToMetadata(facade),
+
+      // FIXME: implement for JIT!
+      lazyDeclarations: new Map(),
+      declarationToImport: new Map(),
+      deferrables: new Map(),
+
       selector: facade.selector || this.elementSchemaRegistry.getDefaultComponentElementName(),
       template,
       declarations: facade.declarations.map(convertDeclarationFacadeToMetadata),
@@ -457,6 +463,12 @@ function convertDeclareComponentFacadeToMetadata(
 
   return {
     ...convertDeclareDirectiveFacadeToMetadata(decl, typeSourceSpan),
+
+    // FIXME: implement for JIT!
+    lazyDeclarations: new Map(),
+    declarationToImport: new Map(),
+    deferrables: new Map(),
+
     template,
     styles: decl.styles ?? [],
     declarations,

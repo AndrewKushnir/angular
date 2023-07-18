@@ -15,6 +15,23 @@ interface TypeWithMetadata extends Type<any> {
   propDecorators?: {[field: string]: any};
 }
 
+const ASYNC_METADATA_LOADER = '__ngAsyncMetadata__';
+
+export function getAsyncMetadataLoader(type: Type<any>) {
+  return (type as any).hasOwnProperty(ASYNC_METADATA_LOADER) ?
+      (type as any)[ASYNC_METADATA_LOADER] :
+      null;
+}
+
+export function clearAsyncMetadataLoader(type: Type<any>) {
+  (type as any)[ASYNC_METADATA_LOADER] = null;
+}
+
+export function setClassMetadataAsync(
+    type: Type<any>, asyncMetadataSetter: () => Promise<unknown>): void {
+  (type as any)[ASYNC_METADATA_LOADER] = asyncMetadataSetter;
+}
+
 /**
  * Adds decorator, constructor, and property metadata to a given type via static metadata fields
  * on the type.

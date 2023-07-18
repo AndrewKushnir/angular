@@ -24,7 +24,7 @@ import {BoundEvent} from '../r3_ast';
 import {Identifiers as R3} from '../r3_identifiers';
 import {prepareSyntheticListenerFunctionName, prepareSyntheticPropertyName, R3CompiledExpression, typeWithParameters} from '../util';
 
-import {DeclarationListEmitMode, R3ComponentMetadata, R3DirectiveMetadata, R3HostMetadata, R3QueryMetadata, R3TemplateDependency} from './api';
+import {DeclarationListEmitMode, R3ComponentMetadata, R3DirectiveMetadata, R3HostMetadata, R3QueryMetadata, R3TemplateDependency, R3TemplateDependencyKind} from './api';
 import {MIN_STYLING_BINDING_SLOTS_REQUIRED, StylingBuilder, StylingInstructionCall} from './styling_builder';
 import {BindingScope, makeBindingParser, prepareEventListenerParameters, renderFlagCheckIfStmt, resolveSanitizationFn, TemplateDefinitionBuilder, ValueConverter} from './template';
 import {asLiteral, conditionallyCreateDirectiveBindingLiteral, CONTEXT_NAME, DefinitionMap, getInstructionStatements, getQueryPredicate, Instruction, RENDER_FLAGS, TEMPORARY_NAME, temporaryAllocator} from './util';
@@ -194,7 +194,9 @@ export function compileComponentFromMetadata(
     const template = meta.template;
     const templateBuilder = new TemplateDefinitionBuilder(
         constantPool, BindingScope.createRootScope(), 0, templateTypeName, null, null, templateName,
-        R3.namespaceHTML, meta.relativeContextFilePath, meta.i18nUseExternalIds);
+        R3.namespaceHTML, meta.relativeContextFilePath, meta.i18nUseExternalIds,
+        // TODO: rename or merge these two arguments
+        meta.lazyDeclarations, meta.deferrables);
 
     const templateFunctionExpression = templateBuilder.buildTemplateFunction(template.nodes, []);
 

@@ -220,7 +220,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       private contextName: string|null, private i18nContext: I18nContext|null,
       private templateIndex: number|null, private templateName: string|null,
       private _namespace: o.ExternalReference, relativeContextFilePath: string,
-      private i18nUseExternalIds: boolean,
+      private i18nUseExternalIds: boolean, private deferredDeclarations: Map<any, any>,
+      private deferrables: Map<any, string>,
       private _constants: ComponentDefConsts = createComponentDefConsts()) {
     this._bindingScope = parentBindingScope.nestedScope(level);
 
@@ -923,7 +924,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this._constants);
+        this.i18nUseExternalIds, this.deferredDeclarations, this.deferrables, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
@@ -976,6 +977,47 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
             this.prepareListenerParameter('ng_template', outputAst, templateIndex));
       }
     }
+  }
+
+  private createTemplateFn(name: string, children: t.Node[], sourceSpan: ParseSourceSpan) {
+    const templateIndex = this.allocateDataSlot();
+
+    const contextName = `${this.contextName}_${templateIndex}`;
+    const templateName = `${contextName}_${sanitizeIdentifier(name)}_Template`;
+    const parameters: o.Expression[] = [
+      o.literal(templateIndex),
+      o.variable(templateName),
+      // We don't care about the tag's namespace here, because we infer
+      // it based on the parent nodes inside the template instruction.
+      o.literal(name),
+    ];
+
+    // Create the template function
+    const templateVisitor = new TemplateDefinitionBuilder(
+        this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
+        templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
+        this.i18nUseExternalIds, this.deferredDeclarations, this.deferrables, this._constants);
+
+    // Nested templates must not be visited until after their parent templates have completed
+    // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
+    // be able to support bindings in nested templates to local refs that occur after the
+    // template definition. e.g. <div *ngIf="showing">{{ foo }}</div>  <div #foo></div>
+    this._nestedTemplateFns.push(() => {
+      const templateFunctionExpr = templateVisitor.buildTemplateFunction(
+          children, [], this._ngContentReservedSlots.length + this._ngContentSelectorsOffset);
+      this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName));
+      if (templateVisitor._ngContentReservedSlots.length) {
+        this._ngContentReservedSlots.push(...templateVisitor._ngContentReservedSlots);
+      }
+    });
+
+    // e.g. template(1, MyComp_Template_1)
+    this.creationInstruction(sourceSpan, R3.templateCreate, () => {
+      parameters.splice(
+          2, 0, o.literal(templateVisitor.getConstCount()),
+          o.literal(templateVisitor.getVarCount()));
+      return trimTrailingNulls(parameters);
+    });
   }
 
   // These should be handled in the template or element directly.
@@ -1072,11 +1114,109 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   // TODO: implement deferred block instructions.
-  visitDeferredBlock(deferred: t.DeferredBlock): void {}
-  visitDeferredTrigger(trigger: t.DeferredTrigger): void {}
-  visitDeferredBlockPlaceholder(block: t.DeferredBlockPlaceholder): void {}
-  visitDeferredBlockError(block: t.DeferredBlockError): void {}
-  visitDeferredBlockLoading(block: t.DeferredBlockLoading): void {}
+  visitDeferredBlock(deferred: t.DeferredBlock): void {
+    let loadingTmplIdx: number|null = null;
+    let errorTmplIdx: number|null = null;
+    let placeholderTmplIdx: number|null = null;
+
+    if (deferred.loading) {
+      loadingTmplIdx = this.getConstCount();
+      this.visitDeferredBlockLoading(deferred.loading);
+    }
+
+    if (deferred.error) {
+      errorTmplIdx = this.getConstCount();
+      this.visitDeferredBlockError(deferred.error);
+    }
+
+    if (deferred.placeholder) {
+      placeholderTmplIdx = this.getConstCount();
+      this.visitDeferredBlockPlaceholder(deferred.placeholder);
+    }
+
+    const templateIndex = this.allocateDataSlot();
+    const deferredDecls = this.deferredDeclarations.get(deferred);
+
+    const contextName = `${this.contextName}_defer_${templateIndex}`;
+    const templateName = `${contextName}_Template`;
+    const depsFnName = `${contextName}_DepsFn`;
+
+    const parameters: o.Expression[] = [
+      o.literal(templateIndex),  //
+      o.variable(templateName),  //
+      deferredDecls ? o.variable(depsFnName) : o.TYPED_NULL_EXPR,
+      loadingTmplIdx !== null ? o.literal(loadingTmplIdx) : o.TYPED_NULL_EXPR,
+      placeholderTmplIdx !== null ? o.literal(placeholderTmplIdx) : o.TYPED_NULL_EXPR,
+      errorTmplIdx !== null ? o.literal(errorTmplIdx) : o.TYPED_NULL_EXPR,
+    ];
+
+    // Create the template function that represents main content of `{#defer}` block.
+    const templateVisitor = new TemplateDefinitionBuilder(
+        this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
+        templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
+        this.i18nUseExternalIds, this.deferredDeclarations, this.deferrables, this._constants);
+
+    // Nested templates must not be visited until after their parent templates have completed
+    // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
+    // be able to support bindings in nested templates to local refs that occur after the
+    // template definition. e.g. <div *ngIf="showing">{{ foo }}</div>  <div #foo></div>
+    this._nestedTemplateFns.push(() => {
+      // Use default case as a content for the `lazy` instruction function.
+      const templateFunctionExpr = templateVisitor.buildTemplateFunction(
+          deferred.children, [],
+          this._ngContentReservedSlots.length + this._ngContentSelectorsOffset);
+      this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName!));
+    });
+
+    if (deferredDecls) {
+      // This lazy block has deps for which we need to generate dynamic imports.
+      const dynamicImports: o.Expression[] = [];
+      // TODO: improve types (replace `any`)
+      deferredDecls.forEach((deferredDecl: any) => {
+        const deferrables = this.deferrables;
+        if (deferrables.has(deferredDecl.ref.node)) {
+          // e.g. `function(m) { return m.MyCmp; }`
+          const innerFn = o.fn(
+              [new o.FnParam('m', o.DYNAMIC_TYPE)],
+              [new o.ReturnStatement(o.variable('m').prop(deferredDecl.type.node.escapedText))]);
+          const fileName = deferrables.get(deferredDecl.ref.node)!;
+          const importExpr = (new o.DynamicImportExpr(fileName)).prop('then').callFn([innerFn]);
+          dynamicImports.push(importExpr);
+        } else {
+          // Non-deferrable symbol, just use a reference to the type.
+          dynamicImports.push(deferredDecl.type);
+        }
+      });
+      const depsFnBody: o.Statement[] = [];
+      depsFnBody.push(new o.ReturnStatement(o.literalArr(dynamicImports)));
+
+      const depsFnExpr = o.fn(
+          [],  // no args
+          depsFnBody, o.INFERRED_TYPE, null, depsFnName);
+
+      this.constantPool.statements.push(depsFnExpr.toDeclStmt(depsFnName));
+    }
+
+    // e.g. defer(1, MyComp_Template_1, MyComp_Deps_1, ...)
+    this.creationInstruction(deferred.sourceSpan, R3.defer, () => {
+      parameters.splice(
+          3, 0, o.literal(templateVisitor.getConstCount()),
+          o.literal(templateVisitor.getVarCount()));
+      return trimTrailingNulls(parameters);
+    });
+  }
+
+  visitDeferredBlockPlaceholder(block: t.DeferredBlockPlaceholder): void {
+    this.createTemplateFn('placeholder', block.children, block.sourceSpan);
+  }
+  visitDeferredBlockError(block: t.DeferredBlockError): void {
+    this.createTemplateFn('error', block.children, block.sourceSpan);
+  }
+  visitDeferredBlockLoading(block: t.DeferredBlockLoading): void {
+    this.createTemplateFn('loading', block.children, block.sourceSpan);
+  }
+
+  visitDeferredTrigger(trigger: t.DeferredTrigger): void {}  // noop
 
   private allocateDataSlot() {
     return this._dataIndex++;

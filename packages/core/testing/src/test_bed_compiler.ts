@@ -12,6 +12,7 @@ import {ApplicationInitStatus, Compiler, COMPILER_OPTIONS, Component, Directive,
 import {clearResolutionOfComponentResourcesQueue, isComponentDefPendingResolution, resolveComponentResources, restoreComponentResolutionQueue} from '../../src/metadata/resource_loading';
 import {ComponentDef, ComponentType} from '../../src/render3';
 import {generateStandaloneInDeclarationsError} from '../../src/render3/jit/module';
+import {getAsyncMetadataLoader} from '../../src/render3/metadata';
 
 import {MetadataOverride} from './metadata_override';
 import {ComponentResolver, DirectiveResolver, NgModuleResolver, PipeResolver, Resolver} from './resolvers';
@@ -346,7 +347,8 @@ export class TestBedCompiler {
     // Compile all queued components, directives, pipes.
     let needsAsyncResources = false;
     this.pendingComponents.forEach(declaration => {
-      needsAsyncResources = needsAsyncResources || isComponentDefPendingResolution(declaration);
+      needsAsyncResources = needsAsyncResources || isComponentDefPendingResolution(declaration) ||
+          getAsyncMetadataLoader(declaration);
       const metadata = this.resolvers.component.resolve(declaration);
       if (metadata === null) {
         throw invalidTypeError(declaration.name, 'Component');
