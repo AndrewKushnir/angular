@@ -50,11 +50,11 @@ export class R3TargetBinder<DirectiveT extends DirectiveMeta> implements TargetB
         DirectiveBinder.apply(target.template, this.directiveMatcher);
     // Finally, run the TemplateBinder to bind references, variables, and other entities within the
     // template. This extracts all the metadata that doesn't depend on directive matching.
-    const {expressions, symbols, nestingLevel, usedPipes, lazyTemplates} =
+    const {expressions, symbols, nestingLevel, usedPipes, deferBlocks} =
         TemplateBinder.applyWithScope(target.template, scope);
     return new R3BoundTarget(
         target, directives, bindings, references, expressions, symbols, nestingLevel,
-        templateEntities, usedPipes, lazyTemplates);
+        templateEntities, usedPipes, deferBlocks);
   }
 }
 
@@ -410,7 +410,7 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     symbols: Map<Variable|Reference, Template>,
     nestingLevel: Map<Template, number>,
     usedPipes: Set<string>,
-    lazyTemplates: Set<DeferredBlock>,
+    deferBlocks: Set<DeferredBlock>,
   } {
     const expressions = new Map<AST, Reference|Variable>();
     const symbols = new Map<Variable|Reference, Template>();
@@ -422,8 +422,7 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     const binder = new TemplateBinder(
         expressions, symbols, usedPipes, deferBlocks, nestingLevel, scope, template, 0);
     binder.ingest(nodes);
-    // FIXME: rename lazyTemplates -> deferBlocks
-    return {expressions, symbols, nestingLevel, usedPipes, lazyTemplates: deferBlocks};
+    return {expressions, symbols, nestingLevel, usedPipes, deferBlocks};
   }
 
   private ingest(template: Template|Node[]): void {
@@ -628,7 +627,7 @@ export class R3BoundTarget<DirectiveT extends DirectiveMeta> implements BoundTar
     return Array.from(this.usedPipes);
   }
 
-  getLazyTemplates(): DeferredBlock[] {
+  getDeferredBlocks(): DeferredBlock[] {
     return Array.from(this.deferredBlocks);
   }
 }

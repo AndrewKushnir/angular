@@ -192,14 +192,27 @@ export interface R3ComponentMetadata<DeclarationT extends R3TemplateDependency> 
 
   declarations: DeclarationT[];
 
-  // FIXME: this should be Map<ts.ClassDeclaration, ts.ImportDeclaration>;
-  declarationToImport: Map<any, any>;
+  /**
+   * Map of all types that can be defer loaded -> corresponding module specifier
+   * strings (that can later be used as a value in dynamic imports).
+   */
+  // TODO: fix types! (ClassDeclaration -> ImportDeclaration)
+  deferrableDeclToImportDecl: Map<any, any>;
 
-  // FIXME: use proper type here
-  deferrables: Map<any, string>;
-
-  // FIXME: (1) add docs and (2) rename lazy -> defer
-  lazyDeclarations: Map<t.DeferredBlock, DeclarationT[]>;
+  /**
+   * Map of {#defer} blocks -> their corresponding dependencies.
+   *
+   * Each dependency is describe using:
+   *  - its declaration node
+   *  - a flag that indicates whether a dependency is deferrable
+   *  - an import path if this dependency is deferrable or `null` otherwise
+   */
+  deferBlockDependencies: Map<t.DeferredBlock, Array<{
+                                type: o.WrappedNodeExpr<unknown>,
+                                symbolName: string,
+                                isDeferrable: boolean,
+                                importPath: string|null
+                              }>>;
 
   /**
    * Specifies how the 'directives' and/or `pipes` array, if generated, need to be emitted.

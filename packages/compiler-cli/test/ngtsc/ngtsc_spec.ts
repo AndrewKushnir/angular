@@ -55,6 +55,7 @@ function allTests(os: string) {
 
     describe('control flow', () => {
       fit('basic scenarios', () => {
+        env.tsconfig({_enabledBlockTypes: ['defer']});
         env.write('cmp-a.ts', `
             import {Component} from '@angular/core';
             @Component({

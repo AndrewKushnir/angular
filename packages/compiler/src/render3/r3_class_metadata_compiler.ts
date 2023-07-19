@@ -5,6 +5,7 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+
 import * as o from '../output/output_ast';
 
 import {Identifiers as R3} from './r3_identifiers';
@@ -56,20 +57,20 @@ export interface R3ClassMetadata {
 // });
 // ```
 export function compileComponentClassMetadata(
-    metadata: R3ClassMetadata, deferrables: Map<any, string>): o.Expression {
-  if (!deferrables || deferrables.size === 0) {
+    metadata: R3ClassMetadata, deferrableTypes: Map<string, string>): o.Expression {
+  if (!deferrableTypes || deferrableTypes.size === 0) {
     return compileClassMetadata(metadata);
   }
 
   const dynamicImports: o.Expression[] = [];
   const importedSymbols: o.FnParam[] = [];
-  for (const [deferrable, importPath] of Array.from(deferrables)) {
+  for (const [symbolName, importPath] of Array.from(deferrableTypes)) {
     const innerFn = o.fn(
         [new o.FnParam('m', o.DYNAMIC_TYPE)],
-        [new o.ReturnStatement(o.variable('m').prop(deferrable.name.escapedText))]);
+        [new o.ReturnStatement(o.variable('m').prop(symbolName))]);
     const importExpr = (new o.DynamicImportExpr(importPath)).prop('then').callFn([innerFn]);
     dynamicImports.push(importExpr);
-    importedSymbols.push(new o.FnParam(deferrable.name.escapedText, o.DYNAMIC_TYPE));
+    importedSymbols.push(new o.FnParam(symbolName, o.DYNAMIC_TYPE));
   }
 
   // Promise.all(...)

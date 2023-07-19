@@ -608,9 +608,8 @@ export class ComponentDecoratorHandler implements
     const data: ComponentResolutionData = {
       declarations: EMPTY_ARRAY,
       declarationListEmitMode: DeclarationListEmitMode.Direct,
-      lazyDeclarations: new Map(),
-      declarationToImport: new Map(),
-      deferrables: new Map(),
+      deferBlockDependencies: new Map(),
+      deferrableDeclToImportDecl: new Map(),
     };
     const diagnostics: ts.Diagnostic[] = [];
 
@@ -660,16 +659,16 @@ export class ComponentDecoratorHandler implements
       const binder = new R3TargetBinder(matcher);
       const bound = binder.bind({template: metadata.template.nodes});
 
-      const lazyTemplates: Array<TmplAstDeferredBlock> = bound.getLazyTemplates();
+      const deferredBlocks: Array<TmplAstDeferredBlock> = bound.getDeferredBlocks();
 
       const depMap = new Map<TmplAstDeferredBlock, BoundTarget<DirectiveMeta>>();
-      for (const lazyTemplate of lazyTemplates) {
+      for (const deferredBlock of deferredBlocks) {
         // things to handle:
         // - local references
         // - semantic dependency graph updates
         // - we don't care about cycles or remote scoping
         // - we don't care about forward declaration status
-        depMap.set(lazyTemplate, binder.bind({template: lazyTemplate.children}));
+        depMap.set(deferredBlock, binder.bind({template: deferredBlock.children}));
       }
 
       // The BoundTarget knows which directives and pipes matched the template.
@@ -793,10 +792,16 @@ export class ComponentDecoratorHandler implements
       // Collect all deferred decls from all defer blocks from the entire template.
       const allDeferredDecls = new Set<ClassDeclaration>();
 
-      for (const [lazyTemplate, bound] of depMap) {
+      for (const [deferBlock, bound] of depMap) {
         const usedDirectives = new Set(bound.getUsedDirectives().map(d => d.ref.node));
         const usedPipes = new Set(bound.getUsedPipes());
-        const lazyDeclarations: R3TemplateDependencyMetadata[] = [];
+        const deferBlockDeps: Array<{
+          type: WrappedNodeExpr<ts.Identifier>,
+          symbolName: string,
+          isDeferrable: boolean,
+          importPath: string | null,
+          classDeclaration: ts.ClassDeclaration,
+        }> = [];
         for (const decl of Array.from(declarations.values())) {
           if (decl.kind === R3TemplateDependencyKind.NgModule) {
             continue;
@@ -808,10 +813,20 @@ export class ComponentDecoratorHandler implements
           if (decl.kind === R3TemplateDependencyKind.Pipe && !usedPipes.has(decl.name)) {
             continue;
           }
-          lazyDeclarations.push(decl);
+          // Collect initial information about this dependency.
+          // The `isDeferrable` flag and the `importPath` info would be
+          // added later at the compile step.
+          deferBlockDeps.push({
+            type: decl.type as WrappedNodeExpr<ts.Identifier>,
+            symbolName: decl.ref.node.name.escapedText as string,
+            isDeferrable: false,
+            importPath: null,
+            // Extra info to match corresponding import during compile phase.
+            classDeclaration: decl.ref.node as ts.ClassDeclaration,
+          });
           allDeferredDecls.add(decl.ref.node);
         }
-        data.lazyDeclarations.set(lazyTemplate, lazyDeclarations);
+        data.deferBlockDependencies.set(deferBlock, deferBlockDeps);
       }
 
       if (analysis.meta.isStandalone && analysis.rawImports !== null &&
@@ -864,8 +879,9 @@ export class ComponentDecoratorHandler implements
             continue;
           }
 
-          // We also need to record Decl -> ts.ImportDeclaration in this source file.
-          data.declarationToImport.set(decl.node, imp.node);
+          // Keep track of how this class made it into the current source file
+          // (which ts.ImportDeclaration was used for this symbol).
+          data.deferrableDeclToImportDecl.set(decl.node, imp.node);
 
           // We're okay deferring this reference to the imported symbol.
           this.deferredSymbolsTracker.markDeferrable(imp.node, node);
@@ -1063,20 +1079,35 @@ export class ComponentDecoratorHandler implements
     if (analysis.template.errors !== null && analysis.template.errors.length > 0) {
       return [];
     }
-    // ClassDeclaration -> module specifier string
-    const deferrables = new Map<ClassDeclaration, string>();
-    const deferrableNames = new Set<string>();
-    for (const [decl, importDecl] of resolution.declarationToImport) {
-      if (this.deferredSymbolsTracker.canDefer(importDecl)) {
-        deferrables.set(decl, importDecl.moduleSpecifier.text);
-        deferrableNames.add(decl.name.escapedText);
+
+    // Symbol name -> import path.
+    const deferrableTypes = new Map<string, string>();
+    const deferrableTypeNames = new Set<string>();
+
+    // Go over all deps of all defer blocks and update the value of
+    // the `isDeferrable` flag and the `importPath`.
+    for (const [_, deferBlockDeps] of resolution.deferBlockDependencies) {
+      for (const dep of deferBlockDeps) {
+        const classDecl =
+            (dep as unknown as {classDeclaration: ts.ClassDeclaration}).classDeclaration;
+        const importDecl = resolution.deferrableDeclToImportDecl.get(classDecl) ?? null;
+        if (importDecl) {
+          if (this.deferredSymbolsTracker.canDefer(importDecl)) {
+            dep.isDeferrable = true;
+            // TODO: fix type here
+            const importPath: string = (importDecl.moduleSpecifier as any).text;
+            dep.importPath = importPath;
+
+            deferrableTypes.set(dep.symbolName, importPath);
+            deferrableTypeNames.add(dep.symbolName);
+          }
+        }
       }
     }
 
     const meta: R3ComponentMetadata<R3TemplateDependency> = {
       ...analysis.meta,
       ...resolution,
-      deferrables,
     };
 
     const fac = compileNgFactoryDefField(toFactoryMetadata(meta, FactoryTarget.Component));
@@ -1084,13 +1115,13 @@ export class ComponentDecoratorHandler implements
       // This is needed to drop references to existing imports for symbols that should
       // be present in the `setClassMetadataAsync` call.
       const newNode = removeIdentifierReferences(
-          (analysis.classMetadata.decorators as any).node, deferrableNames);
+          (analysis.classMetadata.decorators as any).node, deferrableTypeNames);
       analysis.classMetadata.decorators = new WrappedNodeExpr(newNode);
     }
     const def = compileComponentFromMetadata(meta, pool, makeBindingParser());
     const inputTransformFields = compileInputTransformFields(analysis.inputs);
     const classMetadata = analysis.classMetadata !== null ?
-        compileComponentClassMetadata(analysis.classMetadata, deferrables).toStmt() :
+        compileComponentClassMetadata(analysis.classMetadata, deferrableTypes).toStmt() :
         null;
     const importsToRemove = this.deferredSymbolsTracker.getImportDeclsToRemove();
     return compileResults(fac, def, classMetadata, 'ɵcmp', inputTransformFields, importsToRemove);
@@ -1134,9 +1165,8 @@ export class ComponentDecoratorHandler implements
       // No resolution is done in local compilation mode, therefore we pass an empty array here.
       declarationListEmitMode: DeclarationListEmitMode.Direct,
       declarations: [],
-      lazyDeclarations: new Map(),
-      declarationToImport: new Map(),
-      deferrables: new Map(),
+      deferBlockDependencies: new Map(),
+      deferrableDeclToImportDecl: new Map(),
     };
     const fac = compileNgFactoryDefField(toFactoryMetadata(meta, FactoryTarget.Component));
     const def = compileComponentFromMetadata(meta, pool, makeBindingParser());

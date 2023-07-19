@@ -7,7 +7,7 @@
  */
 
 import {AST} from '../../expression_parser/ast';
-import {BoundAttribute, BoundEvent, Element, Node, Reference, Template, TextAttribute, Variable} from '../r3_ast';
+import {BoundAttribute, BoundEvent, DeferredBlock, Element, Node, Reference, Template, TextAttribute, Variable} from '../r3_ast';
 
 
 /*
@@ -182,6 +182,5 @@ export interface BoundTarget<DirectiveT extends DirectiveMeta> {
    */
   getUsedPipes(): string[];
 
-  // FIXME: (1) update types and (2) add docs
-  getLazyTemplates(): any[];
+  getDeferredBlocks(): DeferredBlock[];
 }

@@ -168,9 +168,8 @@ export class PartialComponentLinkerVersion1<TStatement, TExpression> implements
       },
       declarationListEmitMode,
       // FIXME: implement this correctly.
-      lazyDeclarations: new Map(),
-      declarationToImport: new Map(),
-      deferrables: new Map(),
+      deferBlockDependencies: new Map(),
+      deferrableDeclToImportDecl: new Map(),
       styles: metaObj.has('styles') ? metaObj.getArray('styles').map(entry => entry.getString()) :
                                       [],
       encapsulation: metaObj.has('encapsulation') ?

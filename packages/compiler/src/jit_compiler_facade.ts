@@ -187,9 +187,8 @@ export class CompilerFacadeImpl implements CompilerFacade {
       ...convertDirectiveFacadeToMetadata(facade),
 
       // FIXME: implement for JIT!
-      lazyDeclarations: new Map(),
-      declarationToImport: new Map(),
-      deferrables: new Map(),
+      deferBlockDependencies: new Map(),
+      deferrableDeclToImportDecl: new Map(),
 
       selector: facade.selector || this.elementSchemaRegistry.getDefaultComponentElementName(),
       template,
@@ -465,9 +464,8 @@ function convertDeclareComponentFacadeToMetadata(
     ...convertDeclareDirectiveFacadeToMetadata(decl, typeSourceSpan),
 
     // FIXME: implement for JIT!
-    lazyDeclarations: new Map(),
-    declarationToImport: new Map(),
-    deferrables: new Map(),
+    deferBlockDependencies: new Map(),
+    deferrableDeclToImportDecl: new Map(),
 
     template,
     styles: decl.styles ?? [],

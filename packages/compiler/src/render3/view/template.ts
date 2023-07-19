@@ -127,6 +127,13 @@ export function prepareEventListenerParameters(
   return params;
 }
 
+export interface DeferBlockDependency {
+  type: o.WrappedNodeExpr<unknown>;
+  symbolName: string;
+  isDeferrable: boolean;
+  importPath: string|null;
+}
+
 // Collects information needed to generate `consts` field of the ComponentDef.
 export interface ComponentDefConsts {
   /**
@@ -220,8 +227,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       private contextName: string|null, private i18nContext: I18nContext|null,
       private templateIndex: number|null, private templateName: string|null,
       private _namespace: o.ExternalReference, relativeContextFilePath: string,
-      private i18nUseExternalIds: boolean, private deferredDeclarations: Map<any, any>,
-      private deferrables: Map<any, string>,
+      private i18nUseExternalIds: boolean,
+      private deferBlockDependencies: Map<t.DeferredBlock, any>,
       private _constants: ComponentDefConsts = createComponentDefConsts()) {
     this._bindingScope = parentBindingScope.nestedScope(level);
 
@@ -924,7 +931,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this.deferredDeclarations, this.deferrables, this._constants);
+        this.i18nUseExternalIds, this.deferBlockDependencies, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
@@ -996,7 +1003,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this.deferredDeclarations, this.deferrables, this._constants);
+        this.i18nUseExternalIds, this.deferBlockDependencies, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
@@ -1113,7 +1120,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     return null;
   }
 
-  // TODO: implement deferred block instructions.
+
+  // TODO: implement deferred block conditions.
   visitDeferredBlock(deferred: t.DeferredBlock): void {
     let loadingTmplIdx: number|null = null;
     let errorTmplIdx: number|null = null;
@@ -1135,7 +1143,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
 
     const templateIndex = this.allocateDataSlot();
-    const deferredDecls = this.deferredDeclarations.get(deferred);
+    const deferredDeps: DeferBlockDependency[] = this.deferBlockDependencies.get(deferred);
 
     const contextName = `${this.contextName}_defer_${templateIndex}`;
     const templateName = `${contextName}_Template`;
@@ -1144,7 +1152,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const parameters: o.Expression[] = [
       o.literal(templateIndex),  //
       o.variable(templateName),  //
-      deferredDecls ? o.variable(depsFnName) : o.TYPED_NULL_EXPR,
+      deferredDeps ? o.variable(depsFnName) : o.TYPED_NULL_EXPR,
       loadingTmplIdx !== null ? o.literal(loadingTmplIdx) : o.TYPED_NULL_EXPR,
       placeholderTmplIdx !== null ? o.literal(placeholderTmplIdx) : o.TYPED_NULL_EXPR,
       errorTmplIdx !== null ? o.literal(errorTmplIdx) : o.TYPED_NULL_EXPR,
@@ -1154,7 +1162,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this.deferredDeclarations, this.deferrables, this._constants);
+        this.i18nUseExternalIds, this.deferBlockDependencies, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
@@ -1168,23 +1176,21 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       this.constantPool.statements.push(templateFunctionExpr.toDeclStmt(templateName!));
     });
 
-    if (deferredDecls) {
-      // This lazy block has deps for which we need to generate dynamic imports.
+    if (deferredDeps) {
+      // This defer block has deps for which we need to generate dynamic imports.
       const dynamicImports: o.Expression[] = [];
-      // TODO: improve types (replace `any`)
-      deferredDecls.forEach((deferredDecl: any) => {
-        const deferrables = this.deferrables;
-        if (deferrables.has(deferredDecl.ref.node)) {
+      deferredDeps.forEach(deferredDep => {
+        if (deferredDep.isDeferrable) {
           // e.g. `function(m) { return m.MyCmp; }`
           const innerFn = o.fn(
               [new o.FnParam('m', o.DYNAMIC_TYPE)],
-              [new o.ReturnStatement(o.variable('m').prop(deferredDecl.type.node.escapedText))]);
-          const fileName = deferrables.get(deferredDecl.ref.node)!;
+              [new o.ReturnStatement(o.variable('m').prop(deferredDep.symbolName))]);
+          const fileName = deferredDep.importPath!;
           const importExpr = (new o.DynamicImportExpr(fileName)).prop('then').callFn([innerFn]);
           dynamicImports.push(importExpr);
         } else {
           // Non-deferrable symbol, just use a reference to the type.
-          dynamicImports.push(deferredDecl.type);
+          dynamicImports.push(deferredDep.type);
         }
       });
       const depsFnBody: o.Statement[] = [];
