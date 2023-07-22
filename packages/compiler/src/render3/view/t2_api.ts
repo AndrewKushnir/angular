@@ -182,5 +182,5 @@ export interface BoundTarget<DirectiveT extends DirectiveMeta> {
    */
   getUsedPipes(): string[];
 
-  getDeferredBlocks(): DeferredBlock[];
+  getDeferBlocks(): DeferredBlock[];
 }

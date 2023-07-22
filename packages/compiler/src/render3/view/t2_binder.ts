@@ -138,7 +138,9 @@ class Scope implements Visitor {
   }
 
   visitDeferredBlock(deferred: DeferredBlock) {
-    deferred.children.forEach(node => node.visit(this));
+    // Note: intentionally avoid visiting children here, since
+    // they will be processed separately to compute a separate
+    // scope.
     deferred.placeholder?.visit(this);
     deferred.loading?.visit(this);
     deferred.error?.visit(this);
@@ -327,7 +329,9 @@ class DirectiveBinder<DirectiveT extends DirectiveMeta> implements Visitor {
   }
 
   visitDeferredBlock(deferred: DeferredBlock): void {
-    deferred.children.forEach(child => child.visit(this));
+    // Note: intentionally avoid visiting children here, since
+    // they will be processed separately to compute a separate
+    // scope.
     deferred.placeholder?.visit(this);
     deferred.loading?.visit(this);
     deferred.error?.visit(this);
@@ -502,7 +506,10 @@ class TemplateBinder extends RecursiveAstVisitor implements Visitor {
     this.deferBlocks.add(deferred);
     deferred.triggers.forEach(this.visitNode);
     deferred.prefetchTriggers.forEach(this.visitNode);
-    deferred.children.forEach(this.visitNode);
+
+    // Note: intentionally avoid visiting children here, since
+    // they will be processed separately to compute a separate
+    // scope.
     deferred.placeholder && this.visitNode(deferred.placeholder);
     deferred.loading && this.visitNode(deferred.loading);
     deferred.error && this.visitNode(deferred.error);
@@ -627,7 +634,7 @@ export class R3BoundTarget<DirectiveT extends DirectiveMeta> implements BoundTar
     return Array.from(this.usedPipes);
   }
 
-  getDeferredBlocks(): DeferredBlock[] {
+  getDeferBlocks(): DeferredBlock[] {
     return Array.from(this.deferredBlocks);
   }
 }

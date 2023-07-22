@@ -72,6 +72,15 @@ function allTests(os: string) {
             export class CmpB {}
         `);
 
+        env.write('pipe-a.ts', `
+          import {Pipe} from '@angular/core';
+          @Pipe({standalone: true, name: 'a'})
+          export class PipeA {}
+
+          @Pipe({standalone: true, name: 'b'})
+          export class PipeB {}
+      `);
+
         env.write('module-a.ts', `
           import {NgModule, Component} from '@angular/core';
           @Component({
@@ -90,20 +99,26 @@ function allTests(os: string) {
             import {Component} from '@angular/core';
             import {CmpA, CmpB} from './cmp-a';
             import {ModuleA} from './module-a';
+            import {PipeA, PipeB} from './pipe-a';
+
             @Component({
               standalone: true,
               selector: '[test]',
-              imports: [CmpA, ModuleA],
+              imports: [CmpA, ModuleA, PipeA, PipeB],
               template: \`
                 {#defer on idle; when isVisible()}
                   <cmp-a />
                   <cmp-c />
                 {:loading}
-                  Loading...
+                  Loading... {{ 'Hello' | a }}
                 {:error}
                   <p>Oops...</p>
                 {:placeholder}
                   <div>{{ foo }}</div>
+                {/defer}
+
+                {#defer}
+                  {{ 'world' | b }}
                 {/defer}
               \`,
             })

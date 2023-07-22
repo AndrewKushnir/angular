@@ -227,8 +227,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
       private contextName: string|null, private i18nContext: I18nContext|null,
       private templateIndex: number|null, private templateName: string|null,
       private _namespace: o.ExternalReference, relativeContextFilePath: string,
-      private i18nUseExternalIds: boolean,
-      private deferBlockDependencies: Map<t.DeferredBlock, any>,
+      private i18nUseExternalIds: boolean, private deferBlocks: Map<t.DeferredBlock, any>,
       private _constants: ComponentDefConsts = createComponentDefConsts()) {
     this._bindingScope = parentBindingScope.nestedScope(level);
 
@@ -931,7 +930,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this.deferBlockDependencies, this._constants);
+        this.i18nUseExternalIds, this.deferBlocks, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
@@ -1003,7 +1002,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this.deferBlockDependencies, this._constants);
+        this.i18nUseExternalIds, this.deferBlocks, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't
@@ -1143,7 +1142,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     }
 
     const templateIndex = this.allocateDataSlot();
-    const deferredDeps: DeferBlockDependency[] = this.deferBlockDependencies.get(deferred);
+    const deferredDeps: DeferBlockDependency[] = this.deferBlocks.get(deferred);
 
     const contextName = `${this.contextName}_defer_${templateIndex}`;
     const templateName = `${contextName}_Template`;
@@ -1162,7 +1161,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     const templateVisitor = new TemplateDefinitionBuilder(
         this.constantPool, this._bindingScope, this.level + 1, contextName, this.i18n,
         templateIndex, templateName, this._namespace, this.fileBasedI18nSuffix,
-        this.i18nUseExternalIds, this.deferBlockDependencies, this._constants);
+        this.i18nUseExternalIds, this.deferBlocks, this._constants);
 
     // Nested templates must not be visited until after their parent templates have completed
     // processing, so they are queued here until after the initial pass. Otherwise, we wouldn't

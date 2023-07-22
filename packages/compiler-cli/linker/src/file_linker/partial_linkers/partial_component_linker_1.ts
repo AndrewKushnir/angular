@@ -167,9 +167,11 @@ export class PartialComponentLinkerVersion1<TStatement, TExpression> implements
         ngContentSelectors: template.ngContentSelectors,
       },
       declarationListEmitMode,
+
       // FIXME: implement this correctly.
-      deferBlockDependencies: new Map(),
+      deferBlocks: new Map(),
       deferrableDeclToImportDecl: new Map(),
+
       styles: metaObj.has('styles') ? metaObj.getArray('styles').map(entry => entry.getString()) :
                                       [],
       encapsulation: metaObj.has('encapsulation') ?
