@@ -1209,6 +1209,23 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
           o.literal(templateVisitor.getVarCount()));
       return trimTrailingNulls(parameters);
     });
+
+    if (deferred.triggers.length > 0) {
+      // TODO: move this to a separate fn
+      for (const condition of deferred.triggers) {
+        if (condition instanceof t.BoundDeferredTrigger) {
+          const params: InstructionParams = () =>
+              this.convertPropertyBinding(condition.value as AST);
+          this.allocateBindingSlots(null);
+          this.updateInstructionWithAdvance(
+              templateIndex, deferred.sourceSpan, R3.deferWhen, params);
+        }
+      }
+    } else {
+      // If no other conditions are setup, generate the `deferOnIdle` instruction.
+      // TODO: consider including it at runtime instead?
+      this.creationInstruction(deferred.sourceSpan, R3.deferOnIdle, []);
+    }
   }
 
   visitDeferredBlockPlaceholder(block: t.DeferredBlockPlaceholder): void {

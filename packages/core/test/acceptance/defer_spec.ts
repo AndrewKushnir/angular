@@ -9,8 +9,12 @@
 import {CommonModule} from '@angular/common';
 import {Component, ɵɵadvance as advance, ɵɵreference, ɵɵproperty as property, ɵɵdefineComponent as defineComponent, ɵɵtemplate as template, ɵɵelement as element, ɵɵdefer as defer, ɵɵtext as text, ɵɵdeferWhen as deferWhen, Type} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
+import {ɵsetEnabledBlockTypes as setEnabledBlockTypes} from '@angular/compiler/src/jit_compiler_facade';
 
 describe('#defer', () => {
+  beforeEach(() => setEnabledBlockTypes(['defer']));
+  afterEach(() => setEnabledBlockTypes([]));
+
   @Component({
     selector: 'my-lazy-cmp',
     standalone: true,
@@ -74,7 +78,7 @@ describe('#defer', () => {
       imports: [MyLazyCmp, CommonModule],
       template: `
         {#defer when isVisible}
-          <my-lazy-cmp *ngIf="true" />
+          <my-lazy-cmp />
         {:loading}
           Loading...
         {:placeholder}
@@ -106,11 +110,6 @@ describe('#defer', () => {
 
     await fixture.whenStable();
     debugger;
-
-    setTimeout(() => {
-      debugger;
-      expect(fixture.nativeElement.outerHTML).toContain('<my-lazy-cmp>');
-    }, 0);
   });
 
   it('(runtime only) should work with basic cases', async () => {

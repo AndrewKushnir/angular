@@ -18,12 +18,10 @@ import {TContainerNode} from './interfaces/node';
 import {RComment, RElement} from './interfaces/renderer_dom';
 import {DECLARATION_LCONTAINER, FLAGS, LView, LViewFlags, QUERIES, RENDERER, T_HOST, TVIEW} from './interfaces/view';
 import {addViewToDOM, destroyLView, detachView, getBeforeNodeForView, insertView, nativeParentNode} from './node_manipulation';
-import {getTNode} from './util/view_utils';
 
 export function createAndRenderEmbeddedLView<T>(
-    hostLView: LView<unknown>, templateTNodeIdx: number, context: T,
+    hostLView: LView<unknown>, templateTNode: TContainerNode, context: T,
     options?: {injector?: Injector, hydrationInfo?: DehydratedContainerView}): LView<T> {
-  const templateTNode = getTNode(hostLView[TVIEW], templateTNodeIdx) as TContainerNode;
   const embeddedTView = templateTNode.tView!;
 
   ngDevMode && assertDefined(embeddedTView, 'TView must be defined for a template node.');

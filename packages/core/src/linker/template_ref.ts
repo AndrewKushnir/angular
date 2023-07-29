@@ -9,7 +9,7 @@
 import {Injector} from '../di/injector';
 import {DehydratedContainerView} from '../hydration/interfaces';
 import {TContainerNode, TNode, TNodeType} from '../render3/interfaces/node';
-import {LView} from '../render3/interfaces/view';
+import {LView, TView} from '../render3/interfaces/view';
 import {getCurrentTNode, getLView} from '../render3/state';
 import {createAndRenderEmbeddedLView} from '../render3/view_manipulation';
 import {ViewRef as R3_ViewRef} from '../render3/view_ref';
@@ -120,7 +120,7 @@ const R3TemplateRef = class TemplateRef<T> extends ViewEngineTemplateRef<T> {
       context: T, injector?: Injector,
       hydrationInfo?: DehydratedContainerView): EmbeddedViewRef<T> {
     const embeddedLView = createAndRenderEmbeddedLView(
-        this._declarationLView, this._declarationTContainer.index, context,
+        this._declarationLView, this._declarationTContainer, context,
         {injector: injector, hydrationInfo: hydrationInfo});
     return new R3_ViewRef<T>(embeddedLView);
   }
@@ -151,49 +151,6 @@ export function createTemplateRef<T>(hostTNode: TNode, hostLView: LView): Templa
     //    assertNotDefined(hostTNode.tView!.dependencies, 'Creating TemplateRef for lazy view');
     return new R3TemplateRef(
         hostLView, hostTNode as TContainerNode, createElementRef(hostTNode, hostLView));
-  }
-  return null;
-}
-
-export class LazyTemplateRef<T> {
-  private embeddedViewTView: TView;
-
-  constructor(private declarationLView: LView, private declarationTContainer: TContainerNode) {
-    this.embeddedViewTView = declarationTContainer.tView as TView;
-  }
-
-  async load(): Promise<TemplateRef<T>> {
-    // TODO: access `loadingPromise` from TNode and make sure
-    // we don't re-create it here each time.
-    if (this.embeddedViewTView.dependencies instanceof Function) {
-      const results = await Promise.allSettled(this.embeddedViewTView.dependencies());
-      // TODO: handle 'rejected' status too
-      this.embeddedViewTView.dependencies =
-          results.map(result => (result.status === 'fulfilled') ? result.value : null!);
-    }
-    return new R3TemplateRef(
-        this.declarationLView, this.declarationTContainer,
-        createElementRef(this.declarationTContainer, this.declarationLView));
-  }
-
-  /**
-   * @internal
-   * @nocollapse
-   */
-  static __NG_ELEMENT_ID__: () => LazyTemplateRef<any>| null = injectLazyTemplateRef;
-}
-
-export function injectLazyTemplateRef<T>(): LazyTemplateRef<T>|null {
-  return createLazyTemplateRef<T>(getCurrentTNode()!, getLView());
-}
-
-export function createLazyTemplateRef<T>(hostTNode: TNode, hostLView: LView): LazyTemplateRef<T>|
-    null {
-  if (hostTNode.type & TNodeType.Container) {
-    ngDevMode && assertDefined(hostTNode.tView, 'TView must be allocated');
-    ngDevMode &&
-        assertDefined(hostTNode.tView!.dependencies, 'Creating LazyTemplateRef for non-lazy view');
-    return new LazyTemplateRef<T>(hostLView, hostTNode as TContainerNode);
   }
   return null;
 }

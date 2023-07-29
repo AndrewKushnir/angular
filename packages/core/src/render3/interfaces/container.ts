@@ -60,7 +60,7 @@ export const DEFER_DETAILS = 11;
 export const CONTAINER_HEADER_OFFSET = 12;
 
 /** Describes a current state of this {#defer} block */
-export const enum DeferState {
+export const enum DeferInstanceState {
   INITIAL,
   PLACEHOLDER,
   LOADING,
@@ -70,7 +70,7 @@ export const enum DeferState {
 
 /** Describes per-instance {#defer} block data */
 export interface LDeferDetails {
-  state: DeferState;
+  state: DeferInstanceState;
   viewContainerRef: ViewContainerRef;
 }
 

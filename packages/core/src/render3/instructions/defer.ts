@@ -5,46 +5,28 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {TemplateRef} from '../../linker';
-import {createLazyTemplateRef, createTemplateRef} from '../../linker/template_ref';
-import {injectViewContainerRef} from '../../linker/view_container_ref';
+import {Type} from '../../interface/type';
+import {assertDefined, assertFunction} from '../../util/assert';
+import {assertLContainer} from '../assert';
 import {bindingUpdated} from '../bindings';
-import {DEFER_DETAILS, DeferState, LDeferDetails} from '../interfaces/container';
+import {DEFER_DETAILS, DeferInstanceState, LContainer} from '../interfaces/container';
 import {ComponentTemplate} from '../interfaces/definition';
-import {TDeferDetails, TNode} from '../interfaces/node';
+import {DeferDepsLoadingState, TContainerNode, TDeferDetails, TNode} from '../interfaces/node';
 import {isDestroyed} from '../interfaces/type_checks';
-import {HEADER_OFFSET, LView, TVIEW} from '../interfaces/view';
+import {HEADER_OFFSET, LView, PARENT, TVIEW} from '../interfaces/view';
 import {getCurrentTNode, getLView, getSelectedTNode, nextBindingIndex} from '../state';
 import {NO_CHANGE} from '../tokens';
 import {getTNode, storeLViewOnDestroy} from '../util/view_utils';
+import {addLViewToLContainer, createAndRenderEmbeddedLView, removeLViewFromLContainer} from '../view_manipulation';
 
 import {DeferredDepsFn, templateInternal} from './template';
 
 // ***** IMPLEMENTATION DETAILS *****
 //
-// TNode to store extra info:
-// - loading tmpl index
-// - error tmpl index
-// - placeholder tmpl index
-// - config for each block (e.g. {:loading after 100ms})
-// - conditions for {#defer}
-// - the "loading" Promise reference?
-//   - it's ok for it to be on TNode, since it's the same for all instances
-//
-// LView[idx] to store:
-// - corresponding LContainer (created by the `template` instruction)
-// - update LContainer's header to include currently activated case info
-//
 // Questions:
 // - how dow we want to store things like IntersectionObserver?
 //   should it be a instance per application (e.g. `providedIn: root`) or per-LView?
-// - do we need a new TNode type or we can get away with TNodeType.Container?
-//   - the benefit of using TNodeType.Container is that it should "just work"
-//     with content projections, hydration, etc
 // - how would hydration pick up currently activated case?
-// - how do we make conditions tree-shakable?
-//   - for ex. for {:loading after 100ms} - it'd be great to have extra "loading"
-//     code be tree-shaken away if unused. Generate extra fn in compiler?
 // - do we need smth like `deferApply` that would activate the necessary logic?
 //   - for ex. if we need to use IntersectionObserver, we want to activate it during
 //     the "update" phase?
@@ -52,7 +34,6 @@ import {DeferredDepsFn, templateInternal} from './template';
 //
 // Important notes:
 // - we should make sure to store cleanup fns to cleanup on destroy
-// - we should check if LView is destroyed when we get a resolved "loading" promise
 
 // TODO: add docs here
 export function ɵɵdefer(
@@ -70,10 +51,18 @@ export function ɵɵdefer(
     placeholderConfigIndex,
     errorTmplIndex,
     loadingPromise: null,
-    loaded: false,
+    loadingState: DeferDepsLoadingState.NOT_STARTED,
+    loadingFailedReason: null,
   };
 
-  return templateInternal(index, templateFn, deferredDepsFn, decls, vars, deferConfig);
+  templateInternal(index, templateFn, deferredDepsFn, decls, vars, deferConfig);
+
+  const lView = getLView();
+  const adjustedIndex = index + HEADER_OFFSET;
+  const lContainer = lView[adjustedIndex];
+
+  // Init instance-specific defer details for this LContainer.
+  lContainer[DEFER_DETAILS] = {state: DeferInstanceState.INITIAL};
 }
 
 // TODO: add docs
@@ -83,13 +72,10 @@ export function ɵɵdeferWhen<T>(rawValue: T) {
   const value = !!rawValue;  // handle truthy or falsy values
   const oldValue = lView[bindingIndex];
   // If an old value was `true` - don't enter the path that triggers
-  // lazy loading.
+  // defer loading.
   if (oldValue !== true && bindingUpdated(lView, bindingIndex, value)) {
     const tNode = getSelectedTNode();
     renderDeferBlock(lView, tNode, oldValue, value);
-    // TODO: store relevant bits of info here to support better error messages
-    // (mostly "expression changed ..." one)
-    // ngDevMode && storePropertyBindingMetadata(tView.data, tNode, propName, bindingIndex);
   }
 }
 
@@ -162,84 +148,168 @@ function renderPlaceholder(lView: LView, tNode: TNode) {
   renderDeferBlock(lView, tNode, NO_CHANGE, false);
 }
 
+/**
+ * Transitions a defer block to the new state. Updates the  necessary
+ * data structures and renders corresponding block.
+ *
+ * @param newState New state that should be applied to the defer block.
+ * @param lContainer Represents an instance of a defer block.
+ * @param tNode Represents defer block info shared across all instances.
+ */
 function renderDeferState(
-    lView: LView, lDetails: LDeferDetails, newState: DeferState,
-    stateTmpl: number|TemplateRef<unknown>): boolean {
-  const vcRef = lDetails.viewContainerRef;
+    newState: DeferInstanceState, lContainer: LContainer, stateTemplate: TNode|number|null): void {
+  const hostLView = lContainer[PARENT];
+
+  // Check if this view is not destroyed. Since the loading process was async,
+  // the view might end up being destroyed by the time rendering happens.
+  if (isDestroyed(hostLView)) return;
+
+  ngDevMode &&
+      assertDefined(
+          lContainer[DEFER_DETAILS],
+          'Expected an LContainer that represents ' +
+              'a defer block, but got a regular LContainer');
+  const lDetails = lContainer[DEFER_DETAILS]!;
+
   // Note: we transition to the next state if the previous state was
   // less than the next state. For example, if the current state is "loading",
   // we should not show a placeholder.
-  if (lDetails.state < newState) {
+  if ((lDetails.state < newState) && stateTemplate !== null) {
     lDetails.state = newState;
-    const templateRef = typeof stateTmpl == 'number' ?  //
-        getTemplateRef(lView, stateTmpl) :
-        stateTmpl;
-    if (templateRef) {
-      vcRef.clear();
-      vcRef.createEmbeddedView(templateRef);
-      return true;
+    const hostTView = hostLView[TVIEW];
+    let tNode = stateTemplate;
+    if (typeof stateTemplate === 'number') {
+      const adjustedIndex = stateTemplate + HEADER_OFFSET;
+      tNode = getTNode(hostTView, adjustedIndex);
+    }
+    if (tNode) {
+      removeLViewFromLContainer(lContainer, 0);
+      const embeddedLView = createAndRenderEmbeddedLView(hostLView, tNode as TContainerNode, {});
+      addLViewToLContainer(lContainer, embeddedLView, 0);
     }
   }
-  return false;
 }
 
-function getTemplateRef(lView: LView, index: number): TemplateRef<unknown>|null {
-  if (index === null) {
-    return null;
+/**
+ * Trigger loading of defer block dependencies if the process hasn't started yet.
+ *
+ * @param tNode Represents Defer block info shared between instances.
+ */
+function triggerResourceLoading(tNode: TNode) {
+  const tDetails = tNode.value as TDeferDetails;
+
+  if (tDetails.loadingState !== DeferDepsLoadingState.NOT_STARTED) {
+    // If the loading status is different from initial one, it means that
+    // the loading of dependencies is in progress and there is nothing to do
+    // in this function. All details can be obtained from the `tDetails` object.
+    return;
   }
-  const tView = lView[TVIEW];
-  const adjustedIndex = index + HEADER_OFFSET;
-  const tNode = getTNode(tView, adjustedIndex);
-  return createTemplateRef(tNode, lView)!;
+
+  // Switch from NOT_STARTED -> IN_PROGRESS state.
+  tDetails.loadingState = DeferDepsLoadingState.IN_PROGRESS;
+
+  // At this state we expect that dependency function wasn't invoked yet.
+  const dependenciesFn = tNode.tView!.dependencies as Function;
+  ngDevMode && assertFunction(dependenciesFn, 'Expected dependency function for this defer block');
+
+  // Start downloading...
+  tDetails.loadingPromise = Promise.allSettled(dependenciesFn()).then(results => {
+    let failedReason = null;
+    const loadedDependencies: Array<Type<unknown>> = [];
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        loadedDependencies.push(result.value);
+      } else {
+        failedReason = result.reason;
+        break;
+      }
+    }
+
+    // Loading is completed, we no longer need this Promise.
+    tDetails.loadingPromise = null;
+
+    if (failedReason) {
+      tDetails.loadingState = DeferDepsLoadingState.FAILED;
+      tDetails.loadingFailedReason = failedReason;
+    } else {
+      tDetails.loadingState = DeferDepsLoadingState.COMPLETE;
+
+      // Replace dependency function with loaded list of dependencies.
+      tNode.tView!.dependencies = loadedDependencies;
+    }
+  });
 }
 
-// TODO: consider doing all operations without going through the ViewContainerRef.
-//       We can use internal data structures directly.
-// TODO: intersect the state based on `when` with the state based on `on`!
-//       we might be in the "loading" or "complete" state already
+/**
+ * Subscribes to the "loading" Promise and renders corresponding defer sub-block,
+ * based on the loading results.
+ *
+ * @param lContainer Represents an instance of a defer block.
+ * @param tNode Represents defer block info shared across all instances.
+ */
+function renderDeferStateAfterResourceLoading(lContainer: LContainer, tNode: TNode) {
+  const tDetails = tNode.value as TDeferDetails;
+
+  ngDevMode &&
+      assertDefined(
+          tDetails.loadingPromise, 'Expected loading Promise to exist on this defer block');
+
+  tDetails.loadingPromise!.then(() => {
+    if (tDetails.loadingState === DeferDepsLoadingState.COMPLETE) {
+      // Everything is loaded, show the primary block content
+      renderDeferState(DeferInstanceState.COMPLETE, lContainer, tNode);
+
+    } else if (tDetails.loadingState === DeferDepsLoadingState.FAILED) {
+      const hostLView = lContainer[PARENT];
+      renderDeferState(DeferInstanceState.ERROR, lContainer, tDetails.errorTmplIndex);
+      if (!isDestroyed(hostLView)) {
+        console.error(tDetails.loadingFailedReason);
+      }
+    }
+  });
+}
+
 // TODO: handle this case: {#for}{#defer}...{/defer}{/for}, when
 //       lazy loading got kicked off, but ɵɵdeferWhen was invoked multiple
 //       times. Make sure that we only act once per view in this case.
 function renderDeferBlock(
     lView: LView, tNode: TNode, oldValue: boolean|NO_CHANGE, newValue: boolean) {
   const lContainer = lView[tNode.index];
-  // TODO: add an assert that we have an LContainer instance here
+  ngDevMode && assertLContainer(lContainer);
 
-  if (!lContainer[DEFER_DETAILS]) {
-    lContainer[DEFER_DETAILS] = {
-      state: DeferState.INITIAL,
-      viewContainerRef: injectViewContainerRef()
-    };
-  }
-
-  const lDetails = lContainer[DEFER_DETAILS];
-  const tDetails = tNode.value;
+  const tDetails = tNode.value as TDeferDetails;
 
   if (oldValue === NO_CHANGE && newValue === false) {
     // We set the value for the first time, render a placeholder.
-    renderDeferState(lView, lDetails, DeferState.PLACEHOLDER, tDetails.placeholderTmplIndex);
+    renderDeferState(DeferInstanceState.PLACEHOLDER, lContainer, tDetails.placeholderTmplIndex);
 
   } else if (newValue === true) {
-    // Condition is triggered, render loading and start downloading.
-    renderDeferState(lView, lDetails, DeferState.LOADING, tDetails.loadingTmplIndex);
+    // Condition is triggered, render loading state and start downloading.
+    renderDeferState(DeferInstanceState.LOADING, lContainer, tDetails.loadingTmplIndex);
 
-    const lazyTemplateRef = createLazyTemplateRef(tNode, lView)!;
-    lazyTemplateRef.load()
-        .then(templateRef => {
-          if (!isDestroyed(lView)) {
-            // Everything is loaded, show the primary block content
-            renderDeferState(lView, lDetails, DeferState.COMPLETE, templateRef);
-          }
-        })
-        .catch((error: unknown) => {
-          // There was an error, render an error template
-          const wasContentRendered =
-              renderDeferState(lView, lDetails, DeferState.ERROR, tDetails.errorTmplIndex);
-
-          console.error(error);
-          if (!wasContentRendered) {
-            // TODO: if there was no "error" template, we should log an error into the console.
-          }
-        });
+    switch (tDetails.loadingState) {
+      case DeferDepsLoadingState.NOT_STARTED:
+        triggerResourceLoading(tNode);
+        // The `loadingState` might have changed to "loading".
+        if ((tDetails.loadingState as DeferDepsLoadingState) ===
+            DeferDepsLoadingState.IN_PROGRESS) {
+          renderDeferStateAfterResourceLoading(lContainer, tNode);
+        }
+        break;
+      case DeferDepsLoadingState.IN_PROGRESS:
+        renderDeferStateAfterResourceLoading(lContainer, tNode);
+        break;
+      case DeferDepsLoadingState.COMPLETE:
+        renderDeferState(DeferInstanceState.COMPLETE, lContainer, tNode);
+        break;
+      case DeferDepsLoadingState.FAILED:
+        renderDeferState(DeferInstanceState.ERROR, lContainer, tDetails.errorTmplIndex);
+        break;
+      default:
+        if (ngDevMode) {
+          throw new Error('Unknown defer block state');
+        }
+    }
   }
 }

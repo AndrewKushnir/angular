@@ -858,6 +858,14 @@ export interface TProjectionNode extends TNode {
   value: null;
 }
 
+/** Describes the state of defer block dependency loading */
+export const enum DeferDepsLoadingState {
+  NOT_STARTED,
+  IN_PROGRESS,
+  COMPLETE,
+  FAILED,
+}
+
 /** Describes static data for a {#defer} block */
 export interface TDeferDetails {
   loadingTmplIndex: number|null;
@@ -865,13 +873,10 @@ export interface TDeferDetails {
   placeholderTmplIndex: number|null;
   placeholderConfigIndex: number|null;
   errorTmplIndex: number|null;
+
+  loadingState: DeferDepsLoadingState;
   loadingPromise: Promise<unknown>|null;
-
-  /** Indicates whether loading is complete */
-  loaded: boolean;
-
-  // TODO: verify that we need it, if so - improve typing
-  onConditions?: any[]|null;
+  loadingFailedReason: string|null;
 }
 
 /** Represents a {#defer} block */
