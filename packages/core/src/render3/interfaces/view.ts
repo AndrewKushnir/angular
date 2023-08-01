@@ -17,7 +17,7 @@ import type {ReactiveLViewConsumer} from '../reactive_lview_consumer';
 import type {EffectManager} from '../reactivity/effect';
 
 import {LContainer} from './container';
-import {ComponentDef, ComponentTemplate, DirectiveDef, DependencyTypeList, DirectiveDefList, HostBindingsFunction, PipeDef, PipeDefList, ViewQueriesFunction} from './definition';
+import {ComponentDef, ComponentTemplate, DirectiveDef, DependencyTypeList, DirectiveDefList, HostBindingsFunction, PipeDef, PipeDefList, ViewQueriesFunction, DependencyResolverFn} from './definition';
 import {I18nUpdateOpCodes, TI18n, TIcu} from './i18n';
 import {TConstants, TNode} from './node';
 import {LQueries, TQueries} from './query';
@@ -72,7 +72,6 @@ export const HEADER_OFFSET = 25;
 export interface OpaqueViewState {
   '__brand__': 'Brand for OpaqueViewState that nothing will match';
 }
-
 
 /**
  * `LView` stores all of the information needed to process the instructions as
@@ -598,9 +597,6 @@ export interface TView {
    * A function containing query-related instructions.
    */
   viewQuery: ViewQueriesFunction<{}>|null;
-
-  /** TODO: add docs */
-  dependencies: DependencyTypeList|(() => Array<Promise<Type<unknown>>|Type<unknown>>)|null;
 
   /**
    * A `TNode` representing the declaration location of this `TView` (not part of this TView).

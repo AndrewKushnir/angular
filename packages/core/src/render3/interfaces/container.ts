@@ -7,7 +7,6 @@
  */
 
 import {DehydratedContainerView} from '../../hydration/interfaces';
-import {ViewContainerRef} from '../../linker';
 
 import {TNode} from './node';
 import {RComment, RElement} from './renderer_dom';
@@ -48,7 +47,7 @@ export const NATIVE = 7;
 export const VIEW_REFS = 8;
 export const MOVED_VIEWS = 9;
 export const DEHYDRATED_VIEWS = 10;
-export const DEFER_DETAILS = 11;
+export const DEFER_BLOCK_DETAILS = 11;
 
 
 /**
@@ -68,10 +67,15 @@ export const enum DeferInstanceState {
   ERROR
 }
 
-/** Describes per-instance {#defer} block data */
-export interface LDeferDetails {
+/**
+ * Describes per-instance {#defer} block data.
+ *
+ * Note: currently there is only the `state` field, but there are
+ * extra fields that would be added later to keep track of `after`
+ * and `maximum` features (which would require per-instance state).
+ */
+export interface LDeferBlockDetails {
   state: DeferInstanceState;
-  viewContainerRef: ViewContainerRef;
 }
 
 /**
@@ -162,7 +166,11 @@ export interface LContainer extends Array<any> {
    */
   [DEHYDRATED_VIEWS]: DehydratedContainerView[]|null;
 
-  [DEFER_DETAILS]: LDeferDetails|null;
+  /**
+   * If this LContainer represents an instance of a `{#defer}` block -
+   * this field contains instance-specific information about this block.
+   */
+  [DEFER_BLOCK_DETAILS]: LDeferBlockDetails|null;
 }
 
 // Note: This hack is necessary so we don't erroneously get a circular dependency

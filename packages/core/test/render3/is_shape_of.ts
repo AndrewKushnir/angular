@@ -137,7 +137,6 @@ const ShapeOfTView: ShapeOf<TView> = {
   consts: true,
   incompleteFirstPass: true,
   ssrId: true,
-  dependencies: true,
 };
 
 

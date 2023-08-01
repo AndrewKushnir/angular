@@ -29,10 +29,10 @@ import {getFactoryDef} from '../definition_factory';
 import {diPublicInInjector, getNodeInjectable, getOrCreateNodeInjectorForNode} from '../di';
 import {throwMultipleComponentError} from '../errors';
 import {CONTAINER_HEADER_OFFSET, LContainer} from '../interfaces/container';
-import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefList, DirectiveDefListOrFactory, HostBindingsFunction, HostDirectiveBindingMap, HostDirectiveDefs, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from '../interfaces/definition';
+import {ComponentDef, ComponentTemplate, DependencyResolverFn, DirectiveDef, DirectiveDefList, DirectiveDefListOrFactory, HostBindingsFunction, HostDirectiveBindingMap, HostDirectiveDefs, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from '../interfaces/definition';
 import {NodeInjectorFactory} from '../interfaces/injector';
 import {getUniqueLViewId} from '../interfaces/lview_tracking';
-import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliases, PropertyAliasValue, TAttributes, TConstantsOrFactory, TContainerNode, TDeferDetails, TDirectiveHostNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeType, TProjectionNode} from '../interfaces/node';
+import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliases, PropertyAliasValue, TAttributes, TConstantsOrFactory, TContainerNode, TDeferBlockDetails, TDirectiveHostNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeType, TProjectionNode} from '../interfaces/node';
 import {Renderer} from '../interfaces/renderer';
 import {RComment, RElement, RNode, RText} from '../interfaces/renderer_dom';
 import {SanitizerFn} from '../interfaces/sanitization';
@@ -141,7 +141,7 @@ export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType.Element|TNodeType.Text, name: string|null,
     attrs: TAttributes|null): TElementNode;
 export function getOrCreateTNode(
-    tView: TView, index: number, type: TNodeType.Container, name: string|TDeferDetails|null,
+    tView: TView, index: number, type: TNodeType.Container, name: string|TDeferBlockDetails|null,
     attrs: TAttributes|null): TContainerNode;
 export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType.Projection, name: null,
@@ -153,7 +153,7 @@ export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType.Icu, name: null,
     attrs: TAttributes|null): TElementContainerNode;
 export function getOrCreateTNode(
-    tView: TView, index: number, type: TNodeType, value: string|TDeferDetails|null,
+    tView: TView, index: number, type: TNodeType, value: string|TDeferBlockDetails|null,
     attrs: TAttributes|null): TElementNode&TContainerNode&TElementContainerNode&TProjectionNode&
     TIcuContainerNode {
   ngDevMode && index !== 0 &&  // 0 are bogus nodes and they are OK. See `createContainerRef` in
@@ -186,7 +186,7 @@ export function getOrCreateTNode(
 }
 
 export function createTNodeAtIndex(
-    tView: TView, index: number, type: TNodeType, value: string|TDeferDetails|null,
+    tView: TView, index: number, type: TNodeType, value: string|TDeferBlockDetails|null,
     attrs: TAttributes|null) {
   const currentTNode = getCurrentTNodePlaceholderOk();
   const isParent = isCurrentTNodeParent();
@@ -403,7 +403,6 @@ export function createTView(
     data: blueprint.slice().fill(null, bindingStartIndex),
     bindingStartIndex: bindingStartIndex,
     expandoStartIndex: initialViewLength,
-    dependencies: null,
     hostBindingOpCodes: null,
     firstCreatePass: true,
     firstUpdatePass: true,
@@ -565,7 +564,7 @@ export function createTNode(
     index: number, tagName: string|null, attrs: TAttributes|null): TContainerNode;
 export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType.Container,
-    index: number, value: TDeferDetails|null, attrs: TAttributes|null): TContainerNode;
+    index: number, value: TDeferBlockDetails|null, attrs: TAttributes|null): TContainerNode;
 export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType.Element|TNodeType.Text,
     index: number, tagName: string|null, attrs: TAttributes|null): TElementNode;
@@ -583,7 +582,7 @@ export function createTNode(
     tagName: string|null, attrs: TAttributes|null): TNode;
 export function createTNode(
     tView: TView, tParent: TElementNode|TContainerNode|null, type: TNodeType, index: number,
-    value: string|TDeferDetails|null, attrs: TAttributes|null): TNode {
+    value: string|TDeferBlockDetails|null, attrs: TAttributes|null): TNode {
   ngDevMode && index !== 0 &&  // 0 are bogus nodes and they are OK. See `createContainerRef` in
                                // `view_engine_compatibility` for additional context.
       assertGreaterThanOrEqual(index, HEADER_OFFSET, 'TNodes can\'t be in the LView header.');
@@ -1073,19 +1072,7 @@ function findDirectiveDefMatches(
   ngDevMode && assertFirstCreatePass(tView);
   ngDevMode && assertTNodeType(tNode, TNodeType.AnyRNode | TNodeType.AnyContainer);
 
-  let registry = [...(tView.directiveRegistry ?? [])];
-  // TODO: do we do it once per tView?
-  // TODO: separate pipes and directives.
-  if (Array.isArray(tView.dependencies)) {
-    for (const dep of tView.dependencies) {
-      const dir = getComponentDef(dep) || getDirectiveDef(dep);
-      if (dir) {
-        registry.push(dir);
-      }
-    }
-  } else if (tView.dependencies instanceof Function) {
-    throw new Error(`Unresolved lazy dependencies... should not be possible!`);
-  }
+  const registry = tView.directiveRegistry;
   let matches: DirectiveDef<unknown>[]|null = null;
   let hostDirectiveDefs: HostDirectiveDefs|null = null;
   if (registry) {

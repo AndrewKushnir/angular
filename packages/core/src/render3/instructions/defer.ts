@@ -5,13 +5,14 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {Type} from '../../interface/type';
-import {assertDefined, assertFunction} from '../../util/assert';
+
+import {assertDefined} from '../../util/assert';
 import {assertLContainer} from '../assert';
 import {bindingUpdated} from '../bindings';
-import {DEFER_DETAILS, DeferInstanceState, LContainer} from '../interfaces/container';
-import {ComponentTemplate} from '../interfaces/definition';
-import {DeferDepsLoadingState, TContainerNode, TDeferDetails, TNode} from '../interfaces/node';
+import {getComponentDef, getDirectiveDef, getPipeDef} from '../definition';
+import {DEFER_BLOCK_DETAILS, DeferInstanceState, LContainer} from '../interfaces/container';
+import {ComponentTemplate, DependencyResolverFn, DirectiveDefList, PipeDefList} from '../interfaces/definition';
+import {DeferDepsLoadingState, TContainerNode, TDeferBlockDetails, TNode} from '../interfaces/node';
 import {isDestroyed} from '../interfaces/type_checks';
 import {HEADER_OFFSET, LView, PARENT, TVIEW} from '../interfaces/view';
 import {getCurrentTNode, getLView, getSelectedTNode, nextBindingIndex} from '../state';
@@ -19,50 +20,47 @@ import {NO_CHANGE} from '../tokens';
 import {getTNode, storeLViewOnDestroy} from '../util/view_utils';
 import {addLViewToLContainer, createAndRenderEmbeddedLView, removeLViewFromLContainer} from '../view_manipulation';
 
-import {DeferredDepsFn, templateInternal} from './template';
+import {templateInternal} from './template';
 
 // ***** IMPLEMENTATION DETAILS *****
 //
 // Questions:
 // - how dow we want to store things like IntersectionObserver?
 //   should it be a instance per application (e.g. `providedIn: root`) or per-LView?
-// - how would hydration pick up currently activated case?
 // - do we need smth like `deferApply` that would activate the necessary logic?
 //   - for ex. if we need to use IntersectionObserver, we want to activate it during
 //     the "update" phase?
-// - how do we deal with prefetch? do we need a special flag for prefetch status?
 //
 // Important notes:
 // - we should make sure to store cleanup fns to cleanup on destroy
 
 // TODO: add docs here
 export function ɵɵdefer(
-    index: number, templateFn: ComponentTemplate<any>|null, deferredDepsFn: DeferredDepsFn,
-    decls: number, vars: number, loadingTmplIndex: number|null = null,
-    placeholderTmplIndex: number|null = null, errorTmplIndex: number|null = null,
-    loadingConfigIndex: number|null = null, placeholderConfigIndex: number|null = null) {
-  // TODO: move `deferredDepsFn` to `TDeferDetails`?
-  deferredDepsFn = deferredDepsFn ?? (() => []);
-
-  const deferConfig: TDeferDetails = {
+    index: number, templateFn: ComponentTemplate<any>|null,
+    dependencyResolverFn: DependencyResolverFn|null, decls: number, vars: number,
+    loadingTmplIndex: number|null = null, placeholderTmplIndex: number|null = null,
+    errorTmplIndex: number|null = null, loadingConfigIndex: number|null = null,
+    placeholderConfigIndex: number|null = null) {
+  const deferConfig: TDeferBlockDetails = {
     loadingTmplIndex,
     loadingConfigIndex,
     placeholderTmplIndex,
     placeholderConfigIndex,
     errorTmplIndex,
+    dependencyResolverFn,
     loadingPromise: null,
     loadingState: DeferDepsLoadingState.NOT_STARTED,
     loadingFailedReason: null,
   };
 
-  templateInternal(index, templateFn, deferredDepsFn, decls, vars, deferConfig);
+  templateInternal(index, templateFn, decls, vars, deferConfig);
 
   const lView = getLView();
   const adjustedIndex = index + HEADER_OFFSET;
   const lContainer = lView[adjustedIndex];
 
   // Init instance-specific defer details for this LContainer.
-  lContainer[DEFER_DETAILS] = {state: DeferInstanceState.INITIAL};
+  lContainer[DEFER_BLOCK_DETAILS] = {state: DeferInstanceState.INITIAL};
 }
 
 // TODO: add docs
@@ -166,10 +164,10 @@ function renderDeferState(
 
   ngDevMode &&
       assertDefined(
-          lContainer[DEFER_DETAILS],
+          lContainer[DEFER_BLOCK_DETAILS],
           'Expected an LContainer that represents ' +
               'a defer block, but got a regular LContainer');
-  const lDetails = lContainer[DEFER_DETAILS]!;
+  const lDetails = lContainer[DEFER_BLOCK_DETAILS]!;
 
   // Note: we transition to the next state if the previous state was
   // less than the next state. For example, if the current state is "loading",
@@ -196,7 +194,8 @@ function renderDeferState(
  * @param tNode Represents Defer block info shared between instances.
  */
 function triggerResourceLoading(tNode: TNode) {
-  const tDetails = tNode.value as TDeferDetails;
+  const tView = tNode.tView!;
+  const tDetails = tNode.value as TDeferBlockDetails;
 
   if (tDetails.loadingState !== DeferDepsLoadingState.NOT_STARTED) {
     // If the loading status is different from initial one, it means that
@@ -208,18 +207,35 @@ function triggerResourceLoading(tNode: TNode) {
   // Switch from NOT_STARTED -> IN_PROGRESS state.
   tDetails.loadingState = DeferDepsLoadingState.IN_PROGRESS;
 
-  // At this state we expect that dependency function wasn't invoked yet.
-  const dependenciesFn = tNode.tView!.dependencies as Function;
-  ngDevMode && assertFunction(dependenciesFn, 'Expected dependency function for this defer block');
+  // The `dependenciesFn` might be `null` when all dependencies within
+  // a given `{#defer}` block were eagerly references elsewhere in a file,
+  // thus no dynamic `import()`s were produced.
+  const dependenciesFn = tDetails.dependencyResolverFn;
+  if (!dependenciesFn) {
+    tDetails.loadingPromise = Promise.resolve().then(() => {
+      tDetails.loadingState = DeferDepsLoadingState.COMPLETE;
+    });
+    return;
+  }
 
   // Start downloading...
   tDetails.loadingPromise = Promise.allSettled(dependenciesFn()).then(results => {
     let failedReason = null;
-    const loadedDependencies: Array<Type<unknown>> = [];
+    const directiveDefs: DirectiveDefList = [];
+    const pipeDefs: PipeDefList = [];
 
     for (const result of results) {
       if (result.status === 'fulfilled') {
-        loadedDependencies.push(result.value);
+        const dependency = result.value;
+        const directiveDef = getComponentDef(dependency) || getDirectiveDef(dependency);
+        if (directiveDef) {
+          directiveDefs.push(directiveDef);
+        } else {
+          const pipeDef = getPipeDef(dependency);
+          if (pipeDef) {
+            pipeDefs.push(pipeDef);
+          }
+        }
       } else {
         failedReason = result.reason;
         break;
@@ -235,8 +251,15 @@ function triggerResourceLoading(tNode: TNode) {
     } else {
       tDetails.loadingState = DeferDepsLoadingState.COMPLETE;
 
-      // Replace dependency function with loaded list of dependencies.
-      tNode.tView!.dependencies = loadedDependencies;
+      // Update directive and pipe registries to add newly downloaded dependencies.
+      if (directiveDefs.length > 0) {
+        tView.directiveRegistry = tView.directiveRegistry ?
+            [...tView.directiveRegistry, ...directiveDefs] :
+            directiveDefs;
+      }
+      if (pipeDefs.length > 0) {
+        tView.pipeRegistry = tView.pipeRegistry ? [...tView.pipeRegistry, ...pipeDefs] : pipeDefs;
+      }
     }
   });
 }
@@ -249,7 +272,7 @@ function triggerResourceLoading(tNode: TNode) {
  * @param tNode Represents defer block info shared across all instances.
  */
 function renderDeferStateAfterResourceLoading(lContainer: LContainer, tNode: TNode) {
-  const tDetails = tNode.value as TDeferDetails;
+  const tDetails = tNode.value as TDeferBlockDetails;
 
   ngDevMode &&
       assertDefined(
@@ -278,7 +301,7 @@ function renderDeferBlock(
   const lContainer = lView[tNode.index];
   ngDevMode && assertLContainer(lContainer);
 
-  const tDetails = tNode.value as TDeferDetails;
+  const tDetails = tNode.value as TDeferBlockDetails;
 
   if (oldValue === NO_CHANGE && newValue === false) {
     // We set the value for the first time, render a placeholder.

@@ -8,6 +8,7 @@
 import {KeyValueArray} from '../../util/array_utils';
 import {TStylingRange} from '../interfaces/styling';
 
+import {DependencyResolverFn} from './definition';
 import {TIcu} from './i18n';
 import {CssSelector} from './projection';
 import {RNode} from './renderer_dom';
@@ -867,13 +868,14 @@ export const enum DeferDepsLoadingState {
 }
 
 /** Describes static data for a {#defer} block */
-export interface TDeferDetails {
+export interface TDeferBlockDetails {
   loadingTmplIndex: number|null;
   loadingConfigIndex: number|null;
   placeholderTmplIndex: number|null;
   placeholderConfigIndex: number|null;
   errorTmplIndex: number|null;
 
+  dependencyResolverFn: DependencyResolverFn|null;
   loadingState: DeferDepsLoadingState;
   loadingPromise: Promise<unknown>|null;
   loadingFailedReason: string|null;
@@ -881,7 +883,7 @@ export interface TDeferDetails {
 
 /** Represents a {#defer} block */
 export interface TDeferNode extends TNode {
-  value: TDeferDetails;
+  value: TDeferBlockDetails;
 }
 
 /**
