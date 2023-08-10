@@ -106,6 +106,16 @@ export function ɵɵtemplate(
 let _locateOrCreateContainerAnchor = createContainerAnchorImpl;
 
 /**
+ * Invokes currently configured implementation of a function that either
+ * creates a new anchor comment node (in case of client-side rendering)
+ * or looks it up in the DOM (if hydration is enabled).
+ */
+export function locateOrCreateContainerAnchorCurrentImpl(
+    tView: TView, lView: LView, tNode: TNode, index: number) {
+  return _locateOrCreateContainerAnchor(tView, lView, tNode, index);
+}
+
+/**
  * Regular creation mode for LContainers and their anchor (comment) nodes.
  */
 function createContainerAnchorImpl(
