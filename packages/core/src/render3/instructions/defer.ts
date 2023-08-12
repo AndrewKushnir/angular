@@ -16,15 +16,15 @@ import {DependencyResolverFn, DirectiveDefList, PipeDefList} from '../interfaces
 import {DeferDependenciesLoadingState, DeferredLoadingBlockConfig, DeferredPlaceholderBlockConfig, TContainerNode, TDeferBlockDetails, TNode, TNodeType} from '../interfaces/node';
 import {RComment} from '../interfaces/renderer_dom';
 import {isDestroyed} from '../interfaces/type_checks';
-import {HEADER_OFFSET, LView, PARENT, TVIEW, TView} from '../interfaces/view';
+import {HEADER_OFFSET, LView, PARENT, TVIEW, TView, TViewType} from '../interfaces/view';
 import {appendChild} from '../node_manipulation';
 import {getCurrentTNode, getLView, getSelectedTNode, getTView, nextBindingIndex, setCurrentTNode, wasLastNodeCreated} from '../state';
 import {NO_CHANGE} from '../tokens';
 import {getConstant, getTNode, storeLViewOnDestroy} from '../util/view_utils';
 import {addLViewToLContainer, createAndRenderEmbeddedLView, removeLViewFromLContainer} from '../view_manipulation';
 
-import {addToViewTree, createLContainer, getOrCreateTNode} from './shared';
-import {locateOrCreateContainerAnchorCurrentImpl} from './template';
+import {addToViewTree, createLContainer, createTView, getOrCreateTNode} from './shared';
+import {locateOrCreateContainerAnchorCurrentImpl, templateInternal} from './template';
 
 /**
  * Shims the `requestIdleCallback` and `cancelIdleCallback` functions for environments
@@ -45,7 +45,6 @@ function deferFirstCreatePass(
   ngDevMode && ngDevMode.firstCreatePass++;
   const tViewConsts = tView.consts;
 
-  debugger;
   const deferBlockConfig: TDeferBlockDetails = {
     primaryTmplIndex,
     loadingTmplIndex,
@@ -67,8 +66,14 @@ function deferFirstCreatePass(
       getOrCreateTNode(tView, index, TNodeType.Container, deferBlockConfig, null /* attrs */) as
       TContainerNode;
 
-  // TODO: do we need a TView here too?
-  // TODO: handle queries setup
+  const embeddedTView = tNode.tView = createTView(
+      TViewType.Embedded, tNode, null, 0, 0, tView.directiveRegistry, tView.pipeRegistry, null,
+      tView.schemas, tViewConsts, null /* ssrId */);
+
+  if (tView.queries !== null) {
+    tView.queries.template(tView, tNode);
+    embeddedTView.queries = tView.queries.embeddedTView(tNode);
+  }
 
   return tNode;
 }
@@ -97,26 +102,30 @@ export function ɵɵdefer(
     placeholderConfigIndex?: number|null) {
   const lView = getLView();
   const tView = getTView();
+  const tViewConsts = tView.consts;
   const adjustedIndex = index + HEADER_OFFSET;
 
-  const tNode = tView.firstCreatePass ?
-      deferFirstCreatePass(
-          adjustedIndex, tView, lView, primaryTmplIndex, dependencyResolverFn, loadingTmplIndex,
-          placeholderTmplIndex, errorTmplIndex, loadingConfigIndex, placeholderConfigIndex) :
-      tView.data[adjustedIndex] as TContainerNode;
-  setCurrentTNode(tNode, false);
+  const deferBlockConfig: TDeferBlockDetails = {
+    primaryTmplIndex,
+    loadingTmplIndex: loadingTmplIndex ?? null,
+    placeholderTmplIndex: placeholderTmplIndex ?? null,
+    errorTmplIndex: errorTmplIndex ?? null,
+    placeholderBlockConfig: placeholderConfigIndex !== null && tViewConsts !== null ?
+        getConstant<DeferredPlaceholderBlockConfig>(tViewConsts, placeholderConfigIndex) :
+        null,
+    loadingBlockConfig: loadingConfigIndex !== null && tViewConsts !== null ?
+        getConstant<DeferredLoadingBlockConfig>(tViewConsts, loadingConfigIndex) :
+        null,
+    dependencyResolverFn: dependencyResolverFn ?? null,
+    loadingState: DeferDependenciesLoadingState.NOT_STARTED,
+    loadingPromise: null,
+    loadingFailedReason: null,
+  };
 
-  const comment = locateOrCreateContainerAnchorCurrentImpl(tView, lView, tNode, index) as RComment;
-
-  if (wasLastNodeCreated()) {
-    appendChild(tView, lView, comment, tNode);
-  }
-  attachPatchData(comment, lView);
-
-  const lContainer = createLContainer(comment, lView, comment, tNode);
-  addToViewTree(lView, lView[adjustedIndex] = lContainer);
+  templateInternal(index, null, 0, 0, deferBlockConfig, null, null, undefined);
 
   // Init instance-specific defer details for this LContainer.
+  const lContainer = lView[adjustedIndex];
   lContainer[DEFER_BLOCK_DETAILS] = {state: DeferBlockInstanceState.INITIAL};
 }
 

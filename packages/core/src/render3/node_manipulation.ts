@@ -868,6 +868,8 @@ function applyNodes(
       } else if (tNodeType & TNodeType.Projection) {
         applyProjectionRecursive(
             renderer, action, lView, tNode as TProjectionNode, parentRElement, beforeNode);
+      } else if (tNodeType & TNodeType.Block) {
+        // there is no corresponding DOM node, intentionally skipping
       } else {
         ngDevMode && assertTNodeType(tNode, TNodeType.AnyRNode | TNodeType.Container);
         applyToElementOrContainer(action, renderer, parentRElement, rawSlotValue, beforeNode);

@@ -73,6 +73,8 @@ export const enum TNodeType {
    */
   Placeholder = 0b1000000,
 
+  Block = 0b10000000,
+
   // Combined Types These should never be used for `TNode.type` only as a useful way to check
   // if `TNode.type` is one of several choices.
 
@@ -94,6 +96,7 @@ export function toTNodeTypeAsString(tNodeType: TNodeType): string {
   (tNodeType & TNodeType.Projection) && (text += '|Projection');
   (tNodeType & TNodeType.Icu) && (text += '|IcuContainer');
   (tNodeType & TNodeType.Placeholder) && (text += '|Placeholder');
+  (tNodeType & TNodeType.Block) && (text += '|Block');
   return text.length > 0 ? text.substring(1) : text;
 }
 
@@ -856,6 +859,22 @@ export interface TProjectionNode extends TNode {
 
   /** Index of the projection node. (See TNode.projection for more info.) */
   projection: number;
+  value: null;
+}
+
+export interface TBlockNode extends TNode {
+  index: number;
+  child: null;
+
+  /**
+   * Container nodes will have parents unless:
+   *
+   * - They are the first node of a component or embedded view
+   * - They are dynamically created
+   */
+  parent: TElementNode|TElementContainerNode|null;
+  tView: TView;
+  projection: null;
   value: null;
 }
 

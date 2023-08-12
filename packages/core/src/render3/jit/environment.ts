@@ -138,6 +138,7 @@ export const angularCoreEnv: {[name: string]: Function} =
        'ɵɵclassProp': r3.ɵɵclassProp,
        'ɵɵadvance': r3.ɵɵadvance,
        'ɵɵtemplate': r3.ɵɵtemplate,
+       'ɵɵblock': r3.ɵɵblock,
        'ɵɵdefer': r3.ɵɵdefer,
        'ɵɵdeferWhen': r3.ɵɵdeferWhen,
        'ɵɵdeferOnIdle': r3.ɵɵdeferOnIdle,

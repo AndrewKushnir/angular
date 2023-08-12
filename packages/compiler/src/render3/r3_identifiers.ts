@@ -138,6 +138,7 @@ export class Identifiers {
   static resetView: o.ExternalReference = {name: 'ɵɵresetView', moduleName: CORE};
 
   static templateCreate: o.ExternalReference = {name: 'ɵɵtemplate', moduleName: CORE};
+  static blockCreate: o.ExternalReference = {name: 'ɵɵblock', moduleName: CORE};
 
   static defer: o.ExternalReference = {name: 'ɵɵdefer', moduleName: CORE};
   static deferWhen: o.ExternalReference = {name: 'ɵɵdeferWhen', moduleName: CORE};

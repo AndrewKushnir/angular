@@ -887,9 +887,9 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
   }
 
   private createEmbeddedTemplateFn(
-      tagName: string|null, children: t.Node[], contextNameSuffix: string,
-      sourceSpan: ParseSourceSpan, variables: t.Variable[] = [], attrsExprs?: o.Expression[],
-      references?: t.Reference[], i18n?: i18n.I18nMeta): number {
+      instruction: o.ExternalReference, tagName: string|null, children: t.Node[],
+      contextNameSuffix: string, sourceSpan: ParseSourceSpan, variables: t.Variable[] = [],
+      attrsExprs?: o.Expression[], references?: t.Reference[], i18n?: i18n.I18nMeta): number {
     const templateIndex = this.allocateDataSlot();
 
     if (this.i18n && i18n) {
@@ -933,7 +933,7 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
     });
 
     // e.g. template(1, MyComp_Template_1)
-    this.creationInstruction(sourceSpan, R3.templateCreate, () => {
+    this.creationInstruction(sourceSpan, instruction, () => {
       parameters.splice(
           2, 0, o.literal(templateVisitor.getConstCount()),
           o.literal(templateVisitor.getVarCount()));
@@ -957,8 +957,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         undefined /* styles */, template.templateAttrs);
 
     const templateIndex = this.createEmbeddedTemplateFn(
-        tagNameWithoutNamespace, template.children, contextNameSuffix, template.sourceSpan,
-        template.variables, attrsExprs, template.references, template.i18n);
+        R3.templateCreate, tagNameWithoutNamespace, template.children, contextNameSuffix,
+        template.sourceSpan, template.variables, attrsExprs, template.references, template.i18n);
 
     // handle property bindings e.g. ɵɵproperty('ngForOf', ctx.items), et al;
     this.templatePropertyBindings(templateIndex, template.templateAttrs);
@@ -1090,19 +1090,20 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
 
   visitDeferredBlock(deferred: t.DeferredBlock): void {
     const {loading, placeholder, error, triggers, prefetchTriggers} = deferred;
-    const primaryTemplateIndex =
-        this.createEmbeddedTemplateFn(null, deferred.children, '_Defer', deferred.sourceSpan);
+    const primaryTemplateIndex = this.createEmbeddedTemplateFn(
+        R3.blockCreate, null, deferred.children, '_Defer', deferred.sourceSpan);
     const loadingIndex = loading ?
-        this.createEmbeddedTemplateFn(null, loading.children, '_DeferLoading', loading.sourceSpan) :
+        this.createEmbeddedTemplateFn(
+            R3.blockCreate, null, loading.children, '_DeferLoading', loading.sourceSpan) :
         null;
     const loadingConsts = loading ?
         trimTrailingNulls([o.literal(loading.minimumTime), o.literal(loading.afterTime)]) :
         null;
 
-    const placeholderIndex = placeholder ?
-        this.createEmbeddedTemplateFn(
-            null, placeholder.children, '_DeferPlaceholder', placeholder.sourceSpan) :
-        null;
+    const placeholderIndex = placeholder ? this.createEmbeddedTemplateFn(
+                                               R3.blockCreate, null, placeholder.children,
+                                               '_DeferPlaceholder', placeholder.sourceSpan) :
+                                           null;
     const placeholderConsts = placeholder && placeholder.minimumTime !== null ?
         // TODO(crisbeto): potentially pass the time directly instead of storing it in the `consts`
         // since `{:placeholder}` can only have one parameter?
@@ -1110,7 +1111,8 @@ export class TemplateDefinitionBuilder implements t.Visitor<void>, LocalResolver
         null;
 
     const errorIndex = error ?
-        this.createEmbeddedTemplateFn(null, error.children, '_DeferError', error.sourceSpan) :
+        this.createEmbeddedTemplateFn(
+            R3.blockCreate, null, error.children, '_DeferError', error.sourceSpan) :
         null;
 
     // Note: we generate this last so the index matches the instruction order.

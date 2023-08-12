@@ -7,6 +7,7 @@
  */
 
 import {assertDefined, throwError} from '../util/assert';
+
 import {TNode, TNodeType, toTNodeTypeAsString} from './interfaces/node';
 
 export function assertTNodeType(
@@ -27,7 +28,8 @@ export function assertPureTNodeType(type: TNodeType) {
         type === TNodeType.ElementContainer ||  //
         type === TNodeType.Icu ||               //
         type === TNodeType.Projection ||        //
-        type === TNodeType.Placeholder)) {
+        type === TNodeType.Placeholder ||       //
+        type === TNodeType.Block)) {
     throwError(`Expected TNodeType to have only a single type selected, but got ${
         toTNodeTypeAsString(type)}.`);
   }

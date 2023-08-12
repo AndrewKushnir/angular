@@ -14,7 +14,7 @@ import {assertFirstCreatePass} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
 import {ComponentTemplate} from '../interfaces/definition';
-import {LocalRefExtractor, TAttributes, TContainerNode, TNode, TNodeType} from '../interfaces/node';
+import {LocalRefExtractor, TAttributes, TContainerNode, TDeferBlockDetails, TNode, TNodeType} from '../interfaces/node';
 import {RComment} from '../interfaces/renderer_dom';
 import {isDirectiveHost} from '../interfaces/type_checks';
 import {HEADER_OFFSET, HYDRATION, LView, RENDERER, TView, TViewType} from '../interfaces/view';
@@ -26,7 +26,7 @@ import {addToViewTree, createDirectivesInstances, createLContainer, createTView,
 
 function templateFirstCreatePass(
     index: number, tView: TView, lView: LView, templateFn: ComponentTemplate<any>|null,
-    decls: number, vars: number, tagName?: string|null, attrsIndex?: number|null,
+    decls: number, vars: number, value?: TDeferBlockDetails|string|null, attrsIndex?: number|null,
     localRefsIndex?: number|null): TContainerNode {
   ngDevMode && assertFirstCreatePass(tView);
   ngDevMode && ngDevMode.firstCreatePass++;
@@ -34,7 +34,7 @@ function templateFirstCreatePass(
 
   // TODO(pk): refactor getOrCreateTNode to have the "create" only version
   const tNode = getOrCreateTNode(
-      tView, index, TNodeType.Container, tagName || null,
+      tView, index, TNodeType.Container, value || null,
       getConstant<TAttributes>(tViewConsts, attrsIndex));
 
   resolveDirectives(tView, lView, tNode, getConstant<string[]>(tViewConsts, localRefsIndex));
@@ -75,14 +75,24 @@ export function ɵɵtemplate(
     index: number, templateFn: ComponentTemplate<any>|null, decls: number, vars: number,
     tagName?: string|null, attrsIndex?: number|null, localRefsIndex?: number|null,
     localRefExtractor?: LocalRefExtractor) {
+  templateInternal(
+      index, templateFn, decls, vars, tagName, attrsIndex, localRefsIndex, localRefExtractor);
+}
+
+let _locateOrCreateContainerAnchor = createContainerAnchorImpl;
+
+export function templateInternal(
+    index: number, templateFn: ComponentTemplate<any>|null, decls: number, vars: number,
+    value: TDeferBlockDetails|string|null|undefined, attrsIndex: number|null|undefined,
+    localRefsIndex: number|null|undefined, localRefExtractor: LocalRefExtractor|undefined) {
   const lView = getLView();
   const tView = getTView();
   const adjustedIndex = index + HEADER_OFFSET;
 
-  const tNode = tView.firstCreatePass ? templateFirstCreatePass(
-                                            adjustedIndex, tView, lView, templateFn, decls, vars,
-                                            tagName, attrsIndex, localRefsIndex) :
-                                        tView.data[adjustedIndex] as TContainerNode;
+  const tNode = tView.firstCreatePass ?
+      templateFirstCreatePass(
+          adjustedIndex, tView, lView, templateFn, decls, vars, value, attrsIndex, localRefsIndex) :
+      tView.data[adjustedIndex] as TContainerNode;
   setCurrentTNode(tNode, false);
 
   const comment = _locateOrCreateContainerAnchor(tView, lView, tNode, index) as RComment;
@@ -102,8 +112,6 @@ export function ɵɵtemplate(
     saveResolvedLocalsInData(lView, tNode, localRefExtractor);
   }
 }
-
-let _locateOrCreateContainerAnchor = createContainerAnchorImpl;
 
 /**
  * Invokes currently configured implementation of a function that either

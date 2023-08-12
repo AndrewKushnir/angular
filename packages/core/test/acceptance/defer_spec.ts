@@ -6,8 +6,9 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {CommonModule} from '@angular/common';
 import {ɵsetEnabledBlockTypes as setEnabledBlockTypes} from '@angular/compiler/src/jit_compiler_facade';
-import {Component} from '@angular/core';
+import {Component, QueryList, ViewChildren} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 
 describe('#defer', () => {
@@ -26,7 +27,7 @@ describe('#defer', () => {
     @Component({
       standalone: true,
       selector: 'simple-app',
-      imports: [MyLazyCmp],
+      imports: [MyLazyCmp, CommonModule],
       template: `
         {#defer when isVisible}
           <my-lazy-cmp />
@@ -34,6 +35,7 @@ describe('#defer', () => {
           Loading...
         {:placeholder}
           Placeholder!
+          <my-lazy-cmp />
         {:error}
           Ooops :(
         {/defer}
@@ -41,20 +43,26 @@ describe('#defer', () => {
     })
     class MyCmp {
       isVisible = false;
+
+      @ViewChildren(MyLazyCmp) cmps!: QueryList<MyLazyCmp>;
     }
 
     const fixture = TestBed.createComponent(MyCmp);
     fixture.detectChanges();
 
+    expect(fixture.componentInstance.cmps.length).toBe(0);
     expect(fixture.nativeElement.outerHTML).toContain('Placeholder');
 
     fixture.componentInstance.isVisible = true;
     fixture.detectChanges();
 
+    expect(fixture.componentInstance.cmps.length).toBe(0);
     expect(fixture.nativeElement.outerHTML).toContain('Loading');
 
     await fixture.whenStable();
+    fixture.detectChanges();
 
+    expect(fixture.componentInstance.cmps.length).toBe(1);
     expect(fixture.nativeElement.outerHTML).toContain('<my-lazy-cmp>Hi!</my-lazy-cmp>');
   });
 });

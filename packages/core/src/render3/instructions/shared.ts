@@ -31,7 +31,7 @@ import {CONTAINER_HEADER_OFFSET, LContainer} from '../interfaces/container';
 import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefListOrFactory, HostBindingsFunction, HostDirectiveBindingMap, HostDirectiveDefs, PipeDefListOrFactory, RenderFlags, ViewQueriesFunction} from '../interfaces/definition';
 import {NodeInjectorFactory} from '../interfaces/injector';
 import {getUniqueLViewId} from '../interfaces/lview_tracking';
-import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliases, PropertyAliasValue, TAttributes, TConstantsOrFactory, TContainerNode, TDeferBlockDetails, TDirectiveHostNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeType, TProjectionNode} from '../interfaces/node';
+import {AttributeMarker, InitialInputData, InitialInputs, LocalRefExtractor, PropertyAliases, PropertyAliasValue, TAttributes, TBlockNode, TConstantsOrFactory, TContainerNode, TDeferBlockDetails, TDirectiveHostNode, TElementContainerNode, TElementNode, TIcuContainerNode, TNode, TNodeFlags, TNodeType, TProjectionNode} from '../interfaces/node';
 import {Renderer} from '../interfaces/renderer';
 import {RComment, RElement, RNode, RText} from '../interfaces/renderer_dom';
 import {SanitizerFn} from '../interfaces/sanitization';
@@ -152,6 +152,8 @@ export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType.Icu, name: null,
     attrs: TAttributes|null): TElementContainerNode;
 export function getOrCreateTNode(
+    tView: TView, index: number, type: TNodeType.Block, name: null, attrs: null): TBlockNode;
+export function getOrCreateTNode(
     tView: TView, index: number, type: TNodeType, value: string|TDeferBlockDetails|null,
     attrs: TAttributes|null): TElementNode&TContainerNode&TElementContainerNode&TProjectionNode&
     TIcuContainerNode {
@@ -172,7 +174,7 @@ export function getOrCreateTNode(
     }
   } else if (tNode.type & TNodeType.Placeholder) {
     tNode.type = type;
-    tNode.value = name;
+    tNode.value = value;
     tNode.attrs = attrs;
     const parent = getCurrentParentTNode();
     tNode.injectorIndex = parent === null ? -1 : parent.injectorIndex;
@@ -181,7 +183,7 @@ export function getOrCreateTNode(
   }
   setCurrentTNode(tNode, true);
   return tNode as TElementNode & TContainerNode & TElementContainerNode & TProjectionNode &
-      TIcuContainerNode;
+      TIcuContainerNode & TBlockNode;
 }
 
 export function createTNodeAtIndex(
