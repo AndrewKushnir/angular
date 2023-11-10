@@ -65,6 +65,8 @@ export class TestBedCompiler {
   private pendingDirectives = new Set<Type<any>>();
   private pendingPipes = new Set<Type<any>>();
 
+  private parentComponents = new WeakMap<Type<unknown>, Array<Type<unknown>>>();
+
   // Keep track of all components and directives, so we can patch Providers onto defs later.
   private seenComponents = new Set<Type<any>>();
   private seenDirectives = new Set<Type<any>>();
@@ -488,7 +490,8 @@ export class TestBedCompiler {
    * Applies provider overrides to a given type (either an NgModule or a standalone component)
    * and all imported NgModules and standalone components recursively.
    */
-  private applyProviderOverridesInScope(type: Type<any>): void {
+  private applyProviderOverridesInScope(
+      type: Type<any>, parentStandaloneComponentType?: Type<unknown>): void {
     const hasScope = isStandaloneComponent(type) || isNgModule(type);
 
     // The function can be re-entered recursively while inspecting dependencies
@@ -515,14 +518,19 @@ export class TestBedCompiler {
       const def = getComponentDef(type);
       const dependencies = maybeUnwrapFn(def.dependencies ?? []);
       for (const dependency of dependencies) {
-        this.applyProviderOverridesInScope(dependency);
+        this.applyProviderOverridesInScope(dependency, type);
       }
     } else {
       const providers: Array<Provider|InternalEnvironmentProviders> = [
         ...injectorDef.providers,
         ...(this.providerOverridesByModule.get(type as InjectorType<any>) || [])
       ];
+      debugger;
       if (this.hasProviderOverrides(providers)) {
+        // TODO: add docs.
+        if (parentStandaloneComponentType) {
+          this.storeFieldOfDefOnType(parentStandaloneComponentType, NG_COMP_DEF, 'tView');
+        }
         this.maybeStoreNgDef(NG_INJ_DEF, type);
 
         this.storeFieldOfDefOnType(type, NG_INJ_DEF, 'providers');
@@ -659,6 +667,12 @@ export class TestBedCompiler {
           }
           processedDefs.add(def);
 
+          // TODO: add docs
+          this.storeFieldOfDefOnType(value, NG_COMP_DEF, 'tView');
+          this.storeFieldOfDefOnType(value, NG_COMP_DEF, 'directiveDefs');
+          this.storeFieldOfDefOnType(value, NG_COMP_DEF, 'pipeDefs');
+          this.storeFieldOfDefOnType(value, NG_COMP_DEF, 'dependencies');
+
           const dependencies = maybeUnwrapFn(def.dependencies ?? []);
           dependencies.forEach((dependency) => {
             // Note: in AOT, the `dependencies` might also contain regular
@@ -669,6 +683,13 @@ export class TestBedCompiler {
               queueTypesFromModulesArrayRecur([dependency]);
             } else {
               this.queueType(dependency, null);
+            }
+            // TODO: add docs
+            if (getComponentDef(value)) {
+              this.storeFieldOfDefOnType(dependency, NG_COMP_DEF, 'tView');
+              this.storeFieldOfDefOnType(dependency, NG_COMP_DEF, 'directiveDefs');
+              this.storeFieldOfDefOnType(dependency, NG_COMP_DEF, 'pipeDefs');
+              this.storeFieldOfDefOnType(dependency, NG_COMP_DEF, 'dependencies');
             }
           });
         }
@@ -766,6 +787,8 @@ export class TestBedCompiler {
   }
 
   restoreOriginalState(): void {
+    debugger;
+
     // Process cleanup ops in reverse order so the field's original value is restored correctly (in
     // case there were multiple overrides for the same field).
     forEachRight(this.defCleanupOps, (op: CleanupOperation) => {
@@ -867,6 +890,8 @@ export class TestBedCompiler {
       Provider[] {
     if (!providers || !providers.length || this.providerOverridesByToken.size === 0) return [];
 
+    debugger;
+
     const flattenedProviders = flattenProviders(providers);
     const overrides = this.getProviderOverrides(flattenedProviders);
     const overriddenProviders = [...flattenedProviders, ...overrides];
@@ -900,6 +925,7 @@ export class TestBedCompiler {
 
   private patchDefWithProviderOverrides(declaration: Type<any>, field: string): void {
     const def = (declaration as any)[field];
+    debugger;
     if (def && def.providersResolver) {
       this.maybeStoreNgDef(field, declaration);
 

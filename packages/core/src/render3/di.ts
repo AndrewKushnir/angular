@@ -398,6 +398,7 @@ function lookupTokenUsingModuleInjector<T>(
 export function getOrCreateInjectable<T>(
     tNode: TDirectiveHostNode|null, lView: LView, token: ProviderToken<T>,
     flags: InjectFlags = InjectFlags.Default, notFoundValue?: any): T|null {
+  debugger;
   if (tNode !== null) {
     // If the view or any of its ancestors have an embedded
     // view injector, we have to look it up there first.

@@ -42,6 +42,7 @@ class StandaloneService implements OnDestroy {
   }
 
   ngOnDestroy() {
+    debugger;
     try {
       for (const injector of this.cachedInjectors.values()) {
         if (injector !== null) {

@@ -198,6 +198,176 @@ describe('TestBed with Standalone types', () => {
     expect(fixture.nativeElement.innerHTML).toBe('Overridden A');
   });
 
+  xit('should override providers on components used as standalone component dependency', () => {
+    @Injectable()
+    class Service {
+      id = 'CmpDependency(original)';
+    }
+
+    @Injectable()
+    class MockService {
+      id = 'CmpDependency(mock)';
+    }
+
+    @Component({
+      selector: 'dep',
+      standalone: true,
+      template: '{{ svc.id }}',
+      providers: [Service],
+    })
+    class Dep {
+      svc = inject(Service);
+    }
+
+    @Component({
+      standalone: true,
+      template: '<dep />',
+      imports: [Dep],
+    })
+    class MyStandaloneComp {
+    }
+
+    // NOTE: the `TestBed.configureTestingModule` is load-bearing here: it instructs
+    // TestBed to examine and override providers in dependencies.
+    TestBed.configureTestingModule({imports: [MyStandaloneComp]});
+    TestBed.overrideProvider(Service, {useFactory: () => new MockService()});
+
+    const fixture = TestBed.createComponent(MyStandaloneComp);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.innerHTML).toBe('<dep>CmpDependency(mock)</dep>');
+
+    debugger;
+
+    // Emulate an end of a test.
+    TestBed.resetTestingModule();
+
+    // Emulate the start of a next test, make sure previous overrides
+    // are not persisted across tests.
+    TestBed.configureTestingModule({imports: [MyStandaloneComp]});
+
+    const newFixture = TestBed.createComponent(MyStandaloneComp);
+    newFixture.detectChanges();
+
+    debugger;
+
+    expect(newFixture.nativeElement.innerHTML).toBe('<dep>CmpDependency(original)</dep>');
+  });
+
+  fit('should override providers on components used as standalone component dependency', () => {
+    @Component({
+      selector: 'dep',
+      standalone: true,
+      template: 'main dep',
+    })
+    class MainDep {
+    }
+
+    @Component({
+      selector: 'dep',
+      standalone: true,
+      template: 'mock dep',
+    })
+    class MockDep {
+    }
+
+    @Component({
+      selector: 'app-root',
+      standalone: true,
+      imports: [MainDep],
+      template: '<dep />',
+    })
+    class AppComponent {
+    }
+
+    // NOTE: the `TestBed.configureTestingModule` is load-bearing here: it instructs
+    // TestBed to examine and override providers in dependencies.
+    TestBed.configureTestingModule({imports: [AppComponent]});
+
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.innerHTML).toBe('<dep>CmpDependency(mock)</dep>');
+
+    debugger;
+
+    // Emulate an end of a test.
+    TestBed.resetTestingModule();
+
+    // Emulate the start of a next test, make sure previous overrides
+    // are not persisted across tests.
+    TestBed.configureTestingModule({imports: [AppComponent]});
+    TestBed.overrideComponent(AppComponent, {
+      set: {
+        imports: [MockDep],
+      }
+    })
+
+    const newFixture = TestBed.createComponent(AppComponent);
+    newFixture.detectChanges();
+
+    debugger;
+
+    expect(newFixture.nativeElement.innerHTML).toBe('<dep>CmpDependency(original)</dep>');
+  });
+
+  xit('should override providers on components used as standalone component dependency', () => {
+    @Injectable()
+    class Service {
+      id = 'CmpDependency(original)';
+    }
+
+    @Injectable()
+    class MockService {
+      id = 'CmpDependency(mock)';
+    }
+
+    @Component({
+      selector: 'dep',
+      template: '{{ svc.id }}',
+      providers: [Service],
+    })
+    class Dep {
+      svc = inject(Service);
+    }
+
+    @Component({
+      template: '<dep />',
+    })
+    class MyStandaloneComp {
+    }
+
+    @NgModule({declarations: [MyStandaloneComp, Dep]})
+    class MyMod {
+    }
+
+    // NOTE: the `TestBed.configureTestingModule` is load-bearing here: it instructs
+    // TestBed to examine and override providers in dependencies.
+    TestBed.configureTestingModule({imports: [MyMod]});
+    TestBed.overrideProvider(Service, {useFactory: () => new MockService()});
+
+    const fixture = TestBed.createComponent(MyStandaloneComp);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.innerHTML).toBe('<dep>CmpDependency(mock)</dep>');
+
+    debugger;
+
+    // Emulate an end of a test.
+    TestBed.resetTestingModule();
+
+    // Emulate the start of a next test, make sure previous overrides
+    // are not persisted across tests.
+    TestBed.configureTestingModule({imports: [MyMod]});
+
+    const newFixture = TestBed.createComponent(MyStandaloneComp);
+    newFixture.detectChanges();
+
+    debugger;
+
+    expect(newFixture.nativeElement.innerHTML).toBe('<dep>CmpDependency(original)</dep>');
+  });
+
   it('should override providers in standalone component dependencies via overrideProvider', () => {
     const A = new InjectionToken('A');
     @NgModule({

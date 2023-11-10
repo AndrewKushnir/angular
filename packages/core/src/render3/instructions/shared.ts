@@ -92,6 +92,7 @@ export function createLView<T>(
     tHostNode: TNode|null, environment: LViewEnvironment|null, renderer: Renderer|null,
     injector: Injector|null, embeddedViewInjector: Injector|null,
     hydrationInfo: DehydratedView|null): LView<T> {
+  debugger;
   const lView = tView.blueprint.slice() as LView;
   lView[HOST] = host;
   lView[FLAGS] = flags | LViewFlags.CreationMode | LViewFlags.Attached | LViewFlags.FirstLViewPass;
