@@ -1285,7 +1285,8 @@ export function configureViewWithDirective<T>(
       tView, tNode, directiveIndex, allocExpando(tView, lView, def.hostVars, NO_CHANGE), def);
 }
 
-function addComponentLogic<T>(lView: LView, hostTNode: TElementNode, def: ComponentDef<T>): void {
+export function addComponentLogic<T>(
+    lView: LView, hostTNode: TElementNode, def: ComponentDef<T>): LView {
   const native = getNativeByTNode(hostTNode, lView) as RElement;
   const tView = getOrCreateComponentTView(def);
 
@@ -1298,7 +1299,7 @@ function addComponentLogic<T>(lView: LView, hostTNode: TElementNode, def: Compon
   } else if (def.onPush) {
     lViewFlags = LViewFlags.Dirty;
   }
-  const componentView = addToViewTree(
+  const componentLView = addToViewTree(
       lView,
       createLView(
           lView, tView, null, lViewFlags, native, hostTNode as TElementNode, null,
@@ -1306,7 +1307,9 @@ function addComponentLogic<T>(lView: LView, hostTNode: TElementNode, def: Compon
 
   // Component view will always be created before any injected LContainers,
   // so this is a regular element, wrap it with the component view
-  lView[hostTNode.index] = componentView;
+  lView[hostTNode.index] = componentLView;
+
+  return componentLView;
 }
 
 export function elementAttributeInternal(
@@ -1495,22 +1498,22 @@ export function refreshContentQueries(tView: TView, lView: LView): void {
  * This structure will be used to traverse through nested views to remove listeners
  * and call onDestroy callbacks.
  *
- * @param lView The view where LView or LContainer should be added
- * @param adjustedHostIndex Index of the view's host node in LView[], adjusted for header
+ * @param parentLView The view where LView or LContainer should be added
  * @param lViewOrLContainer The LView or LContainer to add to the view tree
  * @returns The state passed in
  */
-export function addToViewTree<T extends LView|LContainer>(lView: LView, lViewOrLContainer: T): T {
+export function addToViewTree<T extends LView|LContainer>(
+    parentLView: LView, lViewOrLContainer: T): T {
   // TODO(benlesh/misko): This implementation is incorrect, because it always adds the LContainer
   // to the end of the queue, which means if the developer retrieves the LContainers from RNodes out
   // of order, the change detection will run out of order, as the act of retrieving the the
   // LContainer from the RNode is what adds it to the queue.
-  if (lView[CHILD_HEAD]) {
-    lView[CHILD_TAIL]![NEXT] = lViewOrLContainer;
+  if (parentLView[CHILD_HEAD]) {
+    parentLView[CHILD_TAIL]![NEXT] = lViewOrLContainer;
   } else {
-    lView[CHILD_HEAD] = lViewOrLContainer;
+    parentLView[CHILD_HEAD] = lViewOrLContainer;
   }
-  lView[CHILD_TAIL] = lViewOrLContainer;
+  parentLView[CHILD_TAIL] = lViewOrLContainer;
   return lViewOrLContainer;
 }
 

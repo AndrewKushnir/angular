@@ -69,6 +69,15 @@ export function compileComponent(type: Type<any>, metadata: Component): void {
   addDirectiveFactoryDef(type, metadata);
 
   Object.defineProperty(type, NG_COMP_DEF, {
+    set: (def: ComponentDef<unknown>) => {
+      if (!ngDevMode) {
+        // TODO: we should probably be even more restrictive here and only allow that
+        // when a certain flag is set prior to this call. This should limit a possibility
+        // of setting this field accidentally in other code.
+        throw new Error('Overriding a ComponentDef on a class in prod mode is not allowed!');
+      }
+      ngComponentDef = def;
+    },
     get: () => {
       if (ngComponentDef === null) {
         const compiler =
