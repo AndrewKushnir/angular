@@ -44,6 +44,7 @@ import {
   MOUSE_SPECIAL_SUPPORT,
   STOP_PROPAGATION,
 } from './event_contract_defines';
+import {EventContractLight} from './event_contract_light';
 import * as eventInfoLib from './event_info';
 import {EventType} from './event_type';
 import {Property} from './property';
@@ -182,14 +183,18 @@ export class EventContract implements UnrenamedEventContract {
     this.handleEventInfo(eventInfo);
   }
 
+  queueEvent(eventInfo: eventInfoLib.EventInfo) {
+    eventInfoLib.setIsReplay(eventInfo, true);
+    this.queuedEventInfos?.push(eventInfo);
+  }
+
   /**
    * Handle an `EventInfo`.
    */
   private handleEventInfo(eventInfo: eventInfoLib.EventInfo) {
     if (!this.dispatcher) {
       // All events are queued when the dispatcher isn't yet loaded.
-      eventInfoLib.setIsReplay(eventInfo, true);
-      this.queuedEventInfos?.push(eventInfo);
+      this.queueEvent(eventInfo);
     }
     if (
       EventContract.CUSTOM_EVENT_SUPPORT &&
@@ -580,6 +585,23 @@ export class EventContract implements UnrenamedEventContract {
     this.updateEventInfoForA11yClick = updateEventInfoForA11yClick;
     this.preventDefaultForA11yClick = preventDefaultForA11yClick;
     this.populateClickOnlyAction = populateClickOnlyAction;
+  }
+}
+
+/**
+ * Copies over state from the `EventContractLight` -> `EventContract`.
+ */
+export function ingestEventContractLight(ec: EventContract, ecLight: EventContractLight) {
+  const seenEventTypes = new Set<string>();
+  for (const event of ecLight.events) {
+    const eventType = event.eventType;
+    // Copy over event types
+    if (!seenEventTypes.has(eventType)) {
+      ec.addEvent(eventType);
+      seenEventTypes.add(eventType);
+    }
+    // Copy over captured events
+    ec.queueEvent(event);
   }
 }
 

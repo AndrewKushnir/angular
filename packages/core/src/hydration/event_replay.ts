@@ -6,7 +6,9 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Dispatcher, EventContract, EventInfoWrapper, registerDispatcher} from '@angular/core/primitives/event-dispatch';
+import {Dispatcher, EventContract, EventContractContainer, EventInfoWrapper, registerDispatcher} from '@angular/core/primitives/event-dispatch';
+import {disposeEventContract, EventContractLight} from '@angular/core/primitives/event-dispatch/src/event_contract_light';
+import {ingestEventContractLight} from '@angular/core/primitives/event-dispatch/src/eventcontract';
 
 import {APP_BOOTSTRAP_LISTENER, ApplicationRef, whenStable} from '../application/application_ref';
 import {APP_ID} from '../application/application_tokens';
@@ -54,8 +56,22 @@ export function withEventReplay(): Provider[] {
               // This is set in packages/platform-server/src/utils.ts
               // Note: globalThis[CONTRACT_PROPERTY] may be undefined in case Event Replay feature
               // is enabled, but there are no events configured in an application.
-              const eventContract = globalThis[CONTRACT_PROPERTY]?.[appId] as EventContract;
+              let eventContract = globalThis[CONTRACT_PROPERTY]?.[appId] as EventContract;
               if (eventContract) {
+                // If this is an instance of the `EventContractLight` - upgrade to
+                // full EventContract before invoking replay.
+                if (eventContract instanceof EventContractLight) {
+                  const eventContractLight = eventContract;
+                  eventContract =
+                      new EventContract(new EventContractContainer(eventContractLight.container));
+
+                  // Populate main `EventContract` state based on the light version of it.
+                  ingestEventContractLight(eventContract, eventContractLight);
+
+                  // Clear the `EventContractLight` instance (remove all event listeners,
+                  // clear internal state).
+                  disposeEventContract(eventContractLight);
+                }
                 const dispatcher = new Dispatcher();
                 setEventReplayer(dispatcher);
                 // Event replay is kicked off as a side-effect of executing this function.

@@ -6,8 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {EventContractContainer} from './event_contract_container';
-import {EventContract} from './eventcontract';
+import {EventContractLight} from './event_contract_light';
 
 /**
  * Provides a factory function for bootstrapping an event contract on a
@@ -30,7 +29,7 @@ export function bootstrapEventContract(
   if (!anyWindow[field]) {
     anyWindow[field] = {};
   }
-  const eventContract = new EventContract(new EventContractContainer(container));
+  const eventContract = new EventContractLight(appId, container);
   anyWindow[field][appId] = eventContract;
   for (const ev of events) {
     eventContract.addEvent(ev);
